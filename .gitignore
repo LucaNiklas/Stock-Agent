@@ -1,0 +1,10 @@
+.env
+data/*
+!data/.gitkeep
+runs/*
+!runs/.gitkeep
+state/holdings*.yaml
+.pytr/
+__pycache__/
+.venv/
+.DS_Store
