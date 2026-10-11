@@ -1,1 +1,18 @@
-# sources – siehe docs/SPEC.md
+# Datenquellen, siehe docs/spec/07-datenquellen-und-datenschicht.md.
+# Nur Domains aus dieser Datei dürfen ohne Rückfrage abgerufen werden (SPEC 16.8).
+
+user_agent: "stockagent/0.1 (private Aktienrecherche; github.com/LucaNiklas/Stock-Agent)"
+
+deutsche_boerse:
+  # Die Datei-Links enthalten wechselnde Kennungen, deshalb wird die Downloadseite gelesen.
+  frankfurt_page: https://www.cashmarket.deutsche-boerse.com/cash-en/trading/Tradable-Instruments-Xetra/boersefrankfurt
+  frankfurt_file: t7-xfra-BF-allTradableInstruments.csv
+  xetra_page: https://www.cashmarket.deutsche-boerse.com/cash-en/trading/Tradable-Instruments-Xetra/Downloads
+  xetra_file: t7-xetr-allTradableInstruments.csv
+
+gleif:
+  isin_lei_url: https://mapping.gleif.org/api/v2/isin-lei/latest/download
+
+universe:
+  max_change_pct: 5        # größere Abweichung zur letzten Liste wird nicht ohne --force übernommen
+  min_refresh_days: 6      # seltener als wöchentlich neu laden
