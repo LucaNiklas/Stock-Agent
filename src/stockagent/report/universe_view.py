@@ -19,12 +19,22 @@ TR_LABEL = {
 }
 
 
+SOURCE_LABEL = {
+    "gleif": "GLEIF",
+    "isin": "nur ISIN (unsicher)",
+    "konflikt": "widersprüchlich",
+}
+
+
 @dataclass(frozen=True)
 class ViewRow:
     name: str
     isin: str
     wkn: str
     land: str
+    land_quelle: str  # Werte aus SOURCE_LABEL
+    rechtssitz: str
+    art: str  # "Aktie" oder "Hinterlegungsschein"
     heimatboerse: str
     xetra: bool
     lei: str
@@ -37,6 +47,7 @@ class ViewMeta:
     source_as_of: date | None
     retrieved_at: str
     tr_checked: int
+    country_from_gleif: int
 
 
 def query(
@@ -48,7 +59,11 @@ def query(
     tr_only: bool = False,
     include_delisted: bool = False,
 ) -> list[ViewRow]:
-    sql = "SELECT name, isin, wkn, isin_country, primary_mic, on_xetra, lei FROM listings WHERE 1=1"
+    sql = (
+        "SELECT name, isin, wkn, country, country_source, "
+        "CASE WHEN lei_plausible THEN legal_country END, is_receipt, primary_mic, on_xetra, "
+        "CASE WHEN lei_plausible THEN lei END FROM listings WHERE 1=1"
+    )
     params: list[object] = []
     if not include_delisted:
         sql += " AND listed"
@@ -56,11 +71,12 @@ def query(
         sql += " AND (name ILIKE ? OR isin = upper(?) OR wkn = upper(?) OR mnemonic = upper(?))"
         params += [f"%{search}%", search, search, search]
     if country:
-        sql += " AND isin_country = upper(?)"
+        sql += " AND country = upper(?)"
         params.append(country)
     sql += " ORDER BY name"
     rows = []
-    for name, isin, wkn, land, mic, xetra, lei in conn.execute(sql, params).fetchall():
+    result = conn.execute(sql, params).fetchall()
+    for name, isin, wkn, land, quelle, sitz, receipt, mic, xetra, lei in result:
         check = checks.get(isin)
         status = check.status if check else TrStatus.UNGEPRUEFT
         if tr_only and status is not TrStatus.BESTAETIGT:
@@ -71,6 +87,9 @@ def query(
                 isin,
                 wkn or "",
                 land or "",
+                SOURCE_LABEL[quelle],
+                sitz or "",
+                "Hinterlegungsschein" if receipt else "Aktie",
                 mic or "",
                 bool(xetra),
                 lei or "",
@@ -87,18 +106,36 @@ def meta(conn: duckdb.DuckDBPyConnection, checks: dict[str, TrCheck]) -> ViewMet
     ).fetchone()
     if row is None:
         return None
-    return ViewMeta(int(row[0]), row[1], f"{row[2]:%d.%m.%Y %H:%M} UTC", len(checks))
+    gleif = conn.execute(
+        "SELECT count(*) FROM listings WHERE listed AND country_source = 'gleif'"
+    ).fetchone()
+    return ViewMeta(
+        int(row[0]),
+        row[1],
+        f"{row[2]:%d.%m.%Y %H:%M} UTC",
+        len(checks),
+        int(gleif[0]) if gleif else 0,
+    )
 
 
 _PAGE = (files("stockagent.report") / "templates" / "universe.html").read_text("utf-8")
 
 
+def _de_number(n: int) -> str:
+    """Ganzzahl mit deutschem Tausenderpunkt."""
+    return f"{n:,}".replace(",", ".")
+
+
 def to_html(rows: list[ViewRow], info: ViewMeta) -> str:
     stand = info.source_as_of.strftime("%d.%m.%Y") if info.source_as_of else "unbekannt"
-    count = f"{info.stock_count:,}".replace(",", ".")
+    count = _de_number(info.stock_count)
+    gleif = _de_number(info.country_from_gleif)
     meta_text = (
         f"{count} Aktien aus den Instrumentenlisten von Börse Frankfurt und Xetra "
         f"(Deutsche Börse, Stand {stand}, abgerufen {info.retrieved_at}). "
+        f"Hauptsitz laut GLEIF bei {gleif} Aktien, "
+        "sonst Länderkürzel der ISIN (unsicher, bei ADRs immer US). "
+        "Rechtssitz = Rechtsordnung laut GLEIF. "
         f"Handelbarkeit bei Trade Republic von Luca geprüft: {info.tr_checked}. "
         "Recherche-Grundlage, keine Anlageberatung."
     )

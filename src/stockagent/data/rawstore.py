@@ -41,6 +41,23 @@ def save(raw_dir: Path, content: bytes, url: str, retrieved_at: datetime) -> Raw
     return RawRef(sha, url, retrieved_at, len(content))
 
 
+def prune(raw_dir: Path, url_prefixes: tuple[str, ...], keep: set[str]) -> list[str]:
+    """Löscht Rohdateien, deren Quelle mit einem der Präfixe beginnt und die nicht in keep stehen.
+
+    Nur für Hilfsdaten ohne Finanzwerte gedacht (GLEIF-Zuordnung und -Stammdaten, ADR 0001).
+    Berichte und Abschlussdaten werden nie gelöscht (SPEC 7.6).
+    """
+    removed = []
+    for meta_path in sorted(raw_dir.glob("*.json")):
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        if meta["sha256"] in keep or not str(meta["url"]).startswith(url_prefixes):
+            continue
+        (raw_dir / f"{meta['sha256']}.gz").unlink(missing_ok=True)
+        meta_path.unlink()
+        removed.append(meta["sha256"])
+    return removed
+
+
 def load(raw_dir: Path, sha256: str) -> bytes:
     content = gzip.decompress((raw_dir / f"{sha256}.gz").read_bytes())
     if hashlib.sha256(content).hexdigest() != sha256:

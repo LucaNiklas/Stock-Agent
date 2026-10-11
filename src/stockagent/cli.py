@@ -56,14 +56,20 @@ def universe_update(
         raise typer.Exit(code=1)
     try:
         res = universe_mod.update(paths, refresh=refresh, force=force)
-    except (FetchError, SourceFormatError) as exc:
+    except (FetchError, SourceFormatError, store.SchemaOutdated) as exc:
         typer.echo(f"Abbruch: {exc}")
         raise typer.Exit(code=1) from exc
     typer.echo(res.message)
     if res.source_as_of:
         typer.echo(f"Stand der Quelle: {res.source_as_of:%d.%m.%Y}")
         typer.echo(f"Aktien: {res.stock_count} (vorher: {res.previous_count or 'keine'})")
-        typer.echo(f"mit LEI: {res.with_lei}")
+        typer.echo(f"mit LEI: {res.with_lei}, davon Name passt nicht: {res.lei_implausible}")
+        typer.echo(
+            f"Land laut GLEIF: {res.country_from_gleif}, widersprüchlich: "
+            f"{res.country_conflicts}, Rest nur ISIN-Land (unsicher)"
+        )
+        if res.pruned_raw:
+            typer.echo(f"Alte GLEIF-Rohdateien gelöscht: {res.pruned_raw}")
     if res.invalid_isins:
         typer.echo(
             f"ISIN mit falscher Prüfziffer: {len(res.invalid_isins)} "
@@ -79,7 +85,11 @@ def _load_view(**filters: object) -> tuple[list[universe_view.ViewRow], universe
         typer.echo("Noch keine Liste geladen. Zuerst: stockagent universe update")
         raise typer.Exit(code=1)
     checks = tr_checks.load(paths.tr_checks)
-    conn = store.connect(paths.db)
+    try:
+        conn = store.connect(paths.db)
+    except store.SchemaOutdated as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
     try:
         info = universe_view.meta(conn, checks)
         if info is None:
@@ -93,7 +103,7 @@ def _load_view(**filters: object) -> tuple[list[universe_view.ViewRow], universe
 @universe_app.command("show")
 def universe_show(
     search: str = typer.Option(None, "--suche", "-s", help="Name, ISIN, WKN oder Kürzel."),
-    country: str = typer.Option(None, "--land", help="Länderkürzel der ISIN, z. B. DE, US."),
+    country: str = typer.Option(None, "--land", help="Land (ISO-Kürzel), z. B. DE, US."),
     tr_only: bool = typer.Option(
         False, "--nur-tr", help="Nur bei Trade Republic geprüft handelbare."
     ),
@@ -103,19 +113,16 @@ def universe_show(
     rows, info = _load_view(search=search, country=country, tr_only=tr_only)
     table = Table(title=f"{len(rows)} Treffer (Stand {info.source_as_of:%d.%m.%Y})")
     table.add_column("Name", overflow="fold")
-    for col in ("ISIN", "WKN", "Land", "Xetra", "LEI", "Trade Republic"):
+    for col in ("ISIN", "WKN", "Land", "Xetra", "Trade Republic"):
         table.add_column(col, no_wrap=True)
     for r in rows[:limit]:
-        table.add_row(
-            r.name,
-            r.isin,
-            r.wkn,
-            r.land,
-            "ja" if r.xetra else "nein",
-            "ja" if r.lei else "–",
-            r.tr_status,
-        )
+        land = {"GLEIF": r.land, "widersprüchlich": f"{r.land}!"}.get(r.land_quelle, f"{r.land}*")
+        table.add_row(r.name, r.isin, r.wkn, land, "ja" if r.xetra else "nein", r.tr_status)
     console.print(table)
+    typer.echo(
+        "Land = Hauptsitz laut GLEIF. * nur Länderkürzel der ISIN (unsicher, bei ADRs immer US). "
+        "! ISIN-Land widerspricht dem Rechtssitz der LEI."
+    )
     if len(rows) > limit:
         typer.echo(f"… {len(rows) - limit} weitere, mit --limit mehr anzeigen.")
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import zipfile
 
 HEADER = [
@@ -57,3 +58,22 @@ def gleif_zip(pairs: list[tuple[str, str]]) -> bytes:
             "lei-isin-test.csv", "LEI,ISIN\n" + "".join(f"{lei},{isin}\n" for lei, isin in pairs)
         )
     return buf.getvalue()
+
+
+def gleif_entities(entities: list[tuple[str, str, str, str]]) -> bytes:
+    """Antwort der GLEIF-API mit (LEI, Name, rechtlicher Sitz, Hauptsitz)."""
+    data = [
+        {
+            "id": lei,
+            "attributes": {
+                "entity": {
+                    "legalName": {"name": name},
+                    "legalAddress": {"country": legal},
+                    "headquartersAddress": {"country": hq},
+                    "status": "ACTIVE",
+                }
+            },
+        }
+        for lei, name, legal, hq in entities
+    ]
+    return json.dumps({"data": data}).encode()

@@ -12,6 +12,12 @@ deutsche_boerse:
 
 gleif:
   isin_lei_url: https://mapping.gleif.org/api/v2/isin-lei/latest/download
+  api_url: https://api.gleif.org/api/v1/lei-records
+  batch_size: 200          # LEIs je API-Abfrage
+  api_pause_s: 0.5         # Pause zwischen API-Abfragen
+  # Aufräumregel (ADR 0001): GLEIF-Rohdaten nur der letzten N übernommenen Stände behalten.
+  # GLEIF liefert keine Finanzwerte und ist jederzeit neu abrufbar, deshalb Ausnahme von SPEC 7.6.
+  keep_snapshots: 2
 
 universe:
   max_change_pct: 5        # größere Abweichung zur letzten Liste wird nicht ohne --force übernommen
