@@ -62,7 +62,7 @@ In Claude Code nutzt der Skill `/stockagent` das Werkzeug AskUserQuestion (bis z
 | Was soll ich bewerten? | Branche, Region oder Land, Anlagestil, Gesamtmarkt (beste Noten). Freitext für Thema oder Einzeltitel | nein |
 | Welche Größenklassen? | Large und Mega, Mid, Small, Micro und Nano | ja |
 | Wie tief? | Schnell (nur Noten, keine Tiefenanalyse), Standard (Tiefenanalyse der besten 10), Tief (beste 25) | nein |
-| Handelbarkeit bei Trade Republic? | Nur aktuell handelbar (empfohlen), Alle mit Daten | nein |
+| Handelbarkeit bei Trade Republic? | Alle (empfohlen), nur von Luca als handelbar geprüfte | nein |
 
 **Runde 2 (abhängig von Runde 1)**
 

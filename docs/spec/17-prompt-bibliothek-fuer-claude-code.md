@@ -49,7 +49,7 @@ Die Einträge für `<Abschnitte>` je Schritt.
 
 | Schritt | Abschnitte |
 |---|---|
-| 1 Universum Trade Republic | 7.1, 7.6, 18.2 |
+| 1 Universum | 7.1, 7.6, 18.2, ADR 0001 |
 | 2 Abschlussdaten USA | 3.2, 7.2, 7.5 bis 7.7 |
 | 3 Formelregister | 3.3 bis 3.5, 12.2, 18.1 |
 | 4 Marktdaten und Bewertung | 3.6, 5.2 Punkt 4, 6 und 7, 7.3 |

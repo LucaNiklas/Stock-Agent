@@ -32,7 +32,7 @@ stockagent/
 │   ├── accounting_adjustments.yaml  hyperinflation.yaml  withholding_tax.yaml
 │   ├── models.yaml  concept_map.yaml  insider_thresholds.yaml  run_profiles.yaml
 │   └── sources.yaml
-├── state/                         letzte Anfrage, Beobachtungsliste
+├── state/                         letzte Anfrage, Beobachtungsliste, tr_checks.yaml
 ├── src/stockagent/
 │   ├── cli.py
 │   ├── orchestrator.py
@@ -41,7 +41,9 @@ stockagent/
 │   │   ├── insider.py  decisions.py  pit.py
 │   ├── gates/ (schema.py, number.py, evidence.py, quote.py, wording.py, consistency.py)
 │   ├── data/
-│   │   ├── sources/ (universe_tr.py, sec.py, esef.py, gleif.py, sectors.py, prices.py, bafin.py, fx.py, rates.py)
+│   │   ├── sources/ (deutsche_boerse.py, gleif.py, sec.py, esef.py, sectors.py, prices.py, bafin.py, fx.py, rates.py)
+│   │   ├── http.py                Abruf mit Wiederholungen
+│   │   ├── rawstore.py            unveränderliche Rohdaten
 │   │   ├── store.py               DuckDB-Zugriff, pit_query
 │   │   └── quality.py             Prüfungen aus 3.2
 │   ├── agents/
@@ -52,7 +54,9 @@ stockagent/
 │   │                              run_dcf, run_reverse_dcf, peer_multiples, gemini)
 │   ├── judges/ (numbers.py, grounding.py, jury.py, final_check.py)
 │   ├── schemas/                   Pydantic-Modelle
-│   ├── report/ (render.py, templates/analysis.md.j2, templates/analysis.html.j2)
+│   ├── universe.py                Universum aktualisieren (7.1)
+│   ├── tr_checks.py               Lucas Trade-Republic-Prüfungen
+│   ├── report/ (render.py, universe_view.py, templates/)
 │   └── dashboard/ (build.py, template.html)
 ├── schemas/json/                  aus den Pydantic-Modellen exportierte JSON-Schemas
 ├── eval/
@@ -93,6 +97,8 @@ Die harten Regeln HR-01 bis HR-18 stehen in docs/spec/00-arbeitsanweisung.md Abs
 ## Befehle
 - uv run pytest            Tests
 - uv run ruff check . && uv run mypy src
+- uv run stockagent universe update | show | html
+- uv run stockagent tr-check <ISIN> ja|nein
 - uv run stockagent run [--profile scheduled --yes]
 - uv run stockagent screen
 - uv run stockagent analyze <ISIN>
@@ -201,7 +207,7 @@ Es gibt keine starren Phasen. Gebaut wird Schritt für Schritt, jeder Schritt li
 | Schritt | Inhalt | Abnahme |
 |---|---|---|
 | 0 Gerüst | uv, CI, CLAUDE.md, Hooks, Pydantic-Grundtypen (`Money`, `Fact`, `FreeText`, Claim-Umschlag), Gates aus 12.6 mit Grundprüfungen, CLI-Gerüst | CI grün, Zahlen-Gate lehnt Freitext mit Ziffern ab und ignoriert das Zitatfeld, Zitat-Gate erkennt veränderte Zitate, Beleg-Gate entfernt Claims ohne Beleg |
-| 1 Universum Trade Republic | Abrufweg der Produktübersicht klären (ADR 0001), Liste laden, ISIN und LEI, `tr_status` nach 7.1 | Anzahl geladener Aktien stimmt mit der Ergebnisanzahl der Seite überein (Abweichung begründet), Quelle und Abrufdatum je Titel, Stichprobe von 20 Titeln von Luca in der App geprüft |
+| 1 Universum | Quelle klären (ADR 0001), Deutsche-Börse-Listen laden, Rohdaten ablegen, ISIN prüfen, LEI ergänzen, Lucas Trade-Republic-Prüfungen, Anzeige im Terminal und als HTML | Anzahl geladener Aktien gleich Anzahl `CS`-Zeilen der Quelle, Quelle und Abrufdatum je Lauf, alle ISIN mit gültiger Prüfziffer, Schutz gegen große Abweichungen getestet, Suche in der HTML-Übersicht funktioniert |
 | 2 Abschlussdaten USA | SEC-Anbindung, DuckDB, Point-in-Time, Datenqualität 3.2 | 10 US-Firmen aus dem Universum geladen, Bilanzgleichung erfüllt, Abgleich gegen einen zweiten Weg (Company Facts gegen Originalbericht) bei Kernwerten |
 | 3 Formelregister und Kennzahlen | `metrics.yaml`, `core/registry.py`, Trends 3.4, Scores 3.5 | Jede Kennzahl mit Handrechnung aus einem echten 10-K getestet |
 | 4 Marktdaten und Bewertung | Kurse, Wechselkurse, Zinsen, Reverse-DCF, Multiples, Sensitivität | Lehrbuchbeispiel exakt reproduziert, Property-Tests (höherer WACC ergibt niedrigeren Wert), negativer FCF korrekt als N behandelt |

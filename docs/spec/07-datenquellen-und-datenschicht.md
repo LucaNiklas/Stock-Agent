@@ -1,24 +1,23 @@
 ## 7. Datenquellen und Datenschicht
 
-### 7.1 Handelsuniversum: bei Trade Republic handelbare Aktien
+### 7.1 Handelsuniversum
 
-Ziel ist die Liste aller Aktien, die bei Trade Republic gekauft werden können. Trade Republic bietet keine offizielle API, veröffentlicht aber eine öffentliche Produktübersicht ohne Login: **https://app.traderepublic.com/browse/stock**. Sie zeigte am 09.10.2026 11.197 Aktien mit Name und ISIN, filterbar nach Sektoren, Ländern und Indizes. Diese Seite ist die Primärquelle.
+Ziel sind die Aktien, die bei Trade Republic gekauft werden können. Trade Republic bietet dafür keinen automatisierbaren Zugang: Die Produktübersicht unter app.traderepublic.com/browse/stock lädt ihre Liste über eine durch AWS WAF geschützte Schnittstelle, und ein Umgehen des Bot-Schutzes ist ausgeschlossen. Details und Befunde stehen in `docs/adr/0001-universum-quelle.md`.
 
 | Schritt | Vorgehen |
 |---|---|
-| 1. Abrufweg klären | Erster Bauschritt (16.10, Schritt 1). Claude Code untersucht, wie die Seite ihre Liste lädt (die Tabelle wird nachgeladen), prüft robots.txt und Nutzungsbedingungen und dokumentiert Abrufweg und Grenzen in `docs/adr/0001-universum-quelle.md`. Bevorzugt wird ein öffentlicher Datenendpunkt der Seite ohne Login, sonst das Auslesen der gerenderten Seite. Ein Login oder das private Protokoll der App wird nie verwendet (HR-09) |
-| 2. Rohliste laden | Modul `data/sources/universe_tr.py` nach 18.2. Jede Rohdatei landet unverändert in `data/raw/` mit Hash, Abrufdatum und URL. Abruf höflich mit Pausen und Caching, höchstens einmal pro Woche vollständig. Mitgeliefert werden, soweit vorhanden, Sektor, Land und Indexzugehörigkeit als Zusatzinformation |
-| 3. Kennungen | ISIN, LEI (GLEIF-API, kostenlos), Ticker, CIK bei US-Emittenten (SEC `company_tickers.json`) |
-| 4. Zusammenführung | Mehrfachlistings auf LEI, Primärnotierung am Heimatmarkt als Kursquelle |
-| 5. Handelbarkeitsstatus | Je Titel `tr_status` mit Quelle und Datum: `bestaetigt` (in der aktuellen Liste von app.traderepublic.com/browse/stock), `entfernt` (war gelistet, fehlt in der aktuellen Liste), `unbekannt` (nur aus anderen Quellen bekannt). Die Übersicht zeigt standardmäßig nur `bestaetigt` und zeigt den Status immer an |
+| 1. Basisliste | "All tradable instruments"-Dateien der Deutschen Börse für Börse Frankfurt und Xetra, nur Stammaktien (`CS`). Die Datei-Links werden auf den Downloadseiten aus `config/sources.yaml` gesucht. Modul `data/sources/deutsche_boerse.py` |
+| 2. Rohdaten | Jede Datei unverändert unter `data/raw/` (SHA-256, gzip) mit Abrufzeit und URL (`data/rawstore.py`) |
+| 3. Kennungen | ISIN mit Prüfziffer (`core/identifiers.py`), WKN, Kürzel, LEI aus der ISIN-LEI-Datei der GLEIF (`data/sources/gleif.py`). Mehrdeutige LEI bleibt leer |
+| 4. Speicherung | Tabelle `listings` in DuckDB, eine Zeile je ISIN. Fehlt ein Titel in einer neuen Liste, bleibt er mit `listed = false` erhalten |
+| 5. Handelbarkeit bei Trade Republic | Luca prüft in der App und hält es fest: `stockagent tr-check <ISIN> ja|nein` (`state/tr_checks.yaml`). Status `bestaetigt`, `nicht_handelbar`, ohne Eintrag `ungeprueft` |
+| 6. Anzeige | `stockagent universe show` im Terminal, `stockagent universe html` als durchsuchbare Seite unter `data/views/universum.html` |
 
-Häufigkeit: wöchentlich. Ändert sich die Liste um mehr als 5 Prozent zur Vorwoche, prüft das System die Quelle auf einen Formatwechsel, bevor es die neue Liste übernimmt.
+Häufigkeit: höchstens wöchentlich (`min_refresh_days`). Ändert sich die Anzahl um mehr als 5 Prozent zur letzten Liste, übernimmt das System die neue Liste nur mit `--force`, damit ein Formatwechsel der Quelle nicht unbemerkt Titel löscht.
 
-Ist die Seite nicht erreichbar oder ändert sich ihr Aufbau, bleibt die letzte gültige Liste mit ihrem Datum in Kraft und der Bericht weist darauf hin (HR-16). Rückfall-Quellen nur zum Abgleich: Instrumentenlisten von LS Exchange, Xetra, Börse Frankfurt und Tradegate.
+Das Universum umfasst rund 14.500 Aktien (Stand 12.10.2026) und ist damit größer als das von Trade Republic (11.197 am 09.10.2026). Alle erhalten eine quantitative Note ohne Modellaufrufe, soweit Daten vorliegen. Für US-Emittenten und EU-Emittenten an regulierten Märkten liegen strukturierte Abschlussdaten kostenlos vor. Für die übrigen (Freiverkehr, Asien, Schwellenländer) fehlen kostenlose strukturierte Daten. Sie erhalten Status N mit Grund "keine strukturierten Daten", bis Luca einen Datenanbieter freigibt (19, Nr. 1).
 
-Inoffizielle Bibliotheken, die das private Protokoll von Trade Republic nutzen (etwa `pytr`), sind nicht vorgesehen. Sie brauchen einen Login und verstoßen gegen HR-09.
-
-Das Universum umfasst rund 11.000 Aktien (Stand 09.10.2026). Alle erhalten bei jedem Lauf eine quantitative Note ohne Modellaufrufe, soweit Daten vorliegen. Für US-Emittenten und EU-Emittenten an regulierten Märkten liegen strukturierte Abschlussdaten kostenlos vor. Für die übrigen Unternehmen (Freiverkehr, Asien, Schwellenländer) fehlen kostenlose strukturierte Daten. Sie erhalten Status N mit Grund "keine strukturierten Daten", bis Luca einen Datenanbieter freigibt (19, Nr. 1).
+Inoffizielle Bibliotheken, die das private Protokoll von Trade Republic nutzen (etwa `pytr`), sind nicht vorgesehen (HR-09).
 
 ### 7.2 Abschlussdaten
 
@@ -81,8 +80,11 @@ DuckDB reicht für das Datenvolumen eines Privatanlegers völlig. Ein Wechsel au
 
 ```
 issuers(lei PK, name, country, sector_sic, sector_nace, accounting_standard, fiscal_year_end)
-listings(isin PK, lei FK, ticker, exchange_mic, currency, is_primary, tr_status[bestaetigt|entfernt|unbekannt],
-         tr_source, tr_checked_at)
+listings(isin PK, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, isin_valid,
+         listed, first_seen, last_seen, snapshot_id)
+universe_snapshots(snapshot_id PK, retrieved_at, source_as_of, frankfurt_sha, xetra_sha, gleif_sha,
+         stock_count, forced)
+# Handelbarkeit bei Trade Republic: state/tr_checks.yaml (Lucas Prüfungen), nicht in der Datenbank
 documents(doc_hash PK, lei FK, doc_type, period_end, published_at, retrieved_at, source_url, language, pages)
 facts(fact_id PK, lei FK, concept, internal_metric, value, unit, scale, currency, period_start, period_end,
       published_at, source_type[xbrl|pdf_extracted|vendor], doc_hash FK, page, xbrl_context, extraction_run_id,

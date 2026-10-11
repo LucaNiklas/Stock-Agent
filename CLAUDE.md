@@ -18,6 +18,8 @@ Die harten Regeln HR-01 bis HR-18 stehen in docs/spec/00-arbeitsanweisung.md Abs
 ## Befehle
 - uv run pytest            Tests
 - uv run ruff check . && uv run mypy src
+- uv run stockagent universe update | show | html
+- uv run stockagent tr-check <ISIN> ja|nein
 - uv run stockagent run [--profile scheduled --yes]
 - uv run stockagent screen
 - uv run stockagent analyze <ISIN>

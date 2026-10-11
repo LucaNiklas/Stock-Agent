@@ -13,7 +13,7 @@ Die Agenten laufen als Subagents in Claude Code über Lucas Claude-Abo, ohne eig
 
 **Im Umfang**
 
-- Universum aller bei Trade Republic handelbaren Aktien, aus öffentlichen Quellen ermittelt (7.1).
+- Universum der an Börse Frankfurt und Xetra handelbaren Aktien als Näherung für Trade Republic, mit von Luca geprüfter Handelbarkeit (7.1).
 - Quantitative Note, Konfidenz und Risikoklasse für jedes Unternehmen (Abschnitt 6), ohne Modellaufrufe.
 - Tiefenanalyse auf Anfrage: Agenten recherchieren und ordnen ein, Python rechnet, Prüfer kontrollieren. Ergebnis ist der finanzielle Überblick mit 14 Abschnitten (12.3).
 - Übersicht und Dashboard zum Anzeigen, Filtern und Vergleichen.
