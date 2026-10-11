@@ -9,6 +9,8 @@ Ziel sind die Aktien, die bei Trade Republic gekauft werden können. Trade Repub
 | 1. Basisliste | "All tradable instruments"-Dateien der Deutschen Börse für Börse Frankfurt und Xetra, nur Stammaktien (`CS`). Die Datei-Links werden auf den Downloadseiten aus `config/sources.yaml` gesucht. Modul `data/sources/deutsche_boerse.py` |
 | 2. Rohdaten | Jede Datei unverändert unter `data/raw/` (SHA-256, gzip) mit Abrufzeit und URL (`data/rawstore.py`) |
 | 3. Kennungen | ISIN mit Prüfziffer (`core/identifiers.py`), WKN, Kürzel, LEI aus der ISIN-LEI-Datei der GLEIF (`data/sources/gleif.py`). Mehrdeutige LEI bleibt leer |
+| 3a. Länder | Über die GLEIF-API je LEI Hauptsitz und Rechtssitz (Rechtsordnung). Genutzt nur, wenn der Börsenname zu einem LEI-Namen passt und bei normalen Aktien ISIN-Land und Rechtssitz zusammenpassen. Herkunft je Titel: `gleif`, `isin` (unsicher) oder `konflikt` (ADR 0001) |
+| 3b. Art | Hinterlegungsscheine (ADR, GDR, CDR, CDI, SDR, NY-Shares) am Börsennamen erkannt |
 | 4. Speicherung | Tabelle `listings` in DuckDB, eine Zeile je ISIN. Fehlt ein Titel in einer neuen Liste, bleibt er mit `listed = false` erhalten |
 | 5. Handelbarkeit bei Trade Republic | Luca prüft in der App und hält es fest: `stockagent tr-check <ISIN> ja|nein` (`state/tr_checks.yaml`). Status `bestaetigt`, `nicht_handelbar`, ohne Eintrag `ungeprueft` |
 | 6. Anzeige | `stockagent universe show` im Terminal, `stockagent universe html` als durchsuchbare Seite unter `data/views/universum.html` |
@@ -69,7 +71,7 @@ Jede Abfrage für eine Analyse zum Zeitpunkt T filtert auf `published_at <= T`. 
 
 | Ebene | Technik | Inhalt |
 |---|---|---|
-| Rohdaten | Dateisystem `data/raw/`, Name ist SHA-256 des Inhalts | Originale aller Berichte, JSON-Antworten, Positionsdateien. Unveränderlich |
+| Rohdaten | Dateisystem `data/raw/`, Name ist SHA-256 des Inhalts | Originale aller Berichte, JSON-Antworten, Positionsdateien. Unveränderlich. Einzige Ausnahme: GLEIF-Hilfsdaten ohne Finanzwerte werden nur für die letzten `gleif.keep_snapshots` Stände behalten (ADR 0001) |
 | Strukturierte Daten | DuckDB (eine Datei, schnelle Analysen) | Tabellen aus Abschnitt 7.7 |
 | Lauf-Artefakte | `runs/<run_id>/` | alle Agenten-Ein- und Ausgaben als JSON, Berichte, Diagramme |
 | Code und Konfiguration | Git | jede Konfigurationsänderung ist ein Commit |
@@ -80,10 +82,12 @@ DuckDB reicht für das Datenvolumen eines Privatanlegers völlig. Ein Wechsel au
 
 ```
 issuers(lei PK, name, country, sector_sic, sector_nace, accounting_standard, fiscal_year_end)
-listings(isin PK, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, isin_valid,
-         listed, first_seen, last_seen, snapshot_id)
-universe_snapshots(snapshot_id PK, retrieved_at, source_as_of, frankfurt_sha, xetra_sha, gleif_sha,
-         stock_count, forced)
+listings(isin PK, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, lei_name,
+         lei_status, lei_plausible, legal_country, hq_country, country, country_source[gleif|isin|konflikt],
+         is_receipt, isin_valid, listed, first_seen, last_seen, snapshot_id)
+universe_snapshots(snapshot_id PK, retrieved_at (UTC), source_as_of, stock_count, forced)
+snapshot_raw(snapshot_id, kind[frankfurt|xetra|gleif_mapping|gleif_entities], sha256, url)
+meta(key PK, value)   # schema_version
 # Handelbarkeit bei Trade Republic: state/tr_checks.yaml (Lucas Prüfungen), nicht in der Datenbank
 documents(doc_hash PK, lei FK, doc_type, period_end, published_at, retrieved_at, source_url, language, pages)
 facts(fact_id PK, lei FK, concept, internal_metric, value, unit, scale, currency, period_start, period_end,

@@ -2,6 +2,7 @@
 
 Recherche- und Bewertungssystem für Einzelaktien, die bei Trade Republic handelbar sind. Nur Anzeigen und Bewerten, keine Orders, keine Depot- oder Budgetplanung.
 Spezifikation in docs/spec/ (Inhaltsverzeichnis docs/SPEC.md). Bei Widersprüchen gilt die Spezifikation.
+Aktueller Projektstand, offene Punkte und nächster Schritt: docs/STATUS.md. Zu Beginn jeder Sitzung lesen.
 
 ## Unverhandelbare Regeln
 Die harten Regeln HR-01 bis HR-18 stehen in docs/spec/00-arbeitsanweisung.md Abschnitt 0.1. Lies sie zu Beginn jeder Sitzung.

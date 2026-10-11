@@ -11,6 +11,7 @@ stockagent/
 ├── pyproject.toml  uv.lock  .pre-commit-config.yaml  .env.example  .gitignore
 ├── docs/
 │   ├── SPEC.md                    Inhaltsverzeichnis der Spezifikation
+│   ├── STATUS.md                  Projektstand und Übergabe zwischen Sitzungen
 │   ├── spec/                      eine Datei je Hauptabschnitt (00-arbeitsanweisung.md, 01-..., anhang-a-...)
 │   ├── METHODOLOGY_CHANGELOG.md
 │   └── adr/                       Architekturentscheidungen (0001-universum-quelle.md, ...)
@@ -81,6 +82,7 @@ stockagent/
 
 Recherche- und Bewertungssystem für Einzelaktien, die bei Trade Republic handelbar sind. Nur Anzeigen und Bewerten, keine Orders, keine Depot- oder Budgetplanung.
 Spezifikation in docs/spec/ (Inhaltsverzeichnis docs/SPEC.md). Bei Widersprüchen gilt die Spezifikation.
+Aktueller Projektstand, offene Punkte und nächster Schritt: docs/STATUS.md. Zu Beginn jeder Sitzung lesen.
 
 ## Unverhandelbare Regeln
 Die harten Regeln HR-01 bis HR-18 stehen in docs/spec/00-arbeitsanweisung.md Abschnitt 0.1. Lies sie zu Beginn jeder Sitzung.
@@ -207,7 +209,7 @@ Es gibt keine starren Phasen. Gebaut wird Schritt für Schritt, jeder Schritt li
 | Schritt | Inhalt | Abnahme |
 |---|---|---|
 | 0 Gerüst | uv, CI, CLAUDE.md, Hooks, Pydantic-Grundtypen (`Money`, `Fact`, `FreeText`, Claim-Umschlag), Gates aus 12.6 mit Grundprüfungen, CLI-Gerüst | CI grün, Zahlen-Gate lehnt Freitext mit Ziffern ab und ignoriert das Zitatfeld, Zitat-Gate erkennt veränderte Zitate, Beleg-Gate entfernt Claims ohne Beleg |
-| 1 Universum | Quelle klären (ADR 0001), Deutsche-Börse-Listen laden, Rohdaten ablegen, ISIN prüfen, LEI ergänzen, Lucas Trade-Republic-Prüfungen, Anzeige im Terminal und als HTML | Anzahl geladener Aktien gleich Anzahl `CS`-Zeilen der Quelle, Quelle und Abrufdatum je Lauf, alle ISIN mit gültiger Prüfziffer, Schutz gegen große Abweichungen getestet, Suche in der HTML-Übersicht funktioniert |
+| 1 Universum | Quelle klären (ADR 0001), Deutsche-Börse-Listen laden, Rohdaten ablegen, ISIN prüfen, LEI ergänzen, Hauptsitz und Rechtssitz aus der GLEIF mit Plausibilitätsprüfung, Hinterlegungsscheine erkennen, Aufräumregel GLEIF, Lucas Trade-Republic-Prüfungen, Anzeige im Terminal und als HTML | Anzahl geladener Aktien gleich Anzahl `CS`-Zeilen der Quelle, Quelle und Abrufdatum je Lauf, alle ISIN mit gültiger Prüfziffer, Schutz gegen große Abweichungen getestet, Suche in der HTML-Übersicht funktioniert |
 | 2 Abschlussdaten USA | SEC-Anbindung, DuckDB, Point-in-Time, Datenqualität 3.2 | 10 US-Firmen aus dem Universum geladen, Bilanzgleichung erfüllt, Abgleich gegen einen zweiten Weg (Company Facts gegen Originalbericht) bei Kernwerten |
 | 3 Formelregister und Kennzahlen | `metrics.yaml`, `core/registry.py`, Trends 3.4, Scores 3.5 | Jede Kennzahl mit Handrechnung aus einem echten 10-K getestet |
 | 4 Marktdaten und Bewertung | Kurse, Wechselkurse, Zinsen, Reverse-DCF, Multiples, Sensitivität | Lehrbuchbeispiel exakt reproduziert, Property-Tests (höherer WACC ergibt niedrigeren Wert), negativer FCF korrekt als N behandelt |
