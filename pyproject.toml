@@ -1,0 +1,51 @@
+[project]
+name = "stockagent"
+version = "0.1.0"
+description = "Recherche- und Bewertungssystem für bei Trade Republic handelbare Aktien"
+authors = [{ name = "LucaNiklas" }]
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.14.0",
+    "pyyaml>=6.0.3",
+    "typer>=0.27.3",
+]
+
+[project.scripts]
+stockagent = "stockagent.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.169.0",
+    "mypy>=2.4.0",
+    "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "ruff>=0.17.0",
+    "types-pyyaml>=6.0.12.20260906",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # deutsche Typografie in Texten und Kommentaren
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["stockagent.core.*", "stockagent.gates.*", "stockagent.schemas.*"]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: langsame Tests, laufen nur in der CI"]
+addopts = "--strict-markers"

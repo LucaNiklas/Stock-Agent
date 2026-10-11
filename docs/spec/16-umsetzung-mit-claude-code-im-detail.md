@@ -23,10 +23,10 @@ stockagent/
 │       ├── add-metric/SKILL.md
 │       └── review-escalations/SKILL.md
 ├── .github/
-│   ├── workflows/ (ci.yml, eval.yml, scheduled-run.yml)
+│   ├── workflows/ (ci.yml, ab Schritt 10 eval.yml, ab Schritt 12 scheduled-run.yml)
 │   └── pull_request_template.md
 ├── agents_src/                    Vorlagen A0..A7, A9, J1..J4, F1 mit Modellklasse
-├── scripts/ (render_agents.py, hooks/)
+├── scripts/ (render_agents.py, hooks/: protect_raw.sh, ruff_changed.sh, stop_tests.sh)
 ├── config/
 │   ├── metrics.yaml  scoring.yaml  scorecards.yaml  sectors.yaml
 │   ├── accounting_adjustments.yaml  hyperinflation.yaml  withholding_tax.yaml
@@ -162,12 +162,10 @@ Hooks sind Shell-Befehle, die Claude Code bei Ereignissen ausführt. Exit-Code 2
 
 | Ereignis | Hook | Zweck |
 |---|---|---|
-| `PreToolUse` auf `Bash` | `scripts/hooks/block_broker.sh` | blockiert Broker- und Order-Aufrufe mit präzisen Mustern: `pytr`, `traderepublic`, Bezeichner `place_order`, `limit_order`, `market_order`, `buy(`/`sell(` auf Broker-Objekten. SQL wie `ORDER BY`, `sort --order` und ähnliche harmlose Befehle bleiben erlaubt. Die Muster stehen in einer Datei mit eigenem Test aus Positiv- und Negativbeispielen |
 | `PreToolUse` auf `Edit|Write` | `scripts/hooks/protect_raw.sh` | verhindert Änderungen in `data/raw/` und an Goldstandard-Dateien |
-| `PostToolUse` auf `Edit|Write` in `src/` | `uv run ruff check --fix` auf die geänderte Datei | sofortige Rückmeldung |
-| `PostToolUse` auf `Edit|Write` in `config/` oder `prompts/` | Erinnerung, Changelog und Eval-Lauf nachzuziehen | Methodik-Disziplin |
-| `SubagentStop` | `scripts/hooks/validate_agent_output.py` | prüft, ob die Subagent-Ausgabe gegen ihr Schema validiert |
-| `Stop` | `uv run pytest -q -x -m "not slow"` | Claude beendet keine Arbeitssitzung mit roten Tests. Langsame Tests laufen in der CI |
+| `PostToolUse` auf `Edit|Write` | `scripts/hooks/ruff_changed.sh` | ruff auf geänderte Python-Dateien, bei `config/`, `prompts/` oder `agents_src/` Erinnerung an Changelog und Eval-Lauf |
+| `SubagentStop` | `uv run stockagent accept` (ab Schritt 6) | prüft die Subagent-Ausgabe gegen Schema und Gates (15.1) |
+| `Stop` | `scripts/hooks/stop_tests.sh` | Claude beendet keine Arbeitssitzung mit roten Tests. Langsame Tests laufen in der CI. Läuft der Hook bereits, blockiert er nicht erneut |
 
 ### 16.6 Skills
 
@@ -202,7 +200,7 @@ Es gibt keine starren Phasen. Gebaut wird Schritt für Schritt, jeder Schritt li
 
 | Schritt | Inhalt | Abnahme |
 |---|---|---|
-| 0 Gerüst | uv, CI, CLAUDE.md, Hooks, Pydantic-Grundtypen (`Money`, `Fact`, `FreeText`, Claim-Umschlag), Gates aus 12.6 mit Grundprüfungen, CLI-Gerüst | CI grün, Hook blockiert einen Test-Order-Befehl und lässt `ORDER BY` durch, Zahlen-Gate lehnt Freitext mit Ziffern ab und ignoriert das Zitatfeld |
+| 0 Gerüst | uv, CI, CLAUDE.md, Hooks, Pydantic-Grundtypen (`Money`, `Fact`, `FreeText`, Claim-Umschlag), Gates aus 12.6 mit Grundprüfungen, CLI-Gerüst | CI grün, Zahlen-Gate lehnt Freitext mit Ziffern ab und ignoriert das Zitatfeld, Zitat-Gate erkennt veränderte Zitate, Beleg-Gate entfernt Claims ohne Beleg |
 | 1 Universum Trade Republic | Abrufweg der Produktübersicht klären (ADR 0001), Liste laden, ISIN und LEI, `tr_status` nach 7.1 | Anzahl geladener Aktien stimmt mit der Ergebnisanzahl der Seite überein (Abweichung begründet), Quelle und Abrufdatum je Titel, Stichprobe von 20 Titeln von Luca in der App geprüft |
 | 2 Abschlussdaten USA | SEC-Anbindung, DuckDB, Point-in-Time, Datenqualität 3.2 | 10 US-Firmen aus dem Universum geladen, Bilanzgleichung erfüllt, Abgleich gegen einen zweiten Weg (Company Facts gegen Originalbericht) bei Kernwerten |
 | 3 Formelregister und Kennzahlen | `metrics.yaml`, `core/registry.py`, Trends 3.4, Scores 3.5 | Jede Kennzahl mit Handrechnung aus einem echten 10-K getestet |
@@ -226,8 +224,8 @@ Das private Repository `LucaNiklas/Stock-Agent` existiert und enthält die Grund
 cd ~/Projekte/stockagent
 git checkout -b schritt-00-geruest
 uv init --package --python 3.12 --name stockagent
-uv add pydantic duckdb polars typer questionary jinja2 plotly edgartools xbrl-filings-api
-uv add --dev pytest hypothesis ruff mypy pre-commit
+uv add pydantic typer pyyaml          # weitere Bibliotheken in dem Schritt, der sie braucht
+uv add --dev pytest hypothesis ruff mypy pre-commit types-PyYAML
 uv run pre-commit install
 gh label create escalation --color B60205 --description "Wartet auf Lucas Entscheidung"
 gh label create methodology --color 5319E7 --description "Änderung an Formeln oder Gewichten"

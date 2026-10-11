@@ -1,1 +1,5 @@
-# metrics – siehe docs/SPEC.md
+# Formelregister, siehe docs/spec/12-analyseformat-und-reproduzierbarkeit.md Abschnitt 12.2.
+# Jede Kennzahl hier braucht genau eine Funktion in src/stockagent/core/registry.py (HR-06).
+# Die Kennzahlen kommen in Bauschritt 3 dazu.
+
+metrics: []
