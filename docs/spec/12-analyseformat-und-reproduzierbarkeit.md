@@ -23,6 +23,7 @@ Alle Formeln stehen in `config/metrics.yaml` und sind in `core/registry.py` impl
   rundung: {anzeige: percent, nachkommastellen: 1}
   scorecards: [standard, growth, utilities, cyclicals]
   quelle: "Koller, Goedhart, Wessels. Valuation (McKinsey)"
+  pruefpunkte: [CP-01, CP-02, CP-04]   # Prüfpunkte im Rechenweg (12.7, HR-19)
   tests: [tests/metrics/test_roic.py]
 ```
 
@@ -75,6 +76,7 @@ Jede Prüfung läuft bei jeder Analyse. Gefundene Fälle erscheinen in Abschnitt
 | INC-12 | Restatement | spätere Fassung ändert Vorjahreswerte | Warnung, beide Fassungen im Bericht |
 | INC-13 | Wechselkurs unplausibel | abgeleiteter Kurs weicht über 2 Prozent vom Referenzkurs ab | Daten- oder Einheitenfehler, Eskalation |
 | INC-14 | Agent wollte eine Zahl ohne Platzhalter schreiben oder ein nicht wörtliches Zitat verwenden | Zahlen- und Zitat-Gate | Claim entfernt, Vorfall gezählt |
+| INC-15 | Prüfpunkt im Rechenweg verletzt | Rechenweg (12.7) | Kennzahl `unknown` mit Grund und Rechenweg bis zum Abbruch, bei Stufe `warnung` Hinweis im Bericht |
 
 ### 12.5 Reproduzierbarkeit
 
@@ -99,3 +101,53 @@ Jede Agentenausgabe durchläuft dieselben Schranken in dieser Reihenfolge, bevor
 6. Konsistenz-Gate. Jede eingesetzte Zahl im fertigen Bericht stimmt mit `decision.json` und `metrics` überein
 
 Abgelehnte Ausgaben gehen mit der Fehlermeldung bis zu zweimal zurück an den Agenten. Danach wird der Fall eskaliert.
+
+### 12.7 Rechenweg mit Prüfpunkten (HR-19)
+
+Grundsatz. Gerechnet wird ausschließlich in Python (HR-01, HR-06), nie im Kopf eines Sprachmodells. Jede Berechnung ist ein Rechenweg aus kleinen, benannten Schritten. Nach jedem Abschnitt hält die Rechnung an und prüft, ob das bisher Gerechnete stimmt. Erst wenn der Prüfpunkt bestanden ist, geht es weiter.
+
+**Aufbau (`core/calc.py`, gebaut in Bauschritt 3)**
+
+```python
+r = Rechenweg("roic", version="1.0", lei=lei, periode="2025")
+nopat = r.schritt("nopat", "EBIT * (1 - Steuersatz)", ebit=ebit, steuersatz=t)
+r.pruefe("CP-02", "Steuersatz zwischen 0 und 0,35", 0 <= t <= Decimal("0.35"))
+ic = r.schritt("investiertes_kapital", "EK + Finanzschulden + Leasing - Kasse", ...)
+r.pruefe("CP-02", "investiertes Kapital positiv", ic > 0)
+roic = r.schritt("roic", "NOPAT / durchschnittliches investiertes Kapital", ...)
+r.pruefe("CP-04", "Gegenrechnung über Marge mal Kapitalumschlag", ...)
+return r.ergebnis(roic)
+```
+
+- `schritt` speichert Name, Formeltext, Eingaben mit Quelle, Währung, Einheit und Periode (HR-12) sowie das Ergebnis.
+- `pruefe` wertet einen Prüfpunkt aus. Bei Stufe `stopp` wirft ein verletzter Prüfpunkt `PruefpunktVerletzt`, die Kennzahl wird `unknown` mit Grund (HR-05) und INC-15. Bei Stufe `warnung` läuft die Rechnung weiter, der Hinweis steht im Rechenweg und im Bericht.
+- `ergebnis` ist nur erreichbar, wenn alle Prüfpunkte der Kennzahl aus `metrics.yaml` (`pruefpunkte`) tatsächlich ausgewertet wurden. Fehlt einer, schlägt der Test fehl.
+- Gerundet wird erst bei der Anzeige. Zwischenschritte rechnen mit `Decimal` für Geldbeträge und `float64` für Verhältnisse (12.3).
+- Der vollständige Rechenweg wird als JSON gespeichert (`metrics.calc_trace_json`). Er ist die Grundlage für den Audit-Trail (13.1), für J1 und für die Erklärung jeder Zahl im Bericht.
+
+**Katalog der Prüfpunkte**
+
+| ID | Prüfung | Beispiel | Stufe |
+|---|---|---|---|
+| CP-01 | Eingaben vollständig und zusammenpassend: gleiche Währung, Einheit, Skalierung, Periode und Rechnungslegung | EBIT und Umsatz aus demselben Geschäftsjahr und Bericht | stopp |
+| CP-02 | Vorzeichen und Wertebereich des Zwischenergebnisses | Umsatz nicht negativ, Marge zwischen minus 100 und 100 Prozent, Steuersatz zwischen 0 und 1 | stopp |
+| CP-03 | Summenprobe: Teile ergeben das Ganze | Aktiva gleich Passiva (Toleranz 0,5 Prozent), Segmente plus Überleitung gleich Konzern, Unternehmenswert-Brücke | stopp |
+| CP-04 | Gegenrechnung auf einem zweiten, unabhängigen Weg, wo es einen gibt | ROE direkt gegen DuPont-Zerlegung, FCF aus Komponenten gegen ausgewiesene Summen | stopp bei Abweichung über 0,5 Prozent |
+| CP-05 | Plausibilität gegen die eigene Historie (robuster z-Wert über Median und MAD, Schwelle 4) | Marge springt ohne Sondereffekt um das Dreifache | warnung |
+| CP-06 | Rückrechnung: Das Ergebnis eingesetzt reproduziert den Ausgangswert | Reverse-DCF: Mit dem impliziten Wachstum ergibt der DCF wieder den aktuellen Unternehmenswert (Toleranz 0,1 Prozent) | stopp |
+| CP-07 | Strukturregeln einer Bewertung | Gewichte der Säulen summieren sich zu 1, Perzentile zwischen 0 und 100, Note passt zum Wertebereich aus 6.2 | stopp |
+| CP-08 | Wiederholbarkeit: zweimal gerechnet ergibt bitgleich dasselbe (12.5) | Testlauf auf gespeichertem Datenstand | stopp, nur im Test |
+
+**Wo welche Prüfpunkte gelten**
+
+| Bereich | Bauschritt | Pflicht-Prüfpunkte |
+|---|---|---|
+| Kennzahlen (3.3) | 3 | CP-01, CP-02 je Zwischenschritt, CP-04 wo ein zweiter Weg existiert, CP-05 |
+| Scores Piotroski, Altman, Beneish (3.5) | 3 | CP-01, CP-02, CP-07 (Punktzahl im gültigen Bereich), CP-04 gegen veröffentlichte Werte im Test |
+| Normalisierung und Währung (4, 5) | 7 | CP-01 (Standard und Währung je Eingabe), CP-03 nach jeder Anpassung, CP-02 für Wechselkurse (INC-13) |
+| Bewertung Reverse-DCF, DCF, Multiples (3.6) | 4 | CP-01, CP-02, CP-03 (Unternehmenswert-Brücke), CP-06 (Rückrechnung) |
+| Note, Konfidenz, Risiko (6) | 5 | CP-07, CP-02 je Säulenwert |
+
+**Für Claude Code beim Bauen.** Jede Formel wird im Test als Handrechnung in denselben Schritten nachgerechnet wie im Rechenweg, mit Zwischenergebnis je Schritt und Quelle (Dokument und Seite) im Kommentar. Der Test prüft die Zwischenergebnisse einzeln, nicht nur das Endergebnis.
+
+**Für Agenten.** Agenten rechnen nicht. J1 erhält über `compute_metric` den vollständigen Rechenweg und prüft jeden Schritt einzeln gegen die Daten (11.2).

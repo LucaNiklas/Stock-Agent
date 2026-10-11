@@ -94,7 +94,7 @@ facts(fact_id PK, lei FK, concept, internal_metric, value, unit, scale, currency
       published_at, source_type[xbrl|pdf_extracted|vendor], doc_hash FK, page, xbrl_context, extraction_run_id,
       superseded_by)
 prices(isin, date, close, volume, currency, source)
-metrics(run_id, lei, metric_id, metric_version, period_end, value, inputs_json, computed_at)
+metrics(run_id, lei, metric_id, metric_version, period_end, value, inputs_json, calc_trace_json, computed_at)
 insider_tx(tx_id PK, lei, person_name, role, relation[self|spouse|child|household|controlled_entity],
            tx_type[buy|sell|grant|exercise|tax|gift|other], open_market bool, plan_10b5_1 bool,
            shares, price, currency, value_eur, trade_date, published_at, source_doc_hash, routine_class)

@@ -71,3 +71,9 @@ Weiterhin korrekt und übernommen wurden die Kennzahlenkategorien, Nissim und Pe
 |---|---|---|
 | Quelle des Universums | Produktübersicht app.traderepublic.com/browse/stock | Instrumentenlisten der Deutschen Börse (Frankfurt, Xetra), weil die Trade-Republic-Seite hinter AWS-WAF-Bot-Schutz liegt (ADR 0001) |
 | Handelbarkeit bei Trade Republic | automatisch aus der Seite | von Luca in der App geprüft, `stockagent tr-check` |
+
+### 1.5 Neue Regel HR-19 (11.10.2026)
+
+| Thema | vorher | jetzt |
+|---|---|---|
+| Berechnungen | Formeln im Register, Ergebnis geprüft | jede Berechnung schrittweise über einen Rechenweg mit Prüfpunkten nach jedem Abschnitt, Abbruch bei verletztem Prüfpunkt (HR-19, 12.7). Gebaut in Bauschritt 3, genutzt ab Schritt 3 bis 5 und 7 |

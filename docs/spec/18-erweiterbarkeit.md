@@ -5,7 +5,7 @@ Das System ist so gebaut, dass Erweiterungen an definierten Stellen andocken.
 ### 18.1 Neue Kennzahl
 
 1. Eintrag in `config/metrics.yaml` (ID, Formel, Eingaben, Version, Sektorhinweise).
-2. Funktion in `core/registry.py`, registriert über den Dekorator `@metric("id")`.
+2. Funktion in `core/registry.py`, registriert über den Dekorator `@metric("id")`, gerechnet über den Rechenweg aus `core/calc.py` mit den Prüfpunkten aus dem Registereintrag (12.7, HR-19).
 3. Test mit Handrechnung.
 4. Falls im Score verwendet, Gewicht in `scoring.yaml`, Changelog-Eintrag, `methodology_version` erhöhen.
 
