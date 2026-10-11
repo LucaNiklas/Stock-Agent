@@ -45,11 +45,11 @@ stockagent/
 │   │   ├── store.py               DuckDB-Zugriff, pit_query
 │   │   └── quality.py             Prüfungen aus 3.2
 │   ├── agents/
-│   │   ├── runner.py              Aufruf über Agent SDK, Schema-Validierung, Retries, Kostenlimit
+│   │   ├── runner.py              nimmt Agentenausgaben an, Schema-Validierung, Gates, Retries, Grenzen (HR-18)
 │   │   ├── prompts/               versionierte Prompt-Vorlagen
 │   │   └── tools/                 Skripte, die Agenten aufrufen dürfen (query_facts, compute_metric,
 │   │                              query_metrics, search_descriptions, fetch_document, parse_pdf,
-│   │                              run_dcf, run_reverse_dcf, peer_multiples)
+│   │                              run_dcf, run_reverse_dcf, peer_multiples, gemini)
 │   ├── judges/ (numbers.py, grounding.py, jury.py, final_check.py)
 │   ├── schemas/                   Pydantic-Modelle
 │   ├── report/ (render.py, templates/analysis.md.j2, templates/analysis.html.j2)
@@ -117,7 +117,7 @@ name: j1-number-checker
 description: Prüft quantitative Claims blind durch eigene Berechnung aus der Datenbank. Nur vom Orchestrator aufrufen.
 tools: Read, Bash
 disallowedTools: Write, Edit, WebSearch, WebFetch
-model: {{ model.standard }}
+model: {{ model.fast }}
 maxTurns: 40
 ---
 {{ preamble }}
@@ -154,7 +154,7 @@ Für jedes Risiko nenne einen beobachtbaren Frühindikator.
 Antworte nur mit JSON nach Schema schemas/a7_output.json.
 ```
 
-Im SDK-Orchestrator werden dieselben Definitionen geladen. Die Bash-Befehle der Prüfer werden nicht über das `tools`-Feld eingeschränkt, sondern über einen `PreToolUse`-Hook im Frontmatter, der nur Aufrufe von `stockagent.agents.tools.*` durchlässt. Strukturierte Ausgabe erzwingt der Runner über JSON-Schema und validiert anschließend mit Pydantic.
+Im optionalen API-Betrieb (15.1) lädt das Agent SDK dieselben Definitionen. Die Bash-Befehle der Prüfer werden nicht über das `tools`-Feld eingeschränkt, sondern über einen `PreToolUse`-Hook im Frontmatter, der nur Aufrufe von `stockagent.agents.tools.*` durchlässt. Jede Ausgabe nimmt `stockagent accept` an und validiert sie mit Pydantic gegen das Schema (15.1).
 
 ### 16.5 Hooks
 
@@ -191,8 +191,9 @@ Für v1 nicht nötig, weil alle Datenquellen über Python-Skripte angebunden sin
 
 ### 16.9 Kosten und Geheimnisse
 
-- API-Schlüssel (Anthropic, optional Datenanbieter, optional weitere Modellanbieter für die Jury) in `.env`, in der Cloud als Secret.
-- Modellkosten entstehen nur bei Tiefenanalysen. Das System misst die tatsächlichen Kosten in `log.jsonl` und bricht bei `max_cost_per_run_eur` ab (HR-18, Default 10).
+- Tiefenanalysen laufen über Lucas Claude-Abo und verbrauchen dessen Nutzungslimits, kosten aber nichts zusätzlich. Gemini läuft optional über Lucas Google-Konto (8.8).
+- Grenzen je Lauf nach HR-18. `log.jsonl` protokolliert je Agentenaufruf Modell, Dauer und, soweit Claude Code sie ausgibt, Tokens.
+- Schlüssel (optional Datenanbieter, optional später Anthropic-API) in `.env`, nie im Repository.
 - Prompt-Caching nutzen, indem Systemprompts und Methodik-Texte am Anfang jeder Anfrage stehen und sich zwischen Kandidaten nicht ändern.
 
 ### 16.10 Bauschritte
@@ -207,13 +208,13 @@ Es gibt keine starren Phasen. Gebaut wird Schritt für Schritt, jeder Schritt li
 | 3 Formelregister und Kennzahlen | `metrics.yaml`, `core/registry.py`, Trends 3.4, Scores 3.5 | Jede Kennzahl mit Handrechnung aus einem echten 10-K getestet |
 | 4 Marktdaten und Bewertung | Kurse, Wechselkurse, Zinsen, Reverse-DCF, Multiples, Sensitivität | Lehrbuchbeispiel exakt reproduziert, Property-Tests (höherer WACC ergibt niedrigeren Wert), negativer FCF korrekt als N behandelt |
 | 5 Note und erste Übersicht | Branchencodes (7.8), Scorecard Standard, Note, Konfidenz, Risiko für alle US-Titel des Universums, Rangliste als Tabelle und einfaches Dashboard, Start der Notenkontrolle (14.2) | Erstes nutzbares Ergebnis: Übersicht aller US-Titel mit Note oder Status N mit Grund |
-| 6 Tiefenanalyse Ende zu Ende | A1, A3, A4, A5, A7, A9 mit Runner, Gates, J1, J2 | Finanzieller Überblick mit allen 14 Abschnitten für ein US-Unternehmen, alle Ausgaben schemakonform |
+| 6 Tiefenanalyse Ende zu Ende | Zustandsautomat (15.1), Skill `/analyze-stock`, A1, A3, A4, A5, A7, A9 mit Modellzuordnung aus 8.7, Gates, J1, J2 (Sonnet) | Finanzieller Überblick mit allen 14 Abschnitten für ein US-Unternehmen über das Claude-Abo, alle Ausgaben schemakonform, jeder Agent lief mit dem Modell aus `config/models.yaml`, Schritt außerhalb der Reihenfolge wird abgelehnt |
 | 7 EU-Daten, Rechnungslegung, Währung | ESEF, Concept-Mapping, PDF-Rückfall, ACC-01 bis ACC-14, Regeln aus 5.2 | 10 DAX-Werte vollständig, je Regel ein Test mit echtem Bericht, GBX- und ADR-Fall getestet |
 | 8 Weitere Scorecards | Banken, Versicherer, Immobilien, Versorger, Zykliker, Holdings, Wachstum ohne Gewinn | je Scorecard 3 Unternehmen mit Handprüfung |
 | 9 Insider | Form 4, BaFin, Klassifikation | Routinemäßig und opportunistisch für Testpersonen nachvollziehbar korrekt |
-| 10 Prüfer vollständig | J3 Jury, J4 Endkontrolle, F1, Goldstandard mit 5 Unternehmen (später erweitern) | Mindestwerte aus 11.6 erreicht |
+| 10 Prüfer vollständig | J3 Jury, J4 Endkontrolle, F1, Goldstandard mit 5 Unternehmen (später erweitern), Gemini-Anbindung nach 8.8 testen | Mindestwerte aus 11.6 erreicht, Ergebnis des Gemini-Tests in ADR dokumentiert |
 | 11 Start und Dashboard | Skill `/stockagent`, CLI-Dialog, Laufplan, alle Ansichten aus 13.3 | Alle Startwege aus 9.6 funktionieren, Antworten in `request.json` |
-| 12 Zeitplan (optional) | GitHub Actions oder lokaler Zeitplan, Benachrichtigung, Eskalations-Issues | Drei Läufe hintereinander ohne manuellen Eingriff |
+| 12 Zeitplan (optional) | lokaler Zeitplan in der Claude-Desktop-App, Benachrichtigung, Eskalations-Issues. API-Betrieb nur nach Entscheidung 19 | Drei Läufe hintereinander ohne manuellen Eingriff |
 
 ### 16.11 GitHub-Repository
 
@@ -225,7 +226,7 @@ Das private Repository `LucaNiklas/Stock-Agent` existiert und enthält die Grund
 cd ~/Projekte/stockagent
 git checkout -b schritt-00-geruest
 uv init --package --python 3.12 --name stockagent
-uv add pydantic duckdb polars typer questionary jinja2 plotly edgartools xbrl-filings-api claude-agent-sdk
+uv add pydantic duckdb polars typer questionary jinja2 plotly edgartools xbrl-filings-api
 uv add --dev pytest hypothesis ruff mypy pre-commit
 uv run pre-commit install
 gh label create escalation --color B60205 --description "Wartet auf Lucas Entscheidung"
@@ -233,11 +234,10 @@ gh label create methodology --color 5319E7 --description "Änderung an Formeln o
 for n in $(seq -w 0 12); do gh label create "schritt-$n" --color 0E8A16; done
 ```
 
-Danach setzt Luca die Geheimnisse selbst, damit sie nie im Chatverlauf stehen. Nötig erst ab Schritt 2 (SEC) und Schritt 6 (Modelle).
+Ein API-Schlüssel für Claude ist nicht nötig, die Agenten laufen über das Abo. Für die SEC trägt Luca ab Schritt 2 lokal in `.env` ein (nie im Chat):
 
 ```bash
-gh secret set ANTHROPIC_API_KEY
-gh secret set SEC_USER_AGENT        # "Vorname Nachname email@beispiel.de"
+SEC_USER_AGENT="Vorname Nachname email@beispiel.de"
 ```
 
 **Regeln für das Repository**

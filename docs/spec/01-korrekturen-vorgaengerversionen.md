@@ -55,3 +55,12 @@ Weiterhin korrekt und übernommen wurden die Kennzahlenkategorien, Nissim und Pe
 | Datenanbieter | Pflicht für Abgleich | optional, Default nur kostenlose Quellen |
 | Branchencodes | Quelle offen | Reihenfolge in 7.8 |
 | Fachlich | | negativer FCF im Reverse-DCF, Einordnung Mohanram, Teilfreistellung und Vorabpauschale in Anhang A |
+
+### 1.3 Änderungen in Version 4.1
+
+| Thema | Version 4.0 | Version 4.1 |
+|---|---|---|
+| Ausführung | Python-Orchestrator mit Agent SDK und API-Schlüssel | Subagents in Claude Code über Lucas Abo, Ablauf vom Python-Zustandsautomaten vorgegeben (15.1) |
+| Modelle | Klassen ohne Zuordnung | Haiku für Suche und Sammeln, Sonnet für Texte und Prüfungen, Opus nur für Fundamentalanalyse, Bewertung, Gegenposition und Forensik (8.7) |
+| Zweite Modellfamilie | API eines anderen Anbieters | Gemini optional über Lucas Google-Konto, Test in Schritt 10 (8.8) |
+| HR-18 | Kostenlimit in EUR | Verbrauchsgrenzen je Lauf, Kosten in EUR nur im optionalen API-Betrieb |

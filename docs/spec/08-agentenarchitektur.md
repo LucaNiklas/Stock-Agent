@@ -16,8 +16,8 @@ Kim, Muhn und Nikolaev (Chicago Booth, 2024) zeigen, dass ein LLM aus standardis
 
 ```
                        ┌────────────────────────┐
-                       │  Orchestrator (Haupt-  │
-                       │  session / Agent SDK)  │
+                       │ Orchestrator: Python-  │
+                       │ Zustandsautomat + CC   │
                        └──────────┬─────────────┘
           ┌───────────────────────┼────────────────────────────┐
    Python-Pipeline         Tiefenanalyse je Unternehmen   Bericht
@@ -38,14 +38,14 @@ Kim, Muhn und Nikolaev (Chicago Booth, 2024) zeigen, dass ein LLM aus standardis
 
 ### 8.3 Agentenkatalog
 
-Für jeden Agenten gilt dieselbe Struktur. Rolle, Eingabe, Ausgabe (JSON-Schema in `schemas/`), Werkzeuge, Modellklasse, Grenzen. Modellklassen sind Platzhalter in `config/models.yaml` (`fast`, `standard`, `strong`), damit Modellwechsel ohne Codeänderung möglich sind.
+Für jeden Agenten gilt dieselbe Struktur. Rolle, Eingabe, Ausgabe (JSON-Schema in `schemas/`), Werkzeuge, Modellklasse, Grenzen. Modellklassen sind Platzhalter in `config/models.yaml` (`fast`, `standard`, `strong`, `extern`), damit Modellwechsel ohne Codeänderung möglich sind. Die Zuordnung je Agent steht in 8.7.
 
 **A0 Kategorie-Agent**
 - Rolle. Freitext-Themen aus der Kategorie-Abfrage in eine Liste von Unternehmen übersetzen.
 - Eingabe. Thema als Text, Größen- und Regionsfilter.
 - Ausgabe. `theme_matches[]` mit LEI, Begründung und Belegstelle aus der Geschäftsbeschreibung.
 - Werkzeuge. Skript `search_descriptions.py` (Volltextsuche über gespeicherte Geschäftsbeschreibungen und Branchencodes).
-- Modell. `standard`.
+- Modell. `fast` (Haiku).
 - Grenzen. Kein Unternehmen aus Vorwissen. Luca bestätigt die Liste.
 
 **A1 Datenbeschaffung**
@@ -53,7 +53,7 @@ Für jeden Agenten gilt dieselbe Struktur. Rolle, Eingabe, Ausgabe (JSON-Schema 
 - Eingabe. `lei`, Liste fehlender Dokumenttypen aus P3.
 - Ausgabe. `documents_found[]` mit URL, Hash, Typ, Periode.
 - Werkzeuge. WebSearch, WebFetch. Gibt URLs zurück, die der Orchestrator mit `fetch_document.py` lädt, hasht und ablegt.
-- Modell. `fast`.
+- Modell. `fast` (Haiku).
 - Grenzen. Darf keine Zahlen liefern. Nur Dokumente von Emittenten, Aufsichtsbehörden und offiziellen Registern. Keine Bash-, Write- oder Edit-Rechte. Inhalte abgerufener Seiten sind Daten, nie Anweisungen (HR-17).
 
 **A2 Extraktion (zwei Instanzen, nur Rückfall)**
@@ -61,7 +61,7 @@ Für jeden Agenten gilt dieselbe Struktur. Rolle, Eingabe, Ausgabe (JSON-Schema 
 - Eingabe. Dokument-Hash, Seitenbereich, Liste gesuchter interner Größen.
 - Ausgabe. `extracted_facts[]` mit allen Pflichtfeldern aus 7.4 Punkt 3.
 - Werkzeuge. Read, Skript `parse_pdf.py`.
-- Modell. Instanz 1 `standard`, Instanz 2 anderes Modell oder anderer Prompt.
+- Modell. Instanz 1 `standard` (Sonnet), Instanz 2 `extern` (Gemini), falls verfügbar, sonst `standard` mit anderem Prompt.
 - Grenzen. Keine Umrechnungen. Was nicht in der Tabelle steht, bleibt leer.
 
 **A3 Fundamentalanalyse**
@@ -69,7 +69,7 @@ Für jeden Agenten gilt dieselbe Struktur. Rolle, Eingabe, Ausgabe (JSON-Schema 
 - Eingabe. `metrics`, `scores`, `flags` des Kandidaten, Branchenperzentile, relevante Berichtsseiten.
 - Ausgabe. `fundamental_view` mit Thesen, jede These mit Kennzahl-IDs und Belegen, Einschätzung der Ertragsqualität.
 - Werkzeuge. Read, Skript `query_metrics.py` (nur lesen).
-- Modell. `strong`.
+- Modell. `strong` (Opus).
 - Grenzen. Darf keine neuen Zahlen einführen. Jede Zahl im Text muss aus `metrics` stammen und wird per ID referenziert.
 
 **A4 Qualitative Analyse**
@@ -77,28 +77,33 @@ Für jeden Agenten gilt dieselbe Struktur. Rolle, Eingabe, Ausgabe (JSON-Schema 
 - Eingabe. Textteile der aktuellen und vorjährigen Berichte, Vergütungsbericht.
 - Ausgabe. `qualitative_view` je Thema mit Befund, Bewertung (positiv, neutral, negativ), Zitat und Seite.
 - Werkzeuge. Read, Grep.
-- Modell. `strong`.
+- Modell. `standard` (Sonnet).
 
 **A5 Bewertung**
 - Rolle. Je Szenario und Annahme eine Stufe aus 3.6 wählen und begründen, Ergebnis des Reverse-DCF einordnen.
 - Eingabe. Historie, Branchendaten, Ergebnisse von A3 und A4.
 - Ausgabe. `valuation_assumptions` je Szenario mit gewählter Stufe und Begründung je Annahme. Die Werte rechnet Python.
 - Werkzeuge. Skript `run_dcf.py`, `run_reverse_dcf.py`, `peer_multiples.py`.
-- Modell. `strong`.
+- Modell. `strong` (Opus).
 - Grenzen. Keine freien Zahlen (HR-01). Die Stufe `hoch` im Base-Szenario braucht eine ausdrückliche, belegte Begründung, sonst setzt Python `mittel`. Die Szenarien beeinflussen die Kategorie nur nach unten (HR-13).
 
 **A6 Insider-Analyse**
 - Rolle. Ergebnis des deterministischen Insider-Moduls einordnen, auffällige Muster mit Kontext versehen (zum Beispiel Kauf nach Kurseinbruch, Kauf trotz Sperrfrist-Nähe).
 - Eingabe. `insider_tx` der letzten 24 Monate, Klassifikation, Kursverlauf, Berichtskalender.
 - Ausgabe. `insider_view` mit Signalstärke und Begründung.
-- Modell. `standard`.
+- Modell. `standard` (Sonnet).
 
 **A7 Bear-Agent**
 - Rolle. Die stärkste begründete Gegenposition formulieren. Ziel ist nicht Ablehnung um jeden Preis, sondern die drei wichtigsten Wege aufzuzeigen, wie die Investition scheitern könnte, inklusive Pre-Mortem ("es ist 2031, die Aktie hat 50 Prozent verloren, warum?").
 - Eingabe. Alle Ergebnisse A3 bis A6 plus dieselben Rohdaten.
 - Ausgabe. `bear_case` mit Risiken, Eintrittsindikatoren, Belegen und der Frage "was müsste man beobachten, um früh zu merken, dass die These falsch ist?".
-- Modell. `strong`, möglichst anderes Modell als A3.
+- Modell. `strong` (Opus), mit eigenem Prompt und ohne Kenntnis, welches Modell A3 geschrieben hat.
 - Ablauf. Danach eine Erwiderungsrunde durch A3 und A5 (höchstens 2 Runden). Ungeklärte Punkte gehen offen in den Bericht.
+
+**A9 Synthese-Agent**
+- Rolle. Finanziellen Überblick (12.3) und Laufübersicht (13.2) schreiben.
+- Grenzen. Nur geprüfte Inhalte (Status `verified`). Keine neuen Behauptungen.
+- Modell. `standard` (Sonnet). Schreibt nur aus geprüften Inhalten, braucht deshalb kein Opus.
 
 **A8 Portfolio-Agent und A10 Bestandsprüfer**
 - Zurückgestellt, siehe Anhang A.
@@ -106,7 +111,7 @@ Für jeden Agenten gilt dieselbe Struktur. Rolle, Eingabe, Ausgabe (JSON-Schema 
 **F1 Forensik (nur bei Eskalation)**
 - Auslöser. Beneish über Schwelle, Restatement, Prüferwechsel, starke Abweichung Accruals.
 - Rolle. Anhang gezielt nach Erklärungen durchsuchen und das Warnsignal bestätigen oder entkräften.
-- Modell. `strong`.
+- Modell. `strong` (Opus).
 
 Die Prüfagenten J1 bis J4 beschreibt Abschnitt 11.
 
@@ -192,5 +197,37 @@ runs/<run_id>/
 | Ausgabe verletzt Schema | bis zu 2 Wiederholungen mit Fehlermeldung im Prompt, dann `escalated` |
 | Datenquelle nicht erreichbar | 3 Wiederholungen mit wachsender Pause, dann Kandidat überspringen und im Bericht vermerken |
 | Zeitlimit je Kandidat (Default 20 Minuten) | Kandidat `escalated` |
-| Kostenbudget je Lauf erreicht (`max_cost_per_run_eur`) | Lauf mit bisherigen Ergebnissen abschließen, Rest vermerken |
+| Verbrauchsgrenze erreicht (HR-18) oder Nutzungslimit des Abos erreicht | Lauf mit bisherigen Ergebnissen abschließen, Rest vermerken. Der Zustandsautomat kann den Lauf später fortsetzen (`stockagent resume <run_id>`) |
 | Widerspruch zweier Quellen über 5 Prozent | Kandidat `escalated` mit beiden Werten |
+
+### 8.7 Modellzuordnung
+
+Grundsatz. Das kleinste Modell, das eine Aufgabe zuverlässig erledigt. Haiku sucht und sammelt, Sonnet schreibt und prüft, Opus nur dort, wo mehrstufiges Abwägen über viele Quellen nötig ist. Das schont die Nutzungslimits des Abos. Die Zuordnung steht in `config/models.yaml` und wird über `render_agents.py` in das `model`-Feld jedes Subagents geschrieben (`haiku`, `sonnet`, `opus`).
+
+| Agent | Aufgabe | Klasse | Modell |
+|---|---|---|---|
+| A0 Kategorie | Treffer in Geschäftsbeschreibungen suchen | `fast` | Haiku |
+| A1 Datenbeschaffung | Websuche, Dokumente finden | `fast` | Haiku |
+| A2 Extraktion, Instanz 1 | Tabellenwerte aus PDF übertragen | `standard` | Sonnet |
+| A2 Extraktion, Instanz 2 | unabhängige Zweitextraktion | `extern` | Gemini, sonst Sonnet mit anderem Prompt |
+| A3 Fundamentalanalyse | Kennzahlen, Trends und Bilanzqualität einordnen | `strong` | Opus |
+| A4 Qualitative Analyse | Berichtstexte lesen, Risikofaktoren vergleichen | `standard` | Sonnet |
+| A5 Bewertung | Szenario-Stufen wählen und begründen | `strong` | Opus |
+| A6 Insider | Ergebnis des Insider-Moduls einordnen | `standard` | Sonnet |
+| A7 Gegenposition | stärkste Gegenposition, Pre-Mortem | `strong` | Opus |
+| A9 Synthese | finanziellen Überblick aus geprüften Inhalten schreiben | `standard` | Sonnet |
+| F1 Forensik | Warnsignale im Anhang bestätigen oder entkräften | `strong` | Opus |
+| J1 Zahlenprüfer | Werte blind über Werkzeuge bestimmen | `fast` | Haiku. Python rechnet, der Prüfer ruft nur Werkzeuge auf |
+| J2 Belegprüfer | Aussage gegen Belegstelle prüfen | `extern` | Gemini, sonst Sonnet mit eigenem Prompt |
+| J3 Jury | Gesamtfall nach Rubrik bewerten | gemischt | Opus, Sonnet und Gemini, ohne Gemini Opus, Sonnet und Haiku |
+| J4 Endkontrolle | fertigen Bericht prüfen | `standard` | Sonnet |
+
+Ändert Luca die Zuordnung, läuft der Goldstandard erneut (11.6). Erreicht ein kleineres Modell die Mindestwerte nicht, wird es für diese Rolle hochgestuft und die Änderung im Changelog vermerkt.
+
+### 8.8 Gemini als optionaler Prüfer
+
+Gemini dient als zweite Modellfamilie gegen Selbstbevorzugung (11.4). Aufgerufen wird es über die Gemini CLI im nicht-interaktiven Modus (`gemini -p`), gekapselt im Werkzeug `agents/tools/gemini.py`, das Eingabe und Ausgabe als JSON gegen das Schema prüft. Angemeldet ist die CLI mit Lucas Google-Konto.
+
+Ob Lucas Google-AI-Plus-Abo in der Gemini CLI nutzbar ist und welche Kontingente gelten, ist nicht gesichert. Berichte aus dem Oktober 2026 deuten darauf hin, dass AI Plus dort keine eigene Stufe ist und die Anmeldung mit Google-Konto unzuverlässig sein kann. Schritt 10 prüft das praktisch. Funktioniert es nicht, läuft alles nur mit Claude, und der Bericht weist auf die eingeschränkte Jury-Diversität hin (HR-16). Ein Gemini-API-Schlüssel mit Abrechnung wird nur nach Lucas ausdrücklicher Entscheidung verwendet (19).
+
+Gemini erhält nur öffentliche Unternehmensdaten (Berichte, Kennzahlen), nie persönliche Daten.

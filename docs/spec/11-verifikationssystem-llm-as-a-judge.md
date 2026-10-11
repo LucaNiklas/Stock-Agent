@@ -27,10 +27,10 @@ Die Forschung zur Richterzuverlässigkeit stammt aus den USA (Berkeley, Cohere),
 **Ebene 2, J2 Belegprüfer (Groundedness).**
 - Ablauf. Jede qualitative Behauptung wird gegen die zitierte Stelle geprüft. J2 liest die Seite selbst und beantwortet je Claim "Wird die Aussage von der Stelle gedeckt?" mit `supported`, `partially`, `not_supported`, `contradicted`.
 - Behauptungen ohne Beleg werden gestrichen, nicht nachträglich belegt.
-- Unterschiedliche Modellfamilie als A3 und A4.
+- Modell nach 8.7. Bevorzugt Gemini als andere Modellfamilie als A3 und A4, sonst Sonnet mit eigenem Prompt und verborgener Herkunft der Texte.
 
 **Ebene 3, J3 Jury.**
-- Drei Richter, möglichst aus drei Modellfamilien (zum Beispiel Claude, ein Modell von OpenAI oder Google über deren API, ein offenes Modell wie Qwen oder Llama über einen Anbieter). Ist nur Claude verfügbar, werden drei Claude-Richter mit unterschiedlichen Modellgrößen und Rubrik-Perspektiven eingesetzt und der Bericht weist darauf hin, dass die Diversität eingeschränkt ist.
+- Drei Richter: Opus, Sonnet und Gemini (8.7, 8.8). Ist Gemini nicht verfügbar, ersetzt Haiku den dritten Platz mit eigener Rubrik-Perspektive, und der Bericht weist darauf hin, dass die Diversität eingeschränkt ist.
 - Jeder Richter bewertet unabhängig nach derselben Rubrik (11.3), mit vertauschter Reihenfolge von Bull- und Bear-Fall in der Hälfte der Aufrufe.
 - Aggregation. Median je Kriterium. Übereinstimmung gemessen als Spannweite. Liegt bei einem Kriterium die Spannweite über 2 Punkten (Skala 1 bis 5), gilt die Jury als uneinig.
 - Entscheidungsregel. `verified`, wenn kein Kriterium unter 3 liegt, der Median "Gesamtbegründung" mindestens 4 ist und die Jury einig ist. Sonst `escalated`.

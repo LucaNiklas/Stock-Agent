@@ -1,1 +1,31 @@
-# models – siehe docs/SPEC.md
+# Modellzuordnung, siehe docs/spec/08-agentenarchitektur.md Abschnitt 8.7.
+# Werte für Claude sind die Aliase, die Claude Code im Subagent-Feld `model` versteht.
+# Änderung erfordert einen Goldstandard-Lauf (11.6) und einen Changelog-Eintrag.
+
+klassen:
+  fast: haiku        # Websuche, Dokumente finden, Zusammensuchen
+  standard: sonnet   # Texte, Extraktion, Prüfungen
+  strong: opus       # nur die anspruchsvollsten Schritte
+  extern: gemini     # optional über Gemini CLI (8.8), sonst Rückfall
+
+extern:
+  aktiv: false       # wird in Schritt 10 nach erfolgreichem Test eingeschaltet
+  rueckfall: standard
+
+agenten:
+  A0_kategorie: fast
+  A1_datenbeschaffung: fast
+  A2_extraktion_1: standard
+  A2_extraktion_2: extern
+  A3_fundamental: strong
+  A4_qualitativ: standard
+  A5_bewertung: strong
+  A6_insider: standard
+  A7_gegenposition: strong
+  A9_synthese: standard
+  F1_forensik: strong
+  J1_zahlen: fast
+  J2_belege: extern
+  J3_jury: [strong, standard, extern]
+  J3_jury_rueckfall_extern: fast
+  J4_endkontrolle: standard

@@ -1,4 +1,4 @@
-# Stock-Agent: Spezifikation (Version 4.0, Stand 09.10.2026)
+# Stock-Agent: Spezifikation (Version 4.1, Stand 11.10.2026)
 
 Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar sind. Nur Anzeigen und Bewerten, keine Orders, keine Depot- oder Budgetplanung.
 

@@ -3,9 +3,9 @@
 | Nr. | Frage | Default im Code | Nötig ab |
 |---|---|---|---|
 | 1 | Kommerzieller Datenanbieter für Kurse, zweite Quelle und Märkte ohne XBRL? | keiner, nur kostenlose Quellen. Titel ohne strukturierte Daten erhalten Status N | Schritt 4 (Kurse) |
-| 2 | Monatliches Budget für Modellkosten | 20 EUR, `max_cost_per_run_eur` 10 | Schritt 6 |
-| 3 | Welche Modellanbieter stehen für die Jury zur Verfügung? | nur Claude mit Hinweis im Bericht | Schritt 10 |
-| 4 | Ausführungsort für spätere Zeitpläne (lokal, Routine, GitHub Actions) | lokal, Zeitplan aus | Schritt 12 |
+| 2 | Höchstzahl Tiefenanalysen je Lauf (Abo-Limits schonen) | 3 | Schritt 6 |
+| 3 | Gemini über Lucas Google-Konto als externer Prüfer (8.8)? Falls die Anmeldung mit AI Plus nicht funktioniert: Gemini-API-Schlüssel mit Abrechnung oder nur Claude? | Gemini über Google-Konto versuchen, sonst nur Claude | Schritt 10 |
+| 4 | Zeitplan und API-Betrieb (kostet pro Token) für Läufe ohne Luca? | nein, Start von Hand über das Abo | Schritt 12 |
 | 5 | Eskalationen auch als GitHub-Issues? | ja | Schritt 10 |
 | 6 | Markierungen nach eigenen Werten (Branchen, Länder), ohne Einfluss auf die Note | keine | jederzeit |
 | 7 | Sollen die zurückgestellten Module aus Anhang A später gebaut werden? | nein | jederzeit |

@@ -135,11 +135,6 @@ Jedes Ergebnis enthält Begründung mit Belegen, die Steuerrechnung und die Frag
 - Ausgabe. `portfolio_proposal` mit Gewicht, Betrag in EUR, Sparplan-Variante, Begründung, Effekt auf Länder, Branchen, Währung und Top-10-Risiken.
 - Modell. `standard`.
 
-**A9 Synthese-Agent**
-- Rolle. Entscheidungsvorlage schreiben (Abschnitt 13.2).
-- Grenzen. Nur geprüfte Inhalte (Status `verified`). Keine neuen Behauptungen.
-- Modell. `strong`.
-
 **A10 Bestandsprüfer**
 - Rolle. Ergebnisse der Prüfregeln HOLD-01 bis HOLD-10 erklären, qualitative Thesenpunkte gegen neue Berichte prüfen, Thesenkarten für neue Käufe entwerfen.
 - Eingabe. Thesenkarte, aktuelle Analyse, Ergebnisse aus `core/holdings_review.py`, Steuerrechnung.
