@@ -64,3 +64,16 @@ Weiterhin korrekt und übernommen wurden die Kennzahlenkategorien, Nissim und Pe
 | Modelle | Klassen ohne Zuordnung | Haiku für Suche und Sammeln, Sonnet für Texte und Prüfungen, Opus nur für Fundamentalanalyse, Bewertung, Gegenposition und Forensik (8.7) |
 | Zweite Modellfamilie | API eines anderen Anbieters | Gemini optional über Lucas Google-Konto, Test in Schritt 10 (8.8) |
 | HR-18 | Kostenlimit in EUR | Verbrauchsgrenzen je Lauf, Kosten in EUR nur im optionalen API-Betrieb |
+
+### 1.4 Änderungen in Bauschritt 1
+
+| Thema | vorher | jetzt |
+|---|---|---|
+| Quelle des Universums | Produktübersicht app.traderepublic.com/browse/stock | Instrumentenlisten der Deutschen Börse (Frankfurt, Xetra), weil die Trade-Republic-Seite hinter AWS-WAF-Bot-Schutz liegt (ADR 0001) |
+| Handelbarkeit bei Trade Republic | automatisch aus der Seite | von Luca in der App geprüft, `stockagent tr-check` |
+
+### 1.5 Neue Regel HR-19 (11.10.2026)
+
+| Thema | vorher | jetzt |
+|---|---|---|
+| Berechnungen | Formeln im Register, Ergebnis geprüft | jede Berechnung schrittweise über einen Rechenweg mit Prüfpunkten nach jedem Abschnitt, Abbruch bei verletztem Prüfpunkt (HR-19, 12.7). Gebaut in Bauschritt 3, genutzt ab Schritt 3 bis 5 und 7 |

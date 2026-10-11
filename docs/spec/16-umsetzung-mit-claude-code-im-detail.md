@@ -11,6 +11,7 @@ stockagent/
 ├── pyproject.toml  uv.lock  .pre-commit-config.yaml  .env.example  .gitignore
 ├── docs/
 │   ├── SPEC.md                    Inhaltsverzeichnis der Spezifikation
+│   ├── STATUS.md                  Projektstand und Übergabe zwischen Sitzungen
 │   ├── spec/                      eine Datei je Hauptabschnitt (00-arbeitsanweisung.md, 01-..., anhang-a-...)
 │   ├── METHODOLOGY_CHANGELOG.md
 │   └── adr/                       Architekturentscheidungen (0001-universum-quelle.md, ...)
@@ -32,7 +33,7 @@ stockagent/
 │   ├── accounting_adjustments.yaml  hyperinflation.yaml  withholding_tax.yaml
 │   ├── models.yaml  concept_map.yaml  insider_thresholds.yaml  run_profiles.yaml
 │   └── sources.yaml
-├── state/                         letzte Anfrage, Beobachtungsliste
+├── state/                         letzte Anfrage, Beobachtungsliste, tr_checks.yaml
 ├── src/stockagent/
 │   ├── cli.py
 │   ├── orchestrator.py
@@ -41,7 +42,9 @@ stockagent/
 │   │   ├── insider.py  decisions.py  pit.py
 │   ├── gates/ (schema.py, number.py, evidence.py, quote.py, wording.py, consistency.py)
 │   ├── data/
-│   │   ├── sources/ (universe_tr.py, sec.py, esef.py, gleif.py, sectors.py, prices.py, bafin.py, fx.py, rates.py)
+│   │   ├── sources/ (deutsche_boerse.py, gleif.py, sec.py, esef.py, sectors.py, prices.py, bafin.py, fx.py, rates.py)
+│   │   ├── http.py                Abruf mit Wiederholungen
+│   │   ├── rawstore.py            unveränderliche Rohdaten
 │   │   ├── store.py               DuckDB-Zugriff, pit_query
 │   │   └── quality.py             Prüfungen aus 3.2
 │   ├── agents/
@@ -52,7 +55,9 @@ stockagent/
 │   │                              run_dcf, run_reverse_dcf, peer_multiples, gemini)
 │   ├── judges/ (numbers.py, grounding.py, jury.py, final_check.py)
 │   ├── schemas/                   Pydantic-Modelle
-│   ├── report/ (render.py, templates/analysis.md.j2, templates/analysis.html.j2)
+│   ├── universe.py                Universum aktualisieren (7.1)
+│   ├── tr_checks.py               Lucas Trade-Republic-Prüfungen
+│   ├── report/ (render.py, universe_view.py, templates/)
 │   └── dashboard/ (build.py, template.html)
 ├── schemas/json/                  aus den Pydantic-Modellen exportierte JSON-Schemas
 ├── eval/
@@ -77,10 +82,12 @@ stockagent/
 
 Recherche- und Bewertungssystem für Einzelaktien, die bei Trade Republic handelbar sind. Nur Anzeigen und Bewerten, keine Orders, keine Depot- oder Budgetplanung.
 Spezifikation in docs/spec/ (Inhaltsverzeichnis docs/SPEC.md). Bei Widersprüchen gilt die Spezifikation.
+Aktueller Projektstand, offene Punkte und nächster Schritt: docs/STATUS.md. Zu Beginn jeder Sitzung lesen.
 
 ## Unverhandelbare Regeln
-Die harten Regeln HR-01 bis HR-18 stehen in docs/spec/00-arbeitsanweisung.md Abschnitt 0.1. Lies sie zu Beginn jeder Sitzung.
+Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abschnitt 0.1. Lies sie zu Beginn jeder Sitzung.
 - Sprachmodelle liefern nie Finanzwerte. Arithmetik nur in src/stockagent/core/, Kennzahlen nur über core/registry.py.
+- Jede Berechnung schrittweise über den Rechenweg (core/calc.py) mit Prüfpunkt nach jedem Abschnitt. Verletzter Prüfpunkt stoppt die Rechnung (HR-19).
 - Jeder Wert braucht Quelle (doc_hash+page oder XBRL-Konzept+Periode), Währung, Einheit, Standard, Periode.
 - Point-in-Time über store.pit_query(as_of=...).
 - Keine Order-Funktionen, kein Zugriff auf Depots oder Broker-Konten, keine Beträge oder Positionsgrößen.
@@ -93,6 +100,8 @@ Die harten Regeln HR-01 bis HR-18 stehen in docs/spec/00-arbeitsanweisung.md Abs
 ## Befehle
 - uv run pytest            Tests
 - uv run ruff check . && uv run mypy src
+- uv run stockagent universe update | show | html
+- uv run stockagent tr-check <ISIN> ja|nein
 - uv run stockagent run [--profile scheduled --yes]
 - uv run stockagent screen
 - uv run stockagent analyze <ISIN>
@@ -100,7 +109,8 @@ Die harten Regeln HR-01 bis HR-18 stehen in docs/spec/00-arbeitsanweisung.md Abs
 - uv run python eval/run_eval.py   Goldstandard
 
 ## Konventionen
-- Neue Kennzahl: Eintrag in config/metrics.yaml, Funktion in core/registry.py, Test mit Handrechnung aus echtem Bericht.
+- Neue Kennzahl: Eintrag in config/metrics.yaml (mit Prüfpunkten), Funktion in core/registry.py über den Rechenweg aus core/calc.py, Test mit schrittweiser Handrechnung aus echtem Bericht.
+- Jede Berechnung schrittweise mit Prüfpunkten nach jedem Abschnitt (HR-19, docs/spec/12-*.md Abschnitt 12.7). Verletzter Prüfpunkt: Rechnung stoppen, nie mit fehlerhaftem Zwischenergebnis weiterrechnen.
 - Jede Methodikänderung: Eintrag in docs/METHODOLOGY_CHANGELOG.md, methodology_version erhöhen.
 - Prompts versioniert in src/stockagent/agents/prompts/, Änderung erfordert eval-Lauf.
 ```
@@ -201,11 +211,11 @@ Es gibt keine starren Phasen. Gebaut wird Schritt für Schritt, jeder Schritt li
 | Schritt | Inhalt | Abnahme |
 |---|---|---|
 | 0 Gerüst | uv, CI, CLAUDE.md, Hooks, Pydantic-Grundtypen (`Money`, `Fact`, `FreeText`, Claim-Umschlag), Gates aus 12.6 mit Grundprüfungen, CLI-Gerüst | CI grün, Zahlen-Gate lehnt Freitext mit Ziffern ab und ignoriert das Zitatfeld, Zitat-Gate erkennt veränderte Zitate, Beleg-Gate entfernt Claims ohne Beleg |
-| 1 Universum Trade Republic | Abrufweg der Produktübersicht klären (ADR 0001), Liste laden, ISIN und LEI, `tr_status` nach 7.1 | Anzahl geladener Aktien stimmt mit der Ergebnisanzahl der Seite überein (Abweichung begründet), Quelle und Abrufdatum je Titel, Stichprobe von 20 Titeln von Luca in der App geprüft |
+| 1 Universum | Quelle klären (ADR 0001), Deutsche-Börse-Listen laden, Rohdaten ablegen, ISIN prüfen, LEI ergänzen, Hauptsitz und Rechtssitz aus der GLEIF mit Plausibilitätsprüfung, Hinterlegungsscheine erkennen, Aufräumregel GLEIF, Lucas Trade-Republic-Prüfungen, Anzeige im Terminal und als HTML | Anzahl geladener Aktien gleich Anzahl `CS`-Zeilen der Quelle, Quelle und Abrufdatum je Lauf, alle ISIN mit gültiger Prüfziffer, Schutz gegen große Abweichungen getestet, Suche in der HTML-Übersicht funktioniert |
 | 2 Abschlussdaten USA | SEC-Anbindung, DuckDB, Point-in-Time, Datenqualität 3.2 | 10 US-Firmen aus dem Universum geladen, Bilanzgleichung erfüllt, Abgleich gegen einen zweiten Weg (Company Facts gegen Originalbericht) bei Kernwerten |
-| 3 Formelregister und Kennzahlen | `metrics.yaml`, `core/registry.py`, Trends 3.4, Scores 3.5 | Jede Kennzahl mit Handrechnung aus einem echten 10-K getestet |
-| 4 Marktdaten und Bewertung | Kurse, Wechselkurse, Zinsen, Reverse-DCF, Multiples, Sensitivität | Lehrbuchbeispiel exakt reproduziert, Property-Tests (höherer WACC ergibt niedrigeren Wert), negativer FCF korrekt als N behandelt |
-| 5 Note und erste Übersicht | Branchencodes (7.8), Scorecard Standard, Note, Konfidenz, Risiko für alle US-Titel des Universums, Rangliste als Tabelle und einfaches Dashboard, Start der Notenkontrolle (14.2) | Erstes nutzbares Ergebnis: Übersicht aller US-Titel mit Note oder Status N mit Grund |
+| 3 Formelregister und Kennzahlen | Rechenweg mit Prüfpunkten `core/calc.py` (12.7, HR-19) als Erstes, dann `metrics.yaml`, `core/registry.py`, Trends 3.4, Scores 3.5 | Jede Kennzahl mit Handrechnung aus einem echten 10-K getestet, Zwischenergebnisse je Schritt geprüft. Jede Kennzahl hat Prüfpunkte, ein verletzter Prüfpunkt stoppt die Rechnung mit `unknown` und INC-15, der Rechenweg wird gespeichert |
+| 4 Marktdaten und Bewertung | Kurse, Wechselkurse, Zinsen, Reverse-DCF, Multiples, Sensitivität, alles über den Rechenweg (12.7) | Lehrbuchbeispiel exakt reproduziert, Property-Tests (höherer WACC ergibt niedrigeren Wert), negativer FCF korrekt als N behandelt, Rückrechnung CP-06 und Brücke CP-03 in jedem Bewertungslauf bestanden |
+| 5 Note und erste Übersicht | Branchencodes (7.8), Scorecard Standard, Note, Konfidenz, Risiko für alle US-Titel des Universums, Rangliste als Tabelle und einfaches Dashboard, Start der Notenkontrolle (14.2) | Erstes nutzbares Ergebnis: Übersicht aller US-Titel mit Note oder Status N mit Grund. Notenberechnung über den Rechenweg mit CP-07 |
 | 6 Tiefenanalyse Ende zu Ende | Zustandsautomat (15.1), Skill `/analyze-stock`, A1, A3, A4, A5, A7, A9 mit Modellzuordnung aus 8.7, Gates, J1, J2 (Sonnet) | Finanzieller Überblick mit allen 14 Abschnitten für ein US-Unternehmen über das Claude-Abo, alle Ausgaben schemakonform, jeder Agent lief mit dem Modell aus `config/models.yaml`, Schritt außerhalb der Reihenfolge wird abgelehnt |
 | 7 EU-Daten, Rechnungslegung, Währung | ESEF, Concept-Mapping, PDF-Rückfall, ACC-01 bis ACC-14, Regeln aus 5.2 | 10 DAX-Werte vollständig, je Regel ein Test mit echtem Bericht, GBX- und ADR-Fall getestet |
 | 8 Weitere Scorecards | Banken, Versicherer, Immobilien, Versorger, Zykliker, Holdings, Wachstum ohne Gewinn | je Scorecard 3 Unternehmen mit Handprüfung |

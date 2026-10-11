@@ -19,7 +19,7 @@ Die Forschung zur Richterzuverlässigkeit stammt aus den USA (Berkeley, Cohere),
 **Ebene 0, deterministische Prüfungen (Python).** Schemaprüfung, Datenqualität aus 3.2, Wertebereiche (Marge zwischen minus 100 und 100 Prozent), Einheitenkonsistenz. Diese Ebene ist die billigste und fängt den größten Teil der Fehler.
 
 **Ebene 1, J1 Zahlenprüfer (blind).**
-- Ablauf. J1 bekommt die Liste aller quantitativen Claims, aber ohne die vom Agenten genannten Werte. Er bestimmt jeden Wert selbst aus `facts` und Skripten. Erst danach vergleicht der Orchestrator.
+- Ablauf. J1 bekommt die Liste aller quantitativen Claims, aber ohne die vom Agenten genannten Werte. Er bestimmt jeden Wert selbst aus `facts` und Skripten und prüft dabei den Rechenweg Schritt für Schritt mit seinen Prüfpunkten (12.7). Erst danach vergleicht der Orchestrator.
 - Toleranz. Relative Abweichung bis 0,5 Prozent gilt als Übereinstimmung, bis 2 Prozent als Rundung (Warnung), darüber als Fehler.
 - Ergebnis je Claim. `match`, `rounding`, `mismatch`, `not_computable`.
 - Ein einziger `mismatch` bei einer Kernkennzahl setzt den Kandidaten auf `escalated`.

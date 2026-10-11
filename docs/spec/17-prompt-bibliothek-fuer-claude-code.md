@@ -15,7 +15,7 @@ Lies docs/spec/00-arbeitsanweisung.md vollständig und docs/SPEC.md als Inhaltsv
 
 Aufgabe: Schritt 0 aus Abschnitt 16.10.
 1. Fasse in höchstens 15 Stichpunkten zusammen, was du verstanden hast, besonders die harten
-   Regeln HR-01 bis HR-18 aus Abschnitt 0.1 und wie jede technisch durchgesetzt wird.
+   Regeln HR-01 bis HR-19 aus Abschnitt 0.1 und wie jede technisch durchgesetzt wird.
 2. Nenne Widersprüche oder Lücken in der Spezifikation, die dich am Bau hindern. Rate nicht.
 3. Richte nach Abschnitt 16.11 uv, CI und Labels ein, ergänze die Struktur aus 16.1, die Hooks
    aus 16.5, das Skript scripts/render_agents.py, die Pydantic-Grundtypen und die Gates aus 12.6
@@ -38,6 +38,8 @@ Aufgabe: Schritt <NN> <Name> aus Abschnitt 16.10.
   konkrete Testfälle. Warte auf meine Freigabe.
 - Schreibe die Tests vor der Implementierung. Jede Formel braucht einen Test mit einer
   Handrechnung aus einem echten Bericht, mit Quelle (Dokument und Seite) im Testkommentar.
+- Rechne jede Formel schrittweise über den Rechenweg (12.7). Nach jedem Abschnitt ein
+  Prüfpunkt, der das bisher Gerechnete kontrolliert. Verletzter Prüfpunkt stoppt die Rechnung.
 - Keine Arithmetik außerhalb von core/. Keine Zahl aus deinem Vorwissen. Wenn dir
   ein Wert, eine Taxonomie-Bezeichnung oder ein API-Feld unbekannt ist, schlage es in der
   Dokumentation nach oder frag mich.
@@ -49,11 +51,11 @@ Die Einträge für `<Abschnitte>` je Schritt.
 
 | Schritt | Abschnitte |
 |---|---|
-| 1 Universum Trade Republic | 7.1, 7.6, 18.2 |
+| 1 Universum | 7.1, 7.6, 18.2, ADR 0001 |
 | 2 Abschlussdaten USA | 3.2, 7.2, 7.5 bis 7.7 |
-| 3 Formelregister | 3.3 bis 3.5, 12.2, 18.1 |
-| 4 Marktdaten und Bewertung | 3.6, 5.2 Punkt 4, 6 und 7, 7.3 |
-| 5 Note und erste Übersicht | 3.1, 3.11 (nur Standard), 6, 7.8, 13.3, 14.2 |
+| 3 Formelregister | 3.3 bis 3.5, 12.2, 12.7, 18.1 |
+| 4 Marktdaten und Bewertung | 3.6, 5.2 Punkt 4, 6 und 7, 7.3, 12.7 |
+| 5 Note und erste Übersicht | 3.1, 3.11 (nur Standard), 6, 7.8, 12.7, 13.3, 14.2 |
 | 6 Tiefenanalyse | 8, 11.2 (Ebenen 0 bis 2), 12.3 bis 12.6, 16.4, 17.6 |
 | 7 EU-Daten, Rechnungslegung, Währung | 4, 5, 7.2, 7.4 |
 | 8 Weitere Scorecards | 3.11 |
@@ -120,7 +122,7 @@ und die Zahl der Gate-Vorfälle aus INC-14. Schlage nur Änderungen vor, setze k
 ```text
 Starte einen Subagenten ohne Kenntnis unserer bisherigen Unterhaltung. Er soll den Pull
 Request <Nummer> gegen docs/SPEC.md prüfen und nur berichten, nicht ändern:
-1. Verletzt der Code eine der Regeln HR-01 bis HR-18?
+1. Verletzt der Code eine der Regeln HR-01 bis HR-19?
 2. Sind alle Abnahmekriterien des Schritts durch Tests abgedeckt, die wirklich das Kriterium
    prüfen und nicht nur durchlaufen?
 3. Gibt es Arithmetik außerhalb von core/, Zahlen ohne Quelle oder Datenzugriffe ohne as_of?

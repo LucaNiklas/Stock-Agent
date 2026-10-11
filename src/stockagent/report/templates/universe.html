@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aktienuniversum</title>
+<style>
+:root{--bg:#fff;--fg:#1b1b1f;--muted:#6b6b76;--line:#e4e4ea;--accent:#2f5bd3;--ok:#1d7a46;--no:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#141417;--fg:#ececf1;--muted:#9a9aa6;--line:#2c2c33;--accent:#8aa8ff;--ok:#5fcf8d;--no:#ff8a80}}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,sans-serif}
+header{padding:20px 16px 8px;max-width:1200px;margin:auto}
+h1{font-size:20px;margin:0 0 4px}
+.meta{color:var(--muted);font-size:13px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;padding:8px 16px;max-width:1200px;margin:auto}
+input,select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+input[type=search]{flex:1;min-width:200px}
+.wrap{max-width:1200px;margin:auto;padding:0 16px 32px;overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--bg);font-weight:600;cursor:pointer}
+td.mono{font-family:ui-monospace,monospace;font-size:13px}
+.ok{color:var(--ok)}.no{color:var(--no)}.muted{color:var(--muted)}
+#count{color:var(--muted);padding:4px 16px;max-width:1200px;margin:auto}
+</style></head><body>
+<header><h1>Aktienuniversum</h1>
+<div class="meta">__META__</div></header>
+<div class="controls">
+<input type="search" id="q" placeholder="Name, ISIN, WKN suchen" aria-label="Suche">
+<select id="land" aria-label="Land"><option value="">Alle Länder</option></select>
+<select id="tr" aria-label="Trade Republic">
+<option value="">Trade Republic: alle</option>
+<option value="handelbar (geprüft)">nur geprüft handelbar</option>
+<option value="nicht geprüft">nur nicht geprüft</option></select>
+<label class="muted"><input type="checkbox" id="xetra"> nur mit Xetra-Handel</label>
+<label class="muted"><input type="checkbox" id="sicher"> nur Land laut GLEIF</label>
+<label class="muted"><input type="checkbox" id="nurAktien"> Hinterlegungsscheine ausblenden</label>
+</div>
+<div id="count"></div>
+<div class="wrap"><table><thead><tr>
+<th data-k="name">Name</th><th data-k="isin">ISIN</th><th data-k="wkn">WKN</th>
+<th data-k="art">Art</th><th data-k="land" title="Hauptsitz laut GLEIF, sonst Länderkürzel der ISIN">Hauptsitz</th><th data-k="rechtssitz" title="Rechtsordnung laut GLEIF (Gründungsland)">Rechtssitz</th><th data-k="land_quelle" title="widersprüchlich: ISIN-Land passt nicht zum Rechtssitz der LEI, Zuordnung vermutlich auf Vorgänger- oder Tochtergesellschaft">Quelle Land</th><th data-k="heimatboerse" title="Feld 'Primary Market MIC Code' der Deutschen Börse. Nicht zwingend die Heimatbörse.">Referenzmarkt</th>
+<th data-k="xetra">Xetra</th><th data-k="lei">LEI</th><th data-k="tr_status">Trade Republic</th>
+</tr></thead><tbody id="rows"></tbody></table></div>
+<script>
+const DATA = __DATA__;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+[...new Set(DATA.map(r => r.land))].filter(Boolean).sort().forEach(l => $("land").add(new Option(l, l)));
+let sortKey = "name", asc = true;
+function render(){
+  const q = $("q").value.trim().toLowerCase(), land = $("land").value, tr = $("tr").value, xe = $("xetra").checked;
+  let rows = DATA.filter(r => (!q || r.name.toLowerCase().includes(q) || r.isin.toLowerCase() === q || r.wkn.toLowerCase() === q)
+    && (!land || r.land === land) && (!tr || r.tr_status === tr) && (!xe || r.xetra) && (!$("sicher").checked || r.land_quelle === "GLEIF") && (!$("nurAktien").checked || r.art === "Aktie"));
+  rows.sort((a,b) => (a[sortKey] > b[sortKey] ? 1 : a[sortKey] < b[sortKey] ? -1 : 0) * (asc ? 1 : -1));
+  $("count").textContent = rows.length.toLocaleString("de-DE") + " von " + DATA.length.toLocaleString("de-DE") + " Aktien" + (rows.length > 500 ? ", die ersten 500 angezeigt" : "");
+  $("rows").innerHTML = rows.slice(0, 500).map(r => "<tr><td>" + esc(r.name) + "</td><td class=mono>" + esc(r.isin) +
+    "</td><td class=mono>" + esc(r.wkn) + "</td><td>" + esc(r.art) + "</td><td>" + esc(r.land) + "</td><td>" + esc(r.rechtssitz) + "</td><td class=" + (r.land_quelle === "GLEIF" ? "" : r.land_quelle === "widersprüchlich" ? "no" : "muted") + ">" + esc(r.land_quelle) + "</td><td class=mono>" + esc(r.heimatboerse) +
+    "</td><td>" + (r.xetra ? "ja" : "nein") + "</td><td class=mono>" + (r.lei ? esc(r.lei) : "<span class=muted>unbekannt</span>") +
+    "</td><td class=" + (r.tr_status.startsWith("handelbar") ? "ok" : r.tr_status.startsWith("nicht handelbar") ? "no" : "muted") + ">" + esc(r.tr_status) + "</td></tr>").join("");
+}
+document.querySelectorAll("th").forEach(th => th.onclick = () => { const k = th.dataset.k; asc = sortKey === k ? !asc : true; sortKey = k; render(); });
+["q","land","tr","xetra","sicher","nurAktien"].forEach(id => $(id).addEventListener("input", render));
+render();
+</script></body></html>

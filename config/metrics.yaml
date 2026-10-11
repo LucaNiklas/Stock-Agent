@@ -1,5 +1,6 @@
 # Formelregister, siehe docs/spec/12-analyseformat-und-reproduzierbarkeit.md Abschnitt 12.2.
 # Jede Kennzahl hier braucht genau eine Funktion in src/stockagent/core/registry.py (HR-06).
-# Die Kennzahlen kommen in Bauschritt 3 dazu.
+# Jede Kennzahl nennt ihre Prüfpunkte (pruefpunkte: [CP-01, ...]) und rechnet schrittweise über
+# den Rechenweg aus core/calc.py (HR-19, SPEC 12.7). Die Kennzahlen kommen in Bauschritt 3 dazu.
 
 metrics: []
