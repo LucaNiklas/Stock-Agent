@@ -89,7 +89,7 @@ def test_render_all(tmp_path: Path) -> None:
 
 def test_preamble_has_all_rules() -> None:
     text = (ROOT / "agents_src" / "_preamble.md").read_text(encoding="utf-8")
-    for n in range(1, 10):
+    for n in range(1, 11):
         assert f"\n{n}. " in "\n" + text, f"Regel {n} fehlt"
 
 
@@ -121,3 +121,23 @@ def test_protect_raw_hook(path: str, code: int) -> None:
 
 def test_stop_hook_does_not_loop() -> None:
     assert _hook("stop_tests.sh", {"stop_hook_active": True}).returncode == 0
+
+
+def test_cli_render_agents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "models.yaml").write_text(
+        (ROOT / "config" / "models.yaml").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tmp_path / "agents_src").mkdir()
+    (tmp_path / "agents_src" / "_preamble.md").write_text("Regeln", encoding="utf-8")
+    (tmp_path / "agents_src" / "j1.md").write_text(TEMPLATE, encoding="utf-8")
+    monkeypatch.setenv("STOCKAGENT_HOME", str(tmp_path))
+    res = CliRunner().invoke(app, ["render-agents"])
+    assert res.exit_code == 0 and "1 Agent-Dateien" in res.stdout
+    assert "model: haiku" in (tmp_path / ".claude" / "agents" / "j1.md").read_text()
+
+
+def test_cli_serve_without_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("STOCKAGENT_HOME", str(tmp_path))
+    res = CliRunner().invoke(app, ["universe", "serve", "--no-open"])
+    assert res.exit_code == 1 and "stockagent universe update" in res.stdout

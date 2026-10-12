@@ -1,1 +1,8 @@
-# concept_map – siehe docs/SPEC.md
+# Zuordnung XBRL-Konzept zu interner Größe (SPEC 7.2).
+# PLATZHALTER: wird in Bauschritt 2 gebaut (docs/BAUPLAN.md).
+#
+# Inhalt: Je interner Größe (`revenue`, `ebit`, `net_income`, `operating_cash_flow`, `capex`,
+#   `total_assets`, `equity`, `financial_debt`, `lease_liabilities`, `cash`, `shares_diluted` …)
+#   eine Vorrangliste von US-GAAP-Konzepten, etwa `revenue: [us-gaap:Revenues,
+#   us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax, us-gaap:SalesRevenueNet]`. In
+#   Schritt 7 kommen die ESEF/IFRS-Konzepte dazu.

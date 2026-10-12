@@ -1,1 +1,7 @@
+# Lucas Beobachtungsliste (SPEC 9.7).
+# PLATZHALTER: wird in Bauschritt 5 gebaut (docs/BAUPLAN.md).
+#
+# Inhalt: Liste von ISINs, gepflegt mit `stockagent watch add|remove <ISIN>`. Titel der Liste gehen
+#   bei Läufen immer in die Tiefenanalyse.
+
 watchlist: []

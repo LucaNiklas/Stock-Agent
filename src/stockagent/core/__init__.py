@@ -1,1 +1,1 @@
-"""__init__ – Platzhalter, siehe docs/SPEC.md."""
+"""Reine Funktionen ohne Ein- und Ausgabe. Einziger Ort für Arithmetik auf Finanzgrößen (HR-06)."""

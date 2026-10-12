@@ -1,1 +1,1 @@
-"""__init__ – Platzhalter, siehe docs/SPEC.md."""
+"""Agenten: Erzeugung der Agent-Dateien, später Annahme der Ausgaben und Werkzeuge."""

@@ -1,1 +1,1 @@
-"""__init__ – Platzhalter, siehe docs/SPEC.md."""
+"""Datenschicht: Abruf, Rohdaten, Datenbank."""
