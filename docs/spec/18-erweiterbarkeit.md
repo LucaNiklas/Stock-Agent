@@ -15,7 +15,7 @@ Klasse in `data/sources/`, die das Protokoll `DataSource` erfüllt (`fetch(lei, 
 
 ### 18.3 Neuer Agent
 
-Vorlage in `agents_src/` (daraus erzeugt `render_agents.py` die Datei in `.claude/agents/`), Prompt in `prompts/`, Ein- und Ausgabeschema in `schemas/`, Eintrag im Ablauf von `orchestrator.py`, Goldstandard-Fälle in `eval/`.
+Vorlage in `agents_src/` (daraus erzeugt `stockagent render-agents` die Datei in `.claude/agents/`), Prompt in `prompts/`, Ein- und Ausgabeschema in `schemas/`, Eintrag im Ablauf von `orchestrator.py`, Goldstandard-Fälle in `eval/`.
 
 ### 18.4 Geplante Erweiterungen
 

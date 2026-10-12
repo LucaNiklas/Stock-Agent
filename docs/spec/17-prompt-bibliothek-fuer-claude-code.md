@@ -18,7 +18,7 @@ Aufgabe: Schritt 0 aus Abschnitt 16.10.
    Regeln HR-01 bis HR-19 aus Abschnitt 0.1 und wie jede technisch durchgesetzt wird.
 2. Nenne Widersprüche oder Lücken in der Spezifikation, die dich am Bau hindern. Rate nicht.
 3. Richte nach Abschnitt 16.11 uv, CI und Labels ein, ergänze die Struktur aus 16.1, die Hooks
-   aus 16.5, das Skript scripts/render_agents.py, die Pydantic-Grundtypen und die Gates aus 12.6
+   aus 16.5, den Befehl stockagent render-agents, die Pydantic-Grundtypen und die Gates aus 12.6
    als Module mit Tests. Die Gates dürfen in Schritt 0 nur die Grundprüfungen enthalten, ihre
    Tests müssen aber schon die Fälle aus HR-01 bis HR-03 abdecken.
 4. Arbeite auf dem Branch schritt-00-geruest, committe in kleinen Schritten und öffne am Ende
@@ -133,7 +133,7 @@ Ergebnis als Liste mit Datei, Zeile, Problem und Schweregrad.
 
 ### 17.6 Pflicht-Präambel für alle Agenten-Prompts
 
-Jede Vorlage in `agents_src/` beginnt mit diesem Block. `scripts/render_agents.py` bricht ab, wenn er fehlt.
+Jede Vorlage in `agents_src/` beginnt mit diesem Block. `stockagent render-agents` bricht ab, wenn er fehlt.
 
 ```text
 Du bist Teil eines Recherche-Systems für Aktien. Für dich gelten ohne Ausnahme diese Regeln:

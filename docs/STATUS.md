@@ -1,6 +1,6 @@
 # Projektstand (Übergabe)
 
-Stand: 11.10.2026, nach Bauschritt 1. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
+Stand: 12.10.2026, nach Bauschritt 1 und Aufräumen. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
 
 ## Was das System ist
 
@@ -19,7 +19,7 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 | Schritt | Inhalt | Pull Request |
 |---|---|---|
 | Spezifikation 4.0/4.1 | Umfang nur Anzeigen und Bewerten, Bauschritte statt Phasen, Ausführung über das Abo, Modell je Agent | LucaNiklas/Stock-Agent#1 |
-| 0 Gerüst | uv, CI, Grundtypen (`Money`, `Fact`, `FreeText`, `Claim`), Gates, CLI-Gerüst, Hooks, `render_agents.py` | LucaNiklas/Stock-Agent#2 |
+| 0 Gerüst | uv, CI, Grundtypen (`Money`, `Fact`, `FreeText`, `Claim`), Gates, CLI-Gerüst, Hooks, Erzeugung der Agent-Dateien | LucaNiklas/Stock-Agent#2 |
 | 1 Universum | Aktienliste der Deutschen Börse, LEI und Länder aus der GLEIF, Lucas Trade-Republic-Prüfungen, Anzeige im Terminal und als HTML | LucaNiklas/Stock-Agent#3 (gemergt 11.10.2026) |
 
 ## Stand der Daten (lokal, nicht im Repository)
@@ -29,12 +29,17 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 - `state/tr_checks.yaml`: Lucas Prüfungen in der Trade-Republic-App. Noch leer.
 - Die Datenbank fehlt nach einem frischen Klonen. Neu aufbauen mit `uv run stockagent universe update` (etwa 2 Minuten).
 
+## Aufräumen nach Schritt 1
+
+Alle Platzhalter nennen jetzt im Kopf Bauschritt und genauen Inhalt. Die vollständige Liste und die Erklärung aller Bauschritte steht in `docs/BAUPLAN.md`. Neue Befehle: `stockagent universe serve` (Übersicht im Browser) und `stockagent render-agents` (statt eines eigenen Skripts). Der Skill `/add-metric` ist fertig geschrieben, die Skills `/analyze-stock`, `/review-escalations` und `/stockagent` melden „noch nicht gebaut“. Die PR-Vorlage ist eine sichtbare Prüfliste.
+
 ## Wichtige Befehle
 
 ```bash
 uv run stockagent universe update [--refresh] [--force]
 uv run stockagent universe show --suche siemens
-uv run stockagent universe html --open
+uv run stockagent universe serve
+uv run stockagent render-agents
 uv run stockagent tr-check <ISIN> ja|nein
 uv run pytest && uv run ruff check . && uv run mypy
 ```

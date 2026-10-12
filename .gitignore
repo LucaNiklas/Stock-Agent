@@ -1,14 +1,17 @@
+# Geheimnisse
 .env
-data/*
-!data/.gitkeep
-runs/*
-!runs/.gitkeep
-state/holdings*.yaml
-.pytr/
+
+# Lokale Daten und Laufergebnisse (Datenbank, Rohdaten, HTML-Ansichten)
+data/
+runs/
+
+# Python und Werkzeuge
 __pycache__/
 .venv/
-.DS_Store
+*.egg-info/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
-*.egg-info/
+
+# macOS
+.DS_Store

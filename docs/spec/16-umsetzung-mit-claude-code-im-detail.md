@@ -4,6 +4,8 @@
 
 Repository `LucaNiklas/Stock-Agent` (privat), lokal unter `~/Projekte/stockagent`.
 
+Der Baum zeigt die Zielstruktur. Dateien, die erst in einem späteren Bauschritt Inhalt bekommen, liegen als Platzhalter vor. Jeder Platzhalter nennt im Kopf den Bauschritt und den genauen Inhalt, die vollständige Liste steht in `docs/BAUPLAN.md`. Neue Dateien entstehen gefüllt, nicht als leere Hülle.
+
 ```
 stockagent/
 ├── CLAUDE.md
@@ -12,6 +14,7 @@ stockagent/
 ├── docs/
 │   ├── SPEC.md                    Inhaltsverzeichnis der Spezifikation
 │   ├── STATUS.md                  Projektstand und Übergabe zwischen Sitzungen
+│   ├── BAUPLAN.md                 alle Bauschritte und was in jede spätere Datei hineinkommt
 │   ├── spec/                      eine Datei je Hauptabschnitt (00-arbeitsanweisung.md, 01-..., anhang-a-...)
 │   ├── METHODOLOGY_CHANGELOG.md
 │   └── adr/                       Architekturentscheidungen (0001-universum-quelle.md, ...)
@@ -27,7 +30,7 @@ stockagent/
 │   ├── workflows/ (ci.yml, ab Schritt 10 eval.yml, ab Schritt 12 scheduled-run.yml)
 │   └── pull_request_template.md
 ├── agents_src/                    Vorlagen A0..A7, A9, J1..J4, F1 mit Modellklasse
-├── scripts/ (render_agents.py, hooks/: protect_raw.sh, ruff_changed.sh, stop_tests.sh)
+├── scripts/hooks/ (protect_raw.sh, ruff_changed.sh, stop_tests.sh)
 ├── config/
 │   ├── metrics.yaml  scoring.yaml  scorecards.yaml  sectors.yaml
 │   ├── accounting_adjustments.yaml  hyperinflation.yaml  withholding_tax.yaml
@@ -78,11 +81,13 @@ stockagent/
 ### 16.3 Vorlage für CLAUDE.md
 
 ```markdown
+<!-- Erzeugt aus docs/spec/16-umsetzung-mit-claude-code-im-detail.md, Abschnitt 16.3. Dort ändern, nicht hier. -->
 # stockagent
 
 Recherche- und Bewertungssystem für Einzelaktien, die bei Trade Republic handelbar sind. Nur Anzeigen und Bewerten, keine Orders, keine Depot- oder Budgetplanung.
 Spezifikation in docs/spec/ (Inhaltsverzeichnis docs/SPEC.md). Bei Widersprüchen gilt die Spezifikation.
 Aktueller Projektstand, offene Punkte und nächster Schritt: docs/STATUS.md. Zu Beginn jeder Sitzung lesen.
+Alle Bauschritte und was in jede spätere Datei gehört: docs/BAUPLAN.md.
 
 ## Unverhandelbare Regeln
 Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abschnitt 0.1. Lies sie zu Beginn jeder Sitzung.
@@ -100,12 +105,12 @@ Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abs
 ## Befehle
 - uv run pytest            Tests
 - uv run ruff check . && uv run mypy src
-- uv run stockagent universe update | show | html
+- uv run stockagent universe update | show | html | serve
 - uv run stockagent tr-check <ISIN> ja|nein
 - uv run stockagent run [--profile scheduled --yes]
 - uv run stockagent screen
 - uv run stockagent analyze <ISIN>
-- uv run python scripts/render_agents.py   Agent-Dateien aus agents_src/ erzeugen
+- uv run stockagent render-agents   Agent-Dateien aus agents_src/ erzeugen
 - uv run python eval/run_eval.py   Goldstandard
 
 ## Konventionen
@@ -117,7 +122,7 @@ Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abs
 
 ### 16.4 Subagent-Definitionen
 
-Claude Code liest Subagents aus `.claude/agents/*.md`. Diese Dateien erzeugt `scripts/render_agents.py` aus den Vorlagen in `agents_src/`. Dabei ersetzt das Skript den Platzhalter `{{ model.<klasse> }}` durch den Eintrag aus `config/models.yaml` und prüft, dass die Pflicht-Präambel aus 17.6 vorhanden ist. Die Liste zulässiger Frontmatter-Felder und die Grenzen für parallele Subagents prüft Claude Code in Schritt 6 gegen die aktuelle Dokumentation, bevor es sie verwendet. Pflichtfelder sind `name` und `description`. Weitere nutzbare Felder sind `tools`, `disallowedTools`, `model`, `permissionMode`, `maxTurns`, `skills`, `mcpServers`, `hooks`, `memory`, `effort`, `background` und `isolation`. Subagents starten mit leerem Kontext und bekommen nur ihren Systemprompt, die Aufgabe und die CLAUDE.md-Dateien. Genau das erzeugt die gewünschte Informationsasymmetrie. Standardmäßig laufen höchstens 20 Subagents gleichzeitig, verschachtelt bis drei Ebenen tief.
+Claude Code liest Subagents aus `.claude/agents/*.md`. Diese Dateien erzeugt `uv run stockagent render-agents` aus den Vorlagen in `agents_src/`. Dabei ersetzt das Skript den Platzhalter `{{ model.<klasse> }}` durch den Eintrag aus `config/models.yaml` und prüft, dass die Pflicht-Präambel aus 17.6 vorhanden ist. Die Liste zulässiger Frontmatter-Felder und die Grenzen für parallele Subagents prüft Claude Code in Schritt 6 gegen die aktuelle Dokumentation, bevor es sie verwendet. Pflichtfelder sind `name` und `description`. Weitere nutzbare Felder sind `tools`, `disallowedTools`, `model`, `permissionMode`, `maxTurns`, `skills`, `mcpServers`, `hooks`, `memory`, `effort`, `background` und `isolation`. Subagents starten mit leerem Kontext und bekommen nur ihren Systemprompt, die Aufgabe und die CLAUDE.md-Dateien. Genau das erzeugt die gewünschte Informationsasymmetrie. Standardmäßig laufen höchstens 20 Subagents gleichzeitig, verschachtelt bis drei Ebenen tief.
 
 Beispiel Zahlenprüfer (Vorlage in `agents_src/`).
 
@@ -206,7 +211,7 @@ Für v1 nicht nötig, weil alle Datenquellen über Python-Skripte angebunden sin
 
 ### 16.10 Bauschritte
 
-Es gibt keine starren Phasen. Gebaut wird Schritt für Schritt, jeder Schritt liefert etwas Sichtbares. Luca kann Reihenfolge und Umfang jederzeit ändern. Jeder Schritt entsteht auf einem eigenen Branch `schritt-NN-kurzname` und endet mit einem Pull Request, dessen CI grün ist. Luca führt den Merge durch.
+Es gibt keine starren Phasen. Ausführliche Beschreibung je Schritt, Zusammenfassung in 5 Bausteine und die Liste aller Platzhalter: `docs/BAUPLAN.md`. Gebaut wird Schritt für Schritt, jeder Schritt liefert etwas Sichtbares. Luca kann Reihenfolge und Umfang jederzeit ändern. Jeder Schritt entsteht auf einem eigenen Branch `schritt-NN-kurzname` und endet mit einem Pull Request, dessen CI grün ist. Luca führt den Merge durch.
 
 | Schritt | Inhalt | Abnahme |
 |---|---|---|
