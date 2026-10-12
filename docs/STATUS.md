@@ -20,7 +20,7 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 |---|---|---|
 | Spezifikation 4.0/4.1 | Umfang nur Anzeigen und Bewerten, Bauschritte statt Phasen, Ausführung über das Abo, Modell je Agent | LucaNiklas/Stock-Agent#1 |
 | 0 Gerüst | uv, CI, Grundtypen (`Money`, `Fact`, `FreeText`, `Claim`), Gates, CLI-Gerüst, Hooks, `render_agents.py` | LucaNiklas/Stock-Agent#2 |
-| 1 Universum | Aktienliste der Deutschen Börse, LEI und Länder aus der GLEIF, Lucas Trade-Republic-Prüfungen, Anzeige im Terminal und als HTML | LucaNiklas/Stock-Agent#3 (Merge nach Lucas Freigabe) |
+| 1 Universum | Aktienliste der Deutschen Börse, LEI und Länder aus der GLEIF, Lucas Trade-Republic-Prüfungen, Anzeige im Terminal und als HTML | LucaNiklas/Stock-Agent#3 (gemergt 11.10.2026) |
 
 ## Stand der Daten (lokal, nicht im Repository)
 
