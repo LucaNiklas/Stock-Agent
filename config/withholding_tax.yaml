@@ -1,1 +1,5 @@
-# withholding_tax – siehe docs/SPEC.md
+# Quellensteuer auf Dividenden (SPEC 5.2 Nr. 12).
+# PLATZHALTER: wird in Bauschritt 7 gebaut (docs/BAUPLAN.md).
+#
+# Inhalt: Satz je Land mit Quelle und Datum. Nur Information im Bericht, keine Steuerrechnung
+#   (Steuer ist außerhalb des Umfangs).

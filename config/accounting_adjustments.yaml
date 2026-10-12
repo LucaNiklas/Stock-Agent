@@ -1,1 +1,4 @@
-# accounting_adjustments – siehe docs/SPEC.md
+# Normalisierungsregeln (SPEC 4.3).
+# PLATZHALTER: wird in Bauschritt 7 gebaut (docs/BAUPLAN.md).
+#
+# Inhalt: Je Regel ACC-01 bis ACC-14: ID, Version, Thema, Quelle, Parameter.

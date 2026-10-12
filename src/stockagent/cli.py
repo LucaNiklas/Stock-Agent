@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import functools
+import http.server
 import webbrowser
 from datetime import date
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -11,6 +14,7 @@ from rich.table import Table
 
 from stockagent import __version__, tr_checks
 from stockagent import universe as universe_mod
+from stockagent.agents.render import RenderError, render_all
 from stockagent.data import store
 from stockagent.data.http import FetchError
 from stockagent.data.sources.deutsche_boerse import SourceFormatError
@@ -132,14 +136,54 @@ def universe_html(
     open_page: bool = typer.Option(False, "--open", help="Seite danach im Browser öffnen."),
 ) -> None:
     """Durchsuchbare Übersicht als HTML-Datei schreiben."""
+    target = _write_html()
+    typer.echo(f"Geschrieben: {target}")
+    if open_page:
+        webbrowser.open(target.as_uri())
+
+
+def _write_html() -> Path:
     rows, info = _load_view()
     paths = Paths.default()
     paths.views.mkdir(parents=True, exist_ok=True)
     target = paths.views / "universum.html"
     target.write_text(universe_view.to_html(rows, info), encoding="utf-8")
-    typer.echo(f"Geschrieben: {target}")
-    if open_page:
-        webbrowser.open(target.as_uri())
+    return target
+
+
+@universe_app.command("serve")
+def universe_serve(
+    port: int = typer.Option(8765, "--port", help="Port auf 127.0.0.1."),
+    open_page: bool = typer.Option(True, "--open/--no-open", help="Browser öffnen."),
+) -> None:
+    """Übersicht neu schreiben und unter http://127.0.0.1:<port>/ anzeigen (Strg+C beendet)."""
+    target = _write_html()
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(target.parent))
+    with http.server.ThreadingHTTPServer(("127.0.0.1", port), handler) as server:
+        url = f"http://127.0.0.1:{port}/{target.name}"
+        typer.echo(f"Übersicht unter {url} (beenden mit Strg+C)")
+        if open_page:
+            webbrowser.open(url)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            typer.echo("Beendet.")
+
+
+@app.command("render-agents")
+def render_agents() -> None:
+    """Agent-Dateien aus agents_src/ mit Modell aus config/models.yaml erzeugen (SPEC 16.4)."""
+    paths = Paths.default()
+    try:
+        written = render_all(
+            paths.root / "agents_src",
+            paths.root / ".claude" / "agents",
+            paths.config / "models.yaml",
+        )
+    except RenderError as exc:
+        typer.echo(f"Abbruch: {exc}")
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"{len(written)} Agent-Dateien erzeugt.")
 
 
 @app.command("tr-check")

@@ -1,1 +1,5 @@
-# insider_thresholds – siehe docs/SPEC.md
+# Meldeschwellen je Land (SPEC 3.8 Nr. 9).
+# PLATZHALTER: wird in Bauschritt 9 gebaut (docs/BAUPLAN.md).
+#
+# Inhalt: Schwelle in EUR je Land mit Gültigkeit ab Datum und Quelle (Deutschland 50.000 EUR ab
+#   2026, EU-Standard 20.000 EUR).

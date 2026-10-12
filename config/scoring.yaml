@@ -1,1 +1,7 @@
-# scoring – siehe docs/SPEC.md
+# Gewichte und Schwellen der Bewertungsskala (SPEC 6).
+# PLATZHALTER: wird in Bauschritt 5 gebaut (docs/BAUPLAN.md).
+#
+# Inhalt: Säulengewichte (Qualität 25, Bewertung 25, Stabilität 15, Wachstum 15, Kapitalallokation
+#   10, Insider 10 Prozent), Kappungsgrenzen, Notenschwellen A bis E, Bedingungen für K1 bis K4 und
+#   R1 bis R5, Kategorien, Hysterese, Mindestgröße der Vergleichsgruppe (15),
+#   `min_discount_to_multiples`, Überprüfungskriterium der Notenkontrolle.

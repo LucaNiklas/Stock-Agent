@@ -1,1 +1,5 @@
-"""__init__ – Platzhalter, siehe docs/SPEC.md."""
+"""Paket Dashboard.
+
+PLATZHALTER: wird in Bauschritt 5 gebaut (docs/BAUPLAN.md).
+Inhalt: Paketkennung, keine Logik.
+"""

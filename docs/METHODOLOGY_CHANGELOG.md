@@ -15,3 +15,61 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Agenten laufen über das Claude-Abo, Ablauf vom Python-Zustandsautomaten vorgegeben.
 - Modellzuordnung je Agent (Haiku, Sonnet, Opus, optional Gemini) in config/models.yaml.
 - A9 Synthese-Agent wieder in Abschnitt 8.3 (war bei Version 4.0 versehentlich im Anhang).
+
+## Änderungshistorie der Spezifikation
+
+Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit Abschnitt 1 nur die fachlichen Korrekturen enthält.
+
+### Änderungen in Version 3
+
+| Thema | Version 2 | Version 3 |
+|---|---|---|
+| Abdeckung | harte Ausschlüsse nach Größe, Tagesumsatz und Branche | alle Unternehmen werden bewertet, Größe und Liquidität wirken auf Konfidenz, Risiko und Positionsgröße (3.1) |
+| Finanzwerte | ausgeschlossen | eigene Scorecards für Banken, Versicherer, Immobilien, Holdings und Wachstumsfirmen ohne Gewinn (3.11) |
+| Skala | ein Score 0 bis 100 | Note A bis E, Konfidenz K1 bis K4 und Risikoklasse R1 bis R5 als getrennte Achsen (6) |
+| Rechnungslegung | nicht behandelt | 14 Normalisierungsregeln IFRS gegen US-GAAP inklusive IFRS 18 ab 2027 (4) |
+| Währungen | nur Umrechnung in EUR | Regeln für Bestands- und Stromgrößen, DCF-Währung, Unterwährungen, ökonomisches Exposure (5) |
+| Bestand | Halten oder Verkaufsprüfung nach Score | Thesenkarten, zehn Prüfregeln, Steuerrechnung, verhaltenswissenschaftlich begründete Verkaufsgründe (10) |
+| Start | ein CLI-Befehl | sechs Startwege, Kategorie-Abfrage in zwei Runden, Laufplan mit Kosten (9.7 bis 9.9) |
+| Format | Bericht mit fester Gliederung | Formelregister, 14 Pflichtabschnitte je Analyse, Ungereimtheiten-Katalog, Reproduzierbarkeit (12) |
+| Regeln | sieben Grundregeln | 16 harte Regeln mit technischer Durchsetzung und Test (0.1) |
+| GitHub und Prompts | nicht beschrieben | Repository, Workflows, Issues für Eskalationen (16.11 bis 16.14), Prompt-Bibliothek (17) |
+| Modellnamen | im Dokument | nur Modellklassen, Zuordnung in `config/models.yaml` |
+
+### Änderungen in Version 4
+
+| Thema | Version 3 | Version 4 |
+|---|---|---|
+| Umfang | Recherche plus Portfolio, Bestandsprüfung, Steuer, Gewichtungsvorschläge | nur Anzeigen und Bewerten, finanzieller Überblick je Unternehmen. Portfolio, Bestand und Steuer in Anhang A zurückgestellt |
+| Universum | Börsenlisten plus Indexbestände, Handelbarkeit von Luca bestätigt | bei Trade Republic handelbare Aktien aus der öffentlichen Produktübersicht app.traderepublic.com/browse/stock (7.1) |
+| Vorgehen | 14 Phasen | Bauschritte mit frühem nutzbarem Ergebnis (16.10) |
+| HR-01 | Ziffern-Verbot für alle Agentenausgaben | nur für Freitextfelder, Zitate über Zitat-Gate, DCF-Annahmen als Stufen |
+| HR-06 | Formeln nur in `registry.py` | Arithmetik nur in `core/`, Kennzahlen nur über die Registry |
+| HR-13 | Sicherheitsmarge hing an LLM-Annahmen | Kategorie nur aus deterministischen Werten |
+| Neue Regeln | | HR-17 Prompt-Injection, HR-18 Kostenlimit |
+| Broker-Hook | Muster `order` | präzise Muster mit Test, `ORDER BY` erlaubt |
+| Datenanbieter | Pflicht für Abgleich | optional, Default nur kostenlose Quellen |
+| Branchencodes | Quelle offen | Reihenfolge in 7.8 |
+| Fachlich | | negativer FCF im Reverse-DCF, Einordnung Mohanram, Teilfreistellung und Vorabpauschale in Anhang A |
+
+### Änderungen in Version 4.1
+
+| Thema | Version 4.0 | Version 4.1 |
+|---|---|---|
+| Ausführung | Python-Orchestrator mit Agent SDK und API-Schlüssel | Subagents in Claude Code über Lucas Abo, Ablauf vom Python-Zustandsautomaten vorgegeben (15.1) |
+| Modelle | Klassen ohne Zuordnung | Haiku für Suche und Sammeln, Sonnet für Texte und Prüfungen, Opus nur für Fundamentalanalyse, Bewertung, Gegenposition und Forensik (8.7) |
+| Zweite Modellfamilie | API eines anderen Anbieters | Gemini optional über Lucas Google-Konto, Test in Schritt 10 (8.8) |
+| HR-18 | Kostenlimit in EUR | Verbrauchsgrenzen je Lauf, Kosten in EUR nur im optionalen API-Betrieb |
+
+### Änderungen in Bauschritt 1
+
+| Thema | vorher | jetzt |
+|---|---|---|
+| Quelle des Universums | Produktübersicht app.traderepublic.com/browse/stock | Instrumentenlisten der Deutschen Börse (Frankfurt, Xetra), weil die Trade-Republic-Seite hinter AWS-WAF-Bot-Schutz liegt (ADR 0001) |
+| Handelbarkeit bei Trade Republic | automatisch aus der Seite | von Luca in der App geprüft, `stockagent tr-check` |
+
+### Neue Regel HR-19 (11.10.2026)
+
+| Thema | vorher | jetzt |
+|---|---|---|
+| Berechnungen | Formeln im Register, Ergebnis geprüft | jede Berechnung schrittweise über einen Rechenweg mit Prüfpunkten nach jedem Abschnitt, Abbruch bei verletztem Prüfpunkt (HR-19, 12.7). Gebaut in Bauschritt 3, genutzt ab Schritt 3 bis 5 und 7 |

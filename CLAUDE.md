@@ -1,8 +1,10 @@
+<!-- Erzeugt aus docs/spec/16-umsetzung-mit-claude-code-im-detail.md, Abschnitt 16.3. Dort ändern, nicht hier. -->
 # stockagent
 
 Recherche- und Bewertungssystem für Einzelaktien, die bei Trade Republic handelbar sind. Nur Anzeigen und Bewerten, keine Orders, keine Depot- oder Budgetplanung.
 Spezifikation in docs/spec/ (Inhaltsverzeichnis docs/SPEC.md). Bei Widersprüchen gilt die Spezifikation.
 Aktueller Projektstand, offene Punkte und nächster Schritt: docs/STATUS.md. Zu Beginn jeder Sitzung lesen.
+Alle Bauschritte und was in jede spätere Datei gehört: docs/BAUPLAN.md.
 
 ## Unverhandelbare Regeln
 Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abschnitt 0.1. Lies sie zu Beginn jeder Sitzung.
@@ -20,12 +22,12 @@ Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abs
 ## Befehle
 - uv run pytest            Tests
 - uv run ruff check . && uv run mypy src
-- uv run stockagent universe update | show | html
+- uv run stockagent universe update | show | html | serve
 - uv run stockagent tr-check <ISIN> ja|nein
 - uv run stockagent run [--profile scheduled --yes]
 - uv run stockagent screen
 - uv run stockagent analyze <ISIN>
-- uv run python scripts/render_agents.py   Agent-Dateien aus agents_src/ erzeugen
+- uv run stockagent render-agents   Agent-Dateien aus agents_src/ erzeugen
 - uv run python eval/run_eval.py   Goldstandard
 
 ## Konventionen

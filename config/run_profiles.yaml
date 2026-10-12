@@ -1,1 +1,5 @@
-# run_profiles – siehe docs/SPEC.md
+# Laufprofile (SPEC 9.6, 9.7).
+# PLATZHALTER: wird in Bauschritt 11 gebaut (docs/BAUPLAN.md).
+#
+# Inhalt: Profile für `stockagent run --profile`: Kategorie, Größenklassen, Tiefe, Höchstzahl
+#   Tiefenanalysen. In Schritt 12 das Profil `scheduled`.

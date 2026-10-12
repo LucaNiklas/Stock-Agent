@@ -1,1 +1,5 @@
-# hyperinflation – siehe docs/SPEC.md
+# Hochinflationsländer nach IAS 29 (SPEC 5.2 Nr. 8).
+# PLATZHALTER: wird in Bauschritt 7 gebaut (docs/BAUPLAN.md).
+#
+# Inhalt: Länderliste mit Gültigkeitszeitraum und Quelle. Betroffene Unternehmen erhalten Flag
+#   `hyperinflation` und höchstens K3.

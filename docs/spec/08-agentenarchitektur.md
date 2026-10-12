@@ -202,7 +202,7 @@ runs/<run_id>/
 
 ### 8.7 Modellzuordnung
 
-Grundsatz. Das kleinste Modell, das eine Aufgabe zuverlässig erledigt. Haiku sucht und sammelt, Sonnet schreibt und prüft, Opus nur dort, wo mehrstufiges Abwägen über viele Quellen nötig ist. Das schont die Nutzungslimits des Abos. Die Zuordnung steht in `config/models.yaml` und wird über `render_agents.py` in das `model`-Feld jedes Subagents geschrieben (`haiku`, `sonnet`, `opus`).
+Grundsatz. Das kleinste Modell, das eine Aufgabe zuverlässig erledigt. Haiku sucht und sammelt, Sonnet schreibt und prüft, Opus nur dort, wo mehrstufiges Abwägen über viele Quellen nötig ist. Das schont die Nutzungslimits des Abos. Die Zuordnung steht in `config/models.yaml` und wird über ``stockagent render-agents`` in das `model`-Feld jedes Subagents geschrieben (`haiku`, `sonnet`, `opus`).
 
 | Agent | Aufgabe | Klasse | Modell |
 |---|---|---|---|

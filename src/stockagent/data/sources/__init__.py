@@ -1,1 +1,1 @@
-"""__init__ – Platzhalter, siehe docs/SPEC.md."""
+"""Anbindungen an externe Datenquellen, je Quelle ein Modul (SPEC 18.2)."""
