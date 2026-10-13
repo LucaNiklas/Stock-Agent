@@ -67,6 +67,8 @@ Jeder Datensatz hat drei Zeitstempel.
 
 Jede Abfrage für eine Analyse zum Zeitpunkt T filtert auf `published_at <= T`. Bei Restatements gelten bis zum Restatement-Datum die alten Werte. Das ist Voraussetzung für jeden ehrlichen Backtest.
 
+Für SEC-Werte ist `published_at` der Annahmezeitpunkt der SEC (`acceptanceDateTime`). Fehlt er, gilt das Ende des Einreichungstags in New York, damit ein Wert nie früher als bekannt erscheint. Wiederholt ein späterer Bericht einen Wert nur gröber gerundet (etwa 96,7 Mrd. statt 96.662 Mio.), ist das kein Restatement: Die genauere Fassung bleibt maßgeblich (`core/pit.py`, mindestens drei gültige Ziffern). Übernommen werden nur Werte aus Abschlussberichten (10-K, 10-Q, 20-F, 40-F, 6-K und Korrekturen), nicht aus Proxy-Erklärungen oder 8-K (`sec.report_forms`).
+
 ### 7.6 Speicherung
 
 | Ebene | Technik | Inhalt |
@@ -81,7 +83,12 @@ DuckDB reicht für das Datenvolumen eines Privatanlegers völlig. Ein Wechsel au
 ### 7.7 Datenmodell (Kern)
 
 ```
-issuers(lei PK, name, country, sector_sic, sector_nace, accounting_standard, fiscal_year_end)
+issuers(issuer_id PK, lei, cik, name, country, sector_sic, sic_description, sector_nace, accounting_standard,
+        fiscal_year_end, state_of_incorporation, business_address, business_region, entity_type,
+        filer_category, source, source_sha256, retrieved_at)
+        # issuer_id: sec:<CIK> für SEC-Melder, lei:<LEI> für Emittenten ohne CIK (ab Schritt 7)
+isin_cik(isin PK, cik, ticker, method[openfigi|name|manuell|keine], status[zugeordnet|unsicher|keine],
+         detail, checked_at)   # ADR 0002
 listings(isin PK, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, lei_name,
          lei_status, lei_plausible, legal_country, hq_country, country, country_source[gleif|isin|konflikt],
          is_receipt, isin_valid, listed, first_seen, last_seen, snapshot_id)
@@ -89,10 +96,15 @@ universe_snapshots(snapshot_id PK, retrieved_at (UTC), source_as_of, stock_count
 snapshot_raw(snapshot_id, kind[frankfurt|xetra|gleif_mapping|gleif_entities], sha256, url)
 meta(key PK, value)   # schema_version
 # Handelbarkeit bei Trade Republic: state/tr_checks.yaml (Lucas Prüfungen), nicht in der Datenbank
-documents(doc_hash PK, lei FK, doc_type, period_end, published_at, retrieved_at, source_url, language, pages)
-facts(fact_id PK, lei FK, concept, internal_metric, value, unit, scale, currency, period_start, period_end,
-      published_at, source_type[xbrl|pdf_extracted|vendor], doc_hash FK, page, xbrl_context, extraction_run_id,
-      superseded_by)
+documents(doc_id PK, doc_hash, issuer_id FK, doc_type, period_end, published_at, retrieved_at, source_url,
+          language, pages)   # doc_id: sec:<Accession>, doc_hash erst, wenn die Datei abgelegt ist
+facts(fact_id PK, issuer_id FK, concept, internal_metric, value, unit, unit_raw, scale, currency, period_start,
+      period_end, fiscal_year, fiscal_period, form, accession, published_at, source_type[xbrl|pdf_extracted|vendor],
+      doc_id FK, page, xbrl_context, extraction_run_id, raw_sha256, retrieved_at, superseded_by)
+      # nur über store.pit_query(as_of=...) gelesen (HR-07). superseded_by nur bei echter Änderung,
+      # nicht bei bloßer Rundung (core/pit.py)
+dq_flags(issuer_id, check_id[DQ-01..DQ-08], severity[ok|info|warnung|stopp], period_end, concept, detail,
+         trace_json, checked_at)
 prices(isin, date, close, volume, currency, source)
 metrics(run_id, lei, metric_id, metric_version, period_end, value, inputs_json, calc_trace_json, computed_at)
 insider_tx(tx_id PK, lei, person_name, role, relation[self|spouse|child|household|controlled_entity],

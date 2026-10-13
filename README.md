@@ -15,7 +15,7 @@ uv sync
 uv run stockagent universe update
 ```
 
-Der erste Abruf lädt die Listen der Deutschen Börse und die GLEIF-Daten und dauert etwa 2 Minuten. Die Daten liegen danach lokal in `data/` und nicht im Repository.
+Der erste Abruf lädt die Listen der Deutschen Börse und die GLEIF-Daten und dauert etwa 2 Minuten. Für die SEC-Daten muss `SEC_USER_AGENT` mit Name und E-Mail in `.env` stehen (Vorlage `.env.example`). Der erste `stockagent sec update` dauert wegen der Ratenbegrenzung von OpenFIGI etwa 20 Minuten. Die Daten liegen danach lokal in `data/` und nicht im Repository.
 
 ## Wichtigste Befehle
 
@@ -25,6 +25,10 @@ Der erste Abruf lädt die Listen der Deutschen Börse und die GLEIF-Daten und da
 | `uv run stockagent universe show --suche siemens` | Aktien im Terminal suchen |
 | `uv run stockagent universe serve` | durchsuchbare Übersicht im Browser |
 | `uv run stockagent tr-check <ISIN> ja\|nein` | eigene Prüfung in der Trade-Republic-App festhalten |
+| `uv run stockagent sec update` | US-Aktien der SEC zuordnen (ISIN -> CIK), Branche und Adresse laden |
+| `uv run stockagent sec update --isin US0378331005` | dazu Abschlusswerte und Datenqualitätsprüfungen für diese Aktie |
+| `uv run stockagent sec show US0378331005` | Stammdaten, Kernwerte und Prüfergebnisse anzeigen |
+| `uv run stockagent sec map <ISIN> <CIK>\|keine` | Zuordnung zur SEC von Hand festlegen |
 | `uv run pytest && uv run ruff check . && uv run mypy` | Tests und Prüfungen |
 
 ## Aufbau
