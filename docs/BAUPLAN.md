@@ -30,22 +30,25 @@ Projekt mit uv und Python 3.12, CI, Grundtypen (`Money`, `Fact`, `Evidence`, `Cl
 
 Python-Teil der Abteilung Recherche für die USA: Quellenkarte, Zuordnung ISIN zu CIK über OpenFIGI und die Tickerliste der SEC (ADR 0002), Stammdaten (SIC, Adresse) für alle zugeordneten SEC-Melder, Company Facts und XBRL des Originalberichts für eine Auswahl, `pit_query`, Rechenweg `core/calc.py` (vorgezogen), Datenqualität DQ-01 bis DQ-08, CLI als Paket, Befehle `sec update | show | map`.
 
-### Schritt 3: Formelregister und Kennzahlen
+### Schritt 3: Formelregister und Kennzahlen (erledigt, Pull Request siehe docs/STATUS.md)
 
-- **Ziel:** Alle Kennzahlen aus SPEC 3.3 bis 3.5, jede schrittweise mit Prüfpunkten (HR-19).
-- **Entsteht:** Kennzahlen über den Rechenweg aus Schritt 2: in `config/metrics.yaml` und `core/registry.py`, Trends (SPEC 3.4) in einer neuen Datei `core/trends.py`, Scores in `core/scores.py`. Skill `/add-metric` (schon geschrieben) nutzen.
-- **Abnahme:** Jede Kennzahl mit schrittweiser Handrechnung aus einem echten 10-K getestet, Zwischenergebnisse einzeln geprüft. Ein verletzter Prüfpunkt stoppt die Rechnung mit `unknown` und INC-15. Der Rechenweg wird gespeichert.
+Abteilung Berechnung für die USA: 33 Kennzahlen und Scores aus Abschlusswerten (SPEC 3.3, 3.5) in `config/metrics.yaml`, `core/kennzahlen.py`, `core/scores.py`, Jahresreihen aus `pit_query` (`data/inputs.py`), Trends und vertikale Analyse (`core/trends.py`, SPEC 3.4), Speicherung mit Rechenweg (Tabellen `metrics`, `metric_runs`), Hinweise an die Agenten (`config/hinweise.yaml`, Tabelle `hinweise`, SPEC 8.5), Befehl `metrics update | show`, Architekturtest HR-06. Handrechnungen aus drei Apple-10-K, Abnahme auf den 10 Firmen aus Schritt 2.
+
+Bewusst verschoben (Lucas Entscheidung 13.10.2026): Kennzahlen mit Börsenkurs nach Schritt 4, Qualitätskomposit mit Branchenperzentilen nach Schritt 5, um Sondereffekte bereinigte Zweitreihe nach Schritt 6.
 
 ### Schritt 4: Marktdaten und Bewertung
 
 - **Ziel:** Kurse, Zinsen, Wechselkurse, Reverse-DCF, DCF-Szenarien, Multiples.
 - **Neue Datei:** `data/sources/damodaran.py` für Risikoprämie und Branchenbetas als datierter Stand.
+- **Aus Schritt 3 hierher (Lucas Entscheidung 13.10.2026):** alle Kennzahlen mit Börsenkurs aus SPEC 3.3, je über den Rechenweg mit Handrechnung wie in Schritt 3 (`tests/metrics/`): Marktkapitalisierung, Unternehmenswert (`enterprise_value` mit Brücke CP-03), KGV (`pe`), `ev_ebit`, `ev_sales`, FCF-Rendite (`fcf_yield`), Kurs-Buchwert (`pb`), Dividenden-, Rückkauf- und Aktionärsrendite (`dividend_yield`, `buyback_yield`, `shareholder_yield`). Dazu Altman Z für Produzenten (X4 mit Börsenwert) und die Zuordnung Produzent oder Nicht-Produzent über SIC, `ev_ebit_normalized` mit dem durchschnittlichen EBIT der letzten 7 bis 10 Jahre (SPEC 3.4 Nr. 4), TTM-Werte aus den letzten 8 Quartalen (SPEC 3.4 Nr. 1) und die Einordnung jeder Bewertungskennzahl gegen die eigene Historie (Perzentil über 10 Jahre, SPEC 3.3).
+- **Grundlage aus Schritt 3:** Nettoverschuldung (`net_debt`, `net_debt_incl_pensions`) für die Brücke, Jahresreihen und Trends für die Annahmestufen des DCF, Speicherung in `metrics` mit Rechenweg.
 - **Braucht von Luca:** Entscheidung zur Kursquelle (SPEC 19 Nr. 1).
 - **Abnahme:** Lehrbuchbeispiel exakt reproduziert, höherer WACC ergibt niedrigeren Wert, negativer FCF korrekt behandelt, Rückrechnung CP-06 und Brücke CP-03 in jedem Lauf bestanden.
 
 ### Schritt 5: Note und erste Übersicht
 
 - **Ziel:** Erstes nutzbares Ergebnis. Alle US-Titel mit Note, Konfidenz und Risiko in einer Übersicht, die Luca nach Branche, Land und Stufe filtern kann.
+- **Aus Schritt 3 hierher:** Qualitätskomposit nach Asness, Frazzini und Pedersen aus Branchenperzentilen (Bestandteile rechnet Schritt 3: Profitabilität, Wachstum, Sicherheit), Sloan-Accruals als Branchendezil, Margenstabilität (Streuung der EBIT-Marge, `stdabw` aus Schritt 3) im Qualitätsscore, Schwellen der Hinweisregeln je Branche prüfen.
 - **Entsteht:** Branchencodes und Kernprodukt, Scorecard Standard, Note, Konfidenz, Risiko, Kategorie, Tabelle `grade_snapshots` für die Notenkontrolle (SPEC 14.2), Befehle `screen`, `status`, `dashboard`.
 - **Neu (Oberfläche, SPEC 7.9 und 13.5):** Indexstufe Tier 1 bis 4 mit `config/tiers.yaml`, Quellenmodul `data/sources/indices.py` (ETF-Positionsdateien und freie Indexzusammensetzungen, je Index Quelle prüfen) und Tabelle `index_members`. Das Dashboard als Bedienzentrale: lokaler Server `stockagent app` mit Doppelklick-Start `Stockagent.command`, Startseite „Suchen und Bewerten“ mit Eingabefeld (Name, ISIN, WKN, Ticker und feste Wortliste für Land, Branche, Stufe, Note), Filterleiste (Stufe, Land und Region, Branche bis Unterbranche, Größe, Note, Konfidenz, Risiko, Kategorie, Handelbarkeit, Datenlage) mit Trefferzahlen, Filter in der Adresszeile, Abdeckungsanzeige, Unternehmensseite mit Notenzerlegung und Rechenweg, Stern, Notizen und Trade-Republic-Prüfung per Klick, Knopf „Daten aktualisieren“, CSV-Export. Ersetzt `universe serve` und baut auf `report/templates/universe.html` auf.
 - **Braucht von Luca:** Freigabe der Domains für die Indexquellen (Liste entsteht bei der Quellenprüfung).
@@ -54,6 +57,7 @@ Python-Teil der Abteilung Recherche für die USA: Quellenkarte, Zuordnung ISIN z
 ### Schritt 6: Tiefenanalyse Ende zu Ende
 
 - **Ziel:** Finanzieller Überblick mit 14 Abschnitten für ein US-Unternehmen über Lucas Claude-Abo.
+- **Aus Schritt 3 hierher:** Der Zustandsautomat macht aus offenen Einträgen der Tabelle `hinweise` Aufträge an den genannten Agenten (F1, A3, A4, A1) und setzt den Status auf beauftragt und erledigt. Um Sondereffekte (Wertminderungen, Veräußerungsgewinne, Restrukturierung) bereinigte Zweitreihe: A4 und A2 übernehmen die Beträge mit Beleg aus dem Bericht, Python rechnet die Zweitreihe über den Rechenweg (SPEC 3.4 Nr. 5).
 - **Entsteht:** Zustandsautomat mit den vier Abteilungen (SPEC 8.1), Dossier je Unternehmen, Aufträge nach SPEC 8.10 aus der Quellenkarte, Nachforderung, Werkzeugrechte je Abteilung, Annahme von Agentenausgaben, Werkzeuge, Prompts, Agentenvorlagen in `agents_src/` (A1, A3, A4, A5, A7, A9, J1, J2) mit Modellen aus `config/models.yaml`, Berichtsvorlagen, Skill `/analyze-stock`, Befehl `analyze`. Der `SubagentStop`-Hook ruft `stockagent accept`.
 - **Neu (Oberfläche, SPEC 13.5):** Knopf „Tiefenanalyse starten“ auf der Unternehmensseite und „Auswahl bewerten“ in der Liste starten Claude Code im Hintergrund (`claude -p "/analyze-stock <ISIN>"` mit `stream-json`, feste Rechte, `--permission-prompts none`). Fortschrittsanzeige je Abteilung, Warteschlange `state/analysis_queue.yaml`, wenn schon eine Analyse läuft, Anzeige des Abo-Verbrauchs aus `log.jsonl`. Vorher prüfen: läuft `claude -p` über die Anmeldung des Abos auf Lucas Mac.
 - **Abnahme:** Alle Ausgaben schemakonform, jeder Agent lief mit seinem Modell, ein Schritt außerhalb der Reihenfolge wird abgelehnt, alle 14 Abschnitte vorhanden. Ein Klick auf „Tiefenanalyse starten“ führt ohne Terminal bis zum fertigen Überblick auf der Unternehmensseite. Ein geschlossener Browser bricht die Analyse nicht ab.
@@ -116,8 +120,6 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 
 | Schritt | Datei | Zweck | Was genau hineinkommt |
 |---|---|---|---|
-| 3 | `src/stockagent/core/scores.py` | Qualitäts- und Risiko-Scores (SPEC 3.5) | Piotroski F-Score (9 Signale), Altman Z und Z'' (Produzenten und Nicht-Produzenten), Beneish M-Score (8 Variablen), Sloan-Accruals, Qualitätskomposit nach Asness, Frazzini, Pedersen. Jeder Score über den Rechenweg aus `core/calc.py` mit Prüfpunkten CP-01, CP-02, CP-07 (HR-19) |
-| 3 | `tests/metrics/` | Ein Test je Kennzahl | Je Kennzahl eine Datei `test_<id>.py` mit schrittweiser Handrechnung aus einem echten 10-K: jedes Zwischenergebnis einzeln geprüft, Quelle (Dokument, Seite) im Kommentar, dazu ein Fall mit verletztem Prüfpunkt |
 | 4 | `src/stockagent/core/fx.py` | Währungsregeln (SPEC 5.2) | Reine Funktionen: Bilanzposten zum Stichtagskurs, GuV und Cashflow zum Periodendurchschnitt, Unterwährungen (GBX, ZAc, ILA), ADR-Verhältnis, Fisher-Umrechnung von Diskontsätzen, Plausibilitätsprüfung INC-13. Über den Rechenweg mit CP-01 und CP-02 |
 | 4 | `src/stockagent/core/valuation.py` | Bewertung (SPEC 3.6) | Reverse-DCF (auf FCF- und Umsatzbasis), DCF in drei Szenarien mit Annahmestufen aus der Historie, Multiples gegen Historie und Vergleichsgruppe, Sensitivitätsmatrix, Unternehmenswert-Brücke, deterministische Bewertungsbedingung. Prüfpunkte CP-03 (Brücke) und CP-06 (Rückrechnung) in jedem Lauf |
 | 4 | `src/stockagent/data/sources/fx.py` | Wechselkurse (SPEC 5.2) | EZB-Referenzkurse über die SDMX-API, täglich, mit Datum und Quelle. Daraus Stichtags- und Durchschnittskurse |
@@ -173,7 +175,6 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 | 5 | `state/notes.yaml` | Lucas Notizen je Titel |
 | 6 | `state/analysis_queue.yaml` | Warteschlange angeforderter Tiefenanalysen |
 | 11 | `state/views.yaml` | Gespeicherte Ansichten und Abfragen |
-| 3 | `src/stockagent/core/trends.py` | Trends und Zeitreihen (SPEC 3.4): Theil-Sen-Steigung, CAGR, Stabilität |
 | 4 | `src/stockagent/data/sources/damodaran.py` | Risikoprämie, Branchenbetas und -multiples als datierter Stand |
 | 6 | `agents_src/<agent>.md` | Vorlagen A1, A3, A4, A5, A7, A9, J1, J2 mit Pflicht-Präambel |
 | 7 | `src/stockagent/data/sources/pdf.py` | PDF-Rückfall mit Docling (SPEC 7.4) |

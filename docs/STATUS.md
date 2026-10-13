@@ -1,10 +1,10 @@
 # Projektstand (Übergabe)
 
-Stand: 13.10.2026, nach Bauschritt 2. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
+Stand: 13.10.2026, nach Bauschritt 3. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
 
 ## Was das System ist
 
-Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar sind. Es zeigt nur an und bewertet. Es gibt keine Orders, keinen Depotzugriff und keine Budget- oder Allokationsplanung. Die Spezifikation liegt in `docs/spec/` (Inhaltsverzeichnis `docs/SPEC.md`, Version 4.1), die harten Regeln stehen in `docs/spec/00-arbeitsanweisung.md`.
+Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar sind. Es zeigt nur an und bewertet. Es gibt keine Orders, keinen Depotzugriff und keine Budget- oder Allokationsplanung. Die Spezifikation liegt in `docs/spec/` (Inhaltsverzeichnis `docs/SPEC.md`, Version 4.4), die harten Regeln stehen in `docs/spec/00-arbeitsanweisung.md`.
 
 ## Arbeitsweise mit Luca
 
@@ -23,13 +23,16 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 | 1 Universum | Aktienliste der Deutschen Börse, LEI und Länder aus der GLEIF, Lucas Trade-Republic-Prüfungen, Anzeige im Terminal und als HTML | LucaNiklas/Stock-Agent#3 (gemergt 11.10.2026) |
 | Spezifikation 4.2 | Vier Abteilungen, Quellenkarte, Auftragsform, Rechenweg nach Schritt 2 vorgezogen (ADR 0003) | LucaNiklas/Stock-Agent#6 |
 | 2 Abschlussdaten USA | ISIN zu CIK über OpenFIGI (ADR 0002), SIC und Adresse der SEC, Company Facts mit Zeitpunktbezug, Rechenweg `core/calc.py`, Datenqualität DQ-01 bis DQ-08, CLI als Paket | LucaNiklas/Stock-Agent#7 |
+| Spezifikation 4.3 | Dashboard als Bedienzentrale, Indexstufe Tier 1 bis 4, Suche in eigenen Worten (ADR 0004) | LucaNiklas/Stock-Agent#8 |
+| 3 Kennzahlen | 33 Kennzahlen und Scores ohne Börsenkurs mit Rechenweg und Prüfpunkten, Trends, vertikale Analyse, Speicherung, Hinweise an die Agenten, Befehl `metrics`, Architekturtest HR-06 | Branch `schritt-03-kennzahlen` |
 
 ## Stand der Daten (lokal, nicht im Repository)
 
-- `data/stockagent.duckdb` (Schema-Version 4, ältere Version 3 wird beim Öffnen ohne Datenverlust aufgerüstet): 14.509 Aktien, Stand der Quelle 12.10.2026.
+- `data/stockagent.duckdb` (Schema-Version 5, Versionen 3 und 4 werden beim Öffnen ohne Datenverlust aufgerüstet): 14.509 Aktien, Stand der Quelle 12.10.2026.
 - Zuordnung zur SEC (Lauf vom 13.10.2026): von 4.021 US-ISINs sind 3.117 einer CIK zugeordnet (3.052 verschiedene Firmen), 9 unsicher, 895 ohne SEC-Melder (davon 845 Hinterlegungsscheine, meist nicht gesponserte ADRs, 69 davon nur ADR-Registrierungen der Depotbank). Stammdaten liegen für alle 3.052 vor. Die SEC selbst führt bei 115 keinen SIC-Code (überwiegend geschlossene Fonds) und bei 2 keine Geschäftsadresse. 2.697 haben eine US-Geschäftsadresse.
 - Die 9 unsicheren Zuordnungen zeigt `stockagent sec show <ISIN>` mit Grund (meist Umbenennungen wie Hypera/Hypermarcas oder Verwechslungen bei OpenFIGI wie Helix Energy mit dem Ticker von Hornbeck Offshore). Festlegen mit `stockagent sec map <ISIN> <CIK>|keine`.
 - Abschlusswerte und Prüfungen bisher für die 10 Abnahmefirmen: Apple, Microsoft, Coca-Cola, Johnson & Johnson, Caterpillar, Procter & Gamble, Nike, Walmart, JPMorgan, PagerDuty. Alle erfüllen die Bilanzgleichung für zehn Jahre, alle verfügbaren Kernwerte stimmen auf dem zweiten Weg mit dem Originalbericht überein.
+- Kennzahlen (Lauf vom 13.10.2026) für die 10 Abnahmefirmen: zusammen 297 von 330 Jahreswerten im letzten Geschäftsjahr berechnet, kein Prüfpunkt gestoppt. Die fehlenden: JPMorgan 20 (Bank, eigene Scorecard in Schritt 8), Johnson & Johnson und Nike je 5 (kein operatives Ergebnis gemeldet, siehe unten), Apple und Caterpillar je 1 (kein Zinsaufwand gemeldet), PagerDuty 1 (EPS vor 5 Jahren negativ, Wachstumsrate nicht definiert). Die Werte aus der Datenbank stimmen für Apple bei allen 33 Kennzahlen mit der Handrechnung aus den 10-K überein.
 - `data/raw/`: Rohdateien mit SHA-256, auch jede SEC- und OpenFIGI-Antwort.
 - `state/tr_checks.yaml`: Lucas Prüfungen in der Trade-Republic-App. Noch leer.
 - `state/cik_overrides.yaml`: Lucas Zuordnungen zur SEC (`stockagent sec map`). Noch leer.
@@ -53,6 +56,8 @@ uv run stockagent tr-check <ISIN> ja|nein
 uv run stockagent sec update [--isin <ISIN>] [--refresh]
 uv run stockagent sec show <ISIN>
 uv run stockagent sec map <ISIN> <CIK>|keine
+uv run stockagent metrics update [--isin <ISIN>] [--as-of JJJJ-MM-TT]
+uv run stockagent metrics show <ISIN> [--rechenweg <id>]
 uv run pytest && uv run ruff check . && uv run mypy
 ```
 
@@ -72,12 +77,21 @@ uv run pytest && uv run ruff check . && uv run mypy
 - **Länder ausländischer SEC-Melder:** Die SEC nennt ihr Land nur als eigenen Code (etwa `2M` für Deutschland). Gespeichert sind Code und Name. Eine Abbildung auf ISO-Codes fehlt noch.
 - **Länder ohne LEI (6.368 Aktien):** nur das ISIN-Land, unsicher. Für zugeordnete SEC-Melder liegt jetzt die Geschäftsadresse vor.
 - **Unsicherheit bei Umbenennungen:** Führt die GLEIF noch den alten Namen, fällt das Land auf das ISIN-Land zurück (232 Fälle).
-- **Finanzschulden:** Ein Gesamtkonzept melden nur wenige Firmen. Die Summe aus kurz- und langfristigen Teilen bildet Schritt 3 (`financial_debt_teile` in `config/concept_map.yaml`).
+- **Operatives Ergebnis fehlt bei manchen Firmen.** Johnson & Johnson und Nike weisen kein operatives Ergebnis (`OperatingIncomeLoss`) aus. EBIT-Marge, ROIC, Zinsdeckung, Nettoverschuldung zu EBITDA und Altman Z'' bleiben dort `unknown`. Ein Ersatz (Vorsteuerergebnis plus Zinsaufwand) wäre eine Methodikentscheidung, offen für Luca.
+- **CP-05 bei stetigem Trend.** Der robuste z-Wert vergleicht mit dem Median der Vorjahre. Steigt eine Kennzahl über Jahre gleichmäßig (Apples Bruttomarge), meldet er einen Sprung, obwohl keiner vorliegt. Das erzeugt Hinweise an A4, die sich leicht begründen lassen. Verbesserung (Vergleich gegen den Trend) wäre eine Änderung von SPEC 3.2 Nr. 6.
+- **Banken:** Bruttomarge, Free Cashflow, Current Ratio und Finanzschulden passen nicht auf Banken (JPMorgan: 20 Kennzahlen `unknown` mit Grund). Eigene Scorecard in Schritt 8.
+- **Speicherbedarf:** Je Firma bis etwa 2,3 MB Rechenweg als Text (vor Komprimierung). Für alle rund 3.000 US-Firmen in Schritt 5 prüfen, ob die vollständigen Rechenwege der Vorjahre nötig sind oder nur die des letzten Jahres.
 - **Zweite unabhängige Quelle:** Der zweite Weg ist das XBRL des Originalberichts. Ein kommerzieller Anbieter fehlt (SPEC 19 Nr. 1), spätestens für Kurse in Schritt 4 nötig.
 - **Vorzugsaktien und Anleihen im Universum:** Die Deutsche Börse führt einige Vorzugsaktien und nachrangige Anleihen als `CS` (etwa „HANCOCK WHITNEY SU.NTS 25“). Sie werden dem richtigen Emittenten zugeordnet, sind aber keine Stammaktie. Bereinigung des Universums offen.
 - **Gelöschte Handzuordnung:** Entfernt Luca einen Eintrag aus `state/cik_overrides.yaml`, gilt die alte Zuordnung bis zur nächsten Neuprüfung (90 Tage). Sofort wirkt `sec map <ISIN> <CIK>`.
-- **HR-06 Architekturtest** (`test_arithmetic_only_in_core`) fehlt noch. Bisher eingehalten durch Code-Review, `core/dq.py` rechnet alle Prüfungen.
 - Das Feld „Primary Market MIC Code“ der Deutschen Börse ist kein verlässlicher Primärmarkt und darf nicht als Kursquelle dienen.
+
+## Bauschritt 3 im Überblick
+
+- Abteilung Berechnung, nur Python: `data/inputs.py` baut aus `pit_query` die Jahresreihen (bis 11 Jahre), `core/kennzahlen.py` und `core/scores.py` rechnen 33 Kennzahlen je Geschäftsjahr über den Rechenweg, `core/trends.py` Vorjahresveränderung, CAGR, Streuung, Theil-Sen-Steigung und CP-05, `metrics_update.py` speichert alles mit Rechenweg.
+- Drei Arten von `unknown`: Eingabe fehlt, nicht aussagekräftig (etwa Verlust im Nenner) und Prüfpunkt verletzt (INC-15). Nur die dritte ist ein Datenfehler.
+- Hinweise an die Agenten (`config/hinweise.yaml`, H-01 bis H-09): die Übergabe von der Berechnung an Auswertung, Prüfung und Recherche. Ab Schritt 6 macht der Zustandsautomat daraus Aufträge.
+- Handrechnung je Kennzahl in `tests/metrics/` mit Seitenangaben aus drei Apple-10-K. Architekturtest HR-06 in `tests/test_architektur.py`.
 
 ## Oberfläche (Version 4.3)
 
@@ -85,4 +99,4 @@ Das Dashboard wird die Bedienzentrale: suchen in eigenen Worten, filtern nach Ti
 
 ## Nächster Schritt
 
-Bauschritt 3 „Formelregister und Kennzahlen“ (SPEC 3.3 bis 3.5, 12.2, 12.7, 18.1): Kennzahlen in `config/metrics.yaml` und `core/registry.py` über den Rechenweg aus `core/calc.py`, Trends in `core/trends.py`, Scores in `core/scores.py`. Jede Kennzahl mit Handrechnung aus einem echten 10-K (die drei Firmen aus `tests/test_sec_abnahme.py` bieten sich an). Aktienzahlen um Splits bereinigen (DQ-08 erkennt sie schon). Skill `/add-metric` nutzen.
+Bauschritt 4 „Marktdaten und Bewertung“ (SPEC 3.3, 3.6, 5.2, BAUPLAN). Zuerst braucht es Lucas Entscheidung zur Kursquelle (SPEC 19 Nr. 1). Aus Schritt 3 übernommen: alle Kennzahlen mit Börsenkurs, Altman Z für Produzenten, `ev_ebit_normalized`, TTM aus Quartalen.

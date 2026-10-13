@@ -107,7 +107,13 @@ index_members(index_id, isin, tier, valid_from, valid_to, source_sha256)   # 7.9
 dq_flags(issuer_id, check_id[DQ-01..DQ-08], severity[ok|info|warnung|stopp], period_end, concept, detail,
          trace_json, checked_at)
 prices(isin, date, close, volume, currency, source)
-metrics(run_id, lei, metric_id, metric_version, period_end, value, inputs_json, calc_trace_json, computed_at)
+metric_runs(run_id PK, issuer_id, as_of, stichtag, methodology_version, computed_at)   # ab Schritt 3
+metrics(run_id, issuer_id, metric_id, metric_version, statistik[wert|niveau|veraenderung_vj|cagr_3j|cagr_5j|stdabw|
+        steigung|plausibilitaet], period_end, value, grund, ungereimtheit, warnungen_json, inputs_json,
+        calc_trace_json, computed_at)
+        # value als Text (Decimal ungerundet), NULL = unknown mit grund. Je Firma der letzte Lauf
+hinweise(run_id, issuer_id, regel[H-01..], an_agent, abteilung, anlass, metric_id, period_end, detail,
+         status[offen|beauftragt|erledigt], erstellt_at)   # 8.5, Regeln in config/hinweise.yaml
 insider_tx(tx_id PK, lei, person_name, role, relation[self|spouse|child|household|controlled_entity],
            tx_type[buy|sell|grant|exercise|tax|gift|other], open_market bool, plan_10b5_1 bool,
            shares, price, currency, value_eur, trade_date, published_at, source_doc_hash, routine_class)

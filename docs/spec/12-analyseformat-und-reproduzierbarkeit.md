@@ -121,6 +121,7 @@ return r.ergebnis(roic)
 
 - `schritt` speichert Name, Formeltext, Eingaben mit Quelle, Währung, Einheit und Periode (HR-12) sowie das Ergebnis.
 - `pruefe` wertet einen Prüfpunkt aus. Bei Stufe `stopp` wirft ein verletzter Prüfpunkt `PruefpunktVerletzt`, die Kennzahl wird `unknown` mit Grund (HR-05) und INC-15. Bei Stufe `warnung` läuft die Rechnung weiter, der Hinweis steht im Rechenweg und im Bericht.
+- Nicht jedes `unknown` ist ein Fehler. Fehlt eine Eingabe (`EingabeFehlt`) oder ist eine Größe für diese Daten nicht aussagekräftig (`NichtDefiniert`: Wachstumsrate bei negativem Anfangswert, Quote mit Verlust oder negativem Eigenkapital im Nenner, kein Zinsaufwand), wird die Kennzahl `unknown` mit Grund, aber ohne INC-15. INC-15 bleibt den Datenfehlern vorbehalten, etwa einer Bilanzsumme von null, einem negativen Umsatz oder zwei Währungen in einer Rechnung. Eine Rechnung mischt nie zwei Währungen: Der Rechenweg prüft das bei jedem Schritt (CP-01).
 - `ergebnis` ist nur erreichbar, wenn alle Prüfpunkte der Kennzahl aus `metrics.yaml` (`pruefpunkte`) tatsächlich ausgewertet wurden. Fehlt einer, schlägt der Test fehl.
 - Gerundet wird erst bei der Anzeige. Zwischenschritte rechnen mit `Decimal` für Geldbeträge und `float64` für Verhältnisse (12.3).
 - Der vollständige Rechenweg wird als JSON gespeichert (`metrics.calc_trace_json`). Er ist die Grundlage für den Audit-Trail (13.1), für J1 und für die Erklärung jeder Zahl im Bericht.
