@@ -5,22 +5,53 @@ from __future__ import annotations
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 
 
 class FetchError(RuntimeError):
     pass
 
 
-def fetch(url: str, user_agent: str, timeout: float = 120.0, attempts: int = 3) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": user_agent})
+class NotFound(FetchError):
+    """Die Quelle kennt die Adresse nicht (HTTP 404). Wird nicht wiederholt."""
+
+
+# Längste Wartezeit bei Ratenbegrenzung (HTTP 429), falls die Quelle mehr verlangt.
+_MAX_RATE_WAIT_S = 65.0
+
+
+def fetch(
+    url: str,
+    user_agent: str,
+    timeout: float = 120.0,
+    attempts: int = 3,
+    *,
+    data: bytes | None = None,
+    headers: dict[str, str] | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> bytes:
+    """GET, mit `data` POST. 404 bricht sofort ab, 429 wartet auf die Freigabe der Quelle."""
+    request = urllib.request.Request(
+        url, data=data, headers={"User-Agent": user_agent, **(headers or {})}
+    )
     last: Exception | None = None
     for attempt in range(attempts):
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                data: bytes = response.read()
-                return data
+                body: bytes = response.read()
+                return body
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                raise NotFound(f"{url}: nicht gefunden (404)") from exc
+            last = exc
+            if attempt < attempts - 1:
+                wait = float(2 ** (attempt + 1))
+                if exc.code == 429:
+                    hint = exc.headers.get("Retry-After") or exc.headers.get("ratelimit-reset")
+                    wait = min(float(hint), _MAX_RATE_WAIT_S) if hint else _MAX_RATE_WAIT_S
+                sleep(wait)
         except (urllib.error.URLError, TimeoutError) as exc:
             last = exc
             if attempt < attempts - 1:
-                time.sleep(2 ** (attempt + 1))
+                sleep(2 ** (attempt + 1))
     raise FetchError(f"{url} nicht erreichbar nach {attempts} Versuchen: {last}")

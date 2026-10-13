@@ -2,8 +2,8 @@
 .env
 
 # Lokale Daten und Laufergebnisse (Datenbank, Rohdaten, HTML-Ansichten)
-data/
-runs/
+/data/
+/runs/
 
 # Python und Werkzeuge
 __pycache__/

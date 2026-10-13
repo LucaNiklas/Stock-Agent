@@ -24,6 +24,26 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Rechenweg `core/calc.py` in Bauschritt 2 vorgezogen, Datenqualität rechnet über Prüfpunkte (SPEC 12.7).
 - Goldstandard startet mit mindestens 20 Fällen (SPEC 11.6).
 
+## Datenqualität 1.0, Konzeptzuordnung 1.0, Quellenkarte 1.0 (13.10.2026, Bauschritt 2)
+
+Erste Fassungen von `config/quality.yaml`, `config/concept_map.yaml` und `config/source_map.yaml`.
+
+- Datenqualität (SPEC 3.2) als DQ-01 bis DQ-08, gerechnet über den Rechenweg mit Prüfpunkten.
+  Bilanzgleichung und Summenstruktur 0,5 Prozent, zweiter Weg 1 Prozent Warnung und 5 Prozent
+  Stopp, Ausreißer ab robustem z-Wert 4, Split-Verdacht bei höchstens 2 Prozent Abstand zur
+  ganzen Zahl.
+- Zweiter Weg: Company Facts gegen die XBRL-Instanz des letzten Jahresberichts, je Kernwert
+  aus derselben Einreichung. Ein kommerzieller Anbieter fehlt weiter (SPEC 19 Nr. 1).
+- Summenstruktur: Verletzung bei einem Kernwert ist Stopp, sonst Warnung. Toleranz zusätzlich
+  die Summe der Rundungseinheiten (XBRL `decimals`) der beteiligten Werte.
+- Konzeptzuordnung je Periode: das erste Konzept der Vorrangliste mit Wert in genau dieser
+  Periode (Firmen wechseln Konzepte über die Jahre).
+- Zeitpunktbezug: bloße Rundung ist kein Restatement (gröberer Wert mit mindestens drei
+  gültigen Ziffern, Abstand höchstens eine halbe Rundungseinheit). Bei gleichem Wert bleibt die
+  erste Veröffentlichung maßgeblich.
+- Nur Werte aus Abschlussberichten (10-K, 10-Q, 20-F, 40-F, 6-K und Korrekturen). Proxy-
+  Erklärungen (Tabelle Pay versus Performance) und 8-K bleiben außen vor.
+
 ## Änderungshistorie der Spezifikation
 
 Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit Abschnitt 1 nur die fachlichen Korrekturen enthält.

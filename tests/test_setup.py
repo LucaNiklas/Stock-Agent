@@ -141,3 +141,25 @@ def test_cli_serve_without_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("STOCKAGENT_HOME", str(tmp_path))
     res = CliRunner().invoke(app, ["universe", "serve", "--no-open"])
     assert res.exit_code == 1 and "stockagent universe update" in res.stdout
+
+
+def test_source_map_matches_source_modules() -> None:
+    """SPEC 8.9: Jedes Quellenmodul steht in der Quellenkarte und umgekehrt."""
+    import yaml
+
+    root = Path(__file__).resolve().parent.parent
+    data = yaml.safe_load((root / "config" / "source_map.yaml").read_text("utf-8"))
+    in_map = {
+        q["modul"]
+        for info in data["informationen"].values()
+        for q in info["quellen"]
+        if q["zugriff"] == "python"
+    }
+    modules = {p.stem for p in (root / "src" / "stockagent" / "data" / "sources").glob("*.py")} - {
+        "__init__"
+    }
+    assert in_map == modules
+    for info in data["informationen"].values():
+        for q in info["quellen"]:
+            assert q["zugriff"] in ("python", "agent")
+            assert isinstance(q["ab_schritt"], int)

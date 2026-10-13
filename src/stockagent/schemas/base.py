@@ -65,7 +65,8 @@ class Money(_Strict):
 class Fact(_Strict):
     """Ein Wert aus einer Quelle (Datenmodell `facts`, SPEC 7.7)."""
 
-    lei: str = Field(min_length=20, max_length=20)
+    # `sec:<CIK>` für SEC-Melder, `lei:<LEI>` für Emittenten ohne CIK (SPEC 7.7)
+    issuer_id: str = Field(pattern=r"^(sec:\d{10}|lei:[A-Z0-9]{20})$")
     concept: str = Field(min_length=1)
     value: Decimal
     unit: Literal["monetary", "shares", "per_share", "pure", "ratio"]

@@ -35,17 +35,20 @@ stockagent/
 │   ├── metrics.yaml  scoring.yaml  scorecards.yaml  sectors.yaml
 │   ├── accounting_adjustments.yaml  hyperinflation.yaml  withholding_tax.yaml
 │   ├── models.yaml  concept_map.yaml  insider_thresholds.yaml  run_profiles.yaml
+│   ├── quality.yaml  source_map.yaml
 │   └── sources.yaml
 ├── state/                         letzte Anfrage, Beobachtungsliste, tr_checks.yaml
 ├── src/stockagent/
-│   ├── cli.py
+│   ├── cli/                       Kommandozeile, je Bereich eine Datei (universe, sec, tr, agents, later)
+│   ├── sec_update.py              Ablauf Abschlussdaten USA (Schritt 2)
 │   ├── orchestrator.py
 │   ├── core/                      reine Funktionen ohne I/O, einziger Ort für Arithmetik (HR-06)
 │   │   ├── registry.py  scores.py  grading.py  valuation.py  accounting.py  fx.py
-│   │   ├── insider.py  decisions.py  pit.py
+│   │   ├── insider.py  decisions.py  pit.py  calc.py (Rechenweg)  dq.py (Datenqualität)
 │   ├── gates/ (schema.py, number.py, evidence.py, quote.py, wording.py, consistency.py)
 │   ├── data/
-│   │   ├── sources/ (deutsche_boerse.py, gleif.py, sec.py, esef.py, sectors.py, prices.py, bafin.py, fx.py, rates.py)
+│   │   ├── sources/ (deutsche_boerse.py, gleif.py, openfigi.py, sec.py, sec_xbrl.py, esef.py, sectors.py, prices.py, bafin.py, fx.py, rates.py)
+│   │   ├── concepts.py            Konzeptzuordnung je Periode (concept_map.yaml)
 │   │   ├── http.py                Abruf mit Wiederholungen
 │   │   ├── rawstore.py            unveränderliche Rohdaten
 │   │   ├── store.py               DuckDB-Zugriff, pit_query
@@ -106,6 +109,7 @@ Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abs
 - uv run pytest            Tests
 - uv run ruff check . && uv run mypy src
 - uv run stockagent universe update | show | html | serve
+- uv run stockagent sec update [--isin <ISIN>] | show <ISIN> | map <ISIN> <CIK>|keine
 - uv run stockagent tr-check <ISIN> ja|nein
 - uv run stockagent run [--profile scheduled --yes]
 - uv run stockagent screen

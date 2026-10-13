@@ -1,44 +1,26 @@
-"""Kommandozeile `stockagent` (SPEC 9.6)."""
+"""Befehle `stockagent universe ...` (Bauschritt 1)."""
 
 from __future__ import annotations
 
 import functools
 import http.server
 import webbrowser
-from datetime import date
 from pathlib import Path
 
 import typer
-from rich.console import Console
 from rich.table import Table
 
-from stockagent import __version__, tr_checks
+from stockagent import tr_checks
 from stockagent import universe as universe_mod
-from stockagent.agents.render import RenderError, render_all
+from stockagent.cli.common import app, console
 from stockagent.data import store
 from stockagent.data.http import FetchError
 from stockagent.data.sources.deutsche_boerse import SourceFormatError
 from stockagent.paths import Paths
 from stockagent.report import universe_view
 
-app = typer.Typer(
-    help="Recherche- und Bewertungssystem für bei Trade Republic handelbare Aktien.",
-    no_args_is_help=True,
-)
 universe_app = typer.Typer(help="Aktienuniversum laden und anzeigen.", no_args_is_help=True)
 app.add_typer(universe_app, name="universe")
-console = Console()
-
-
-def _not_yet(step: int, what: str) -> None:
-    typer.echo(f"{what} ist noch nicht gebaut (Bauschritt {step}, siehe docs/spec/16-*.md).")
-    raise typer.Exit(code=2)
-
-
-@app.command()
-def version() -> None:
-    """Version anzeigen."""
-    typer.echo(__version__)
 
 
 @universe_app.command("update")
@@ -168,71 +150,3 @@ def universe_serve(
             server.serve_forever()
         except KeyboardInterrupt:
             typer.echo("Beendet.")
-
-
-@app.command("render-agents")
-def render_agents() -> None:
-    """Agent-Dateien aus agents_src/ mit Modell aus config/models.yaml erzeugen (SPEC 16.4)."""
-    paths = Paths.default()
-    try:
-        written = render_all(
-            paths.root / "agents_src",
-            paths.root / ".claude" / "agents",
-            paths.config / "models.yaml",
-        )
-    except RenderError as exc:
-        typer.echo(f"Abbruch: {exc}")
-        raise typer.Exit(code=1) from exc
-    typer.echo(f"{len(written)} Agent-Dateien erzeugt.")
-
-
-@app.command("tr-check")
-def tr_check(
-    isin: str = typer.Argument(..., help="ISIN der Aktie."),
-    answer: str = typer.Argument(..., help="ja = in der App handelbar, nein = nicht handelbar."),
-) -> None:
-    """Ergebnis deiner Prüfung in der Trade-Republic-App festhalten."""
-    if answer.lower() not in ("ja", "nein"):
-        typer.echo("Antwort muss 'ja' oder 'nein' sein.")
-        raise typer.Exit(code=1)
-    paths = Paths.default()
-    if paths.db.exists():
-        conn = store.connect(paths.db)
-        known = store.is_listed(conn, isin.upper())
-        conn.close()
-        if not known:
-            typer.echo(f"Hinweis: {isin.upper()} steht nicht in der aktuellen Liste.")
-    try:
-        check = tr_checks.record(
-            paths.tr_checks, isin.upper(), answer.lower() == "ja", date.today()
-        )
-    except ValueError as exc:
-        typer.echo(str(exc))
-        raise typer.Exit(code=1) from exc
-    typer.echo(
-        f"{isin.upper()}: {universe_view.TR_LABEL[check.status]} ({check.checked_on:%d.%m.%Y})"
-    )
-
-
-@app.command()
-def screen() -> None:
-    """Noten für alle Unternehmen berechnen, ohne Modellaufrufe."""
-    _not_yet(5, "Die Notenberechnung")
-
-
-@app.command()
-def analyze(isin: str) -> None:
-    """Finanziellen Überblick über ein Unternehmen erstellen."""
-    _not_yet(6, f"Die Tiefenanalyse für {isin}")
-
-
-@app.command()
-def status() -> None:
-    """Letzte Läufe und offene Eskalationen anzeigen."""
-    _not_yet(5, "Die Statusanzeige")
-
-
-@app.command()
-def dashboard() -> None:
-    """Dashboard bauen und öffnen."""
-    _not_yet(5, "Das Dashboard")

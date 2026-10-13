@@ -8,12 +8,12 @@ from pydantic import ValidationError
 
 from stockagent.schemas import AccountingStandard, Evidence, Fact, Money, SourceType
 
-LEI = "529900T8BM49AURSDO55"
+ISSUER = "lei:529900T8BM49AURSDO55"
 
 
 def fact(**kw: object) -> Fact:
     data: dict[str, object] = {
-        "lei": LEI,
+        "issuer_id": ISSUER,
         "concept": "us-gaap:Revenues",
         "value": Decimal("1000"),
         "unit": "monetary",
@@ -77,7 +77,7 @@ def test_fact_valid() -> None:
         ({"unit": "shares"}, "Aktienanzahl mit Währung"),
         ({"xbrl_context": None}, "XBRL ohne Kontext"),
         ({"source_type": SourceType.PDF_EXTRACTED, "doc_hash": None}, "PDF ohne Dokument"),
-        ({"lei": "kurz"}, "LEI falsch"),
+        ({"issuer_id": "kurz"}, "Emittent falsch"),
     ],
 )
 def test_fact_rejects_incomplete(kw: dict[str, object], reason: str) -> None:
@@ -94,3 +94,13 @@ def test_schema_rejects_model_knowledge() -> None:
 def test_evidence_needs_anchor() -> None:
     with pytest.raises(ValidationError):
         Evidence(source_type=SourceType.DOCUMENT_TEXT)
+
+
+@pytest.mark.parametrize("issuer_id", ["529900T8BM49AURSDO55", "sec:320193", "cik:0000320193"])
+def test_fact_rejects_bad_issuer_id(issuer_id: str) -> None:
+    with pytest.raises(ValidationError):
+        fact(issuer_id=issuer_id)
+
+
+def test_fact_accepts_sec_issuer() -> None:
+    assert fact(issuer_id="sec:0000320193").issuer_id == "sec:0000320193"

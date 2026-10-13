@@ -26,14 +26,9 @@ Projekt mit uv und Python 3.12, CI, Grundtypen (`Money`, `Fact`, `Evidence`, `Cl
 
 14.509 Aktien aus den Listen der Deutschen Börse, ISIN-Prüfung, LEI, Hauptsitz und Rechtssitz aus der GLEIF mit Plausibilitätsprüfung, Erkennung von Hinterlegungsscheinen, Lucas Trade-Republic-Prüfungen, Anzeige im Terminal und als HTML (ADR 0001).
 
-### Schritt 2: Abschlussdaten USA
+### Schritt 2: Abschlussdaten USA (erledigt, LucaNiklas/Stock-Agent#7)
 
-- **Ziel:** Geprüfte Abschlusszahlen der US-Emittenten mit Zeitpunktbezug, dazu Branche (SIC) und Geschäftsadresse der SEC. Das ist der Python-Teil der Abteilung Recherche für die USA (SPEC 8.1, ADR 0003).
-- **Entsteht zuerst:** `src/stockagent/core/calc.py` mit dem Rechenweg (`schritt`, `pruefe`, `ergebnis`) und dem Prüfpunkt-Katalog CP-01 bis CP-08 (SPEC 12.7), vorgezogen aus Schritt 3, weil die Datenqualitätsprüfungen schon rechnen.
-- **Danach:** Quellenkarte `config/source_map.yaml` mit den US-Quellen (SPEC 8.9), Zuordnung ISIN zu CIK über OpenFIGI und die Tickerliste der SEC (ADR 0002), SEC-Anbindung, Tabellen `issuers`, `documents`, `facts`, `store.pit_query(as_of=...)`, Datenqualitätsprüfungen aus SPEC 3.2 (Arithmetik in `core/dq.py`).
-- **Aufräumen:** `cli.py` in ein Paket `cli/` aufteilen (je Bereich eine Datei), `tests/test_universe.py` in `test_identifiers.py`, `test_sources.py`, `test_universe_update.py` aufteilen.
-- **Braucht von Luca:** `SEC_USER_AGENT` in `.env` (Name und E-Mail).
-- **Abnahme:** 10 US-Firmen aus dem Universum geladen, Bilanzgleichung erfüllt, Kernwerte gegen den Originalbericht geprüft, SIC-Code und Adresse für alle SEC-Melder im Universum.
+Python-Teil der Abteilung Recherche für die USA: Quellenkarte, Zuordnung ISIN zu CIK über OpenFIGI und die Tickerliste der SEC (ADR 0002), Stammdaten (SIC, Adresse) für alle zugeordneten SEC-Melder, Company Facts und XBRL des Originalberichts für eine Auswahl, `pit_query`, Rechenweg `core/calc.py` (vorgezogen), Datenqualität DQ-01 bis DQ-08, CLI als Paket, Befehle `sec update | show | map`.
 
 ### Schritt 3: Formelregister und Kennzahlen
 
@@ -103,11 +98,6 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 
 | Schritt | Datei | Zweck | Was genau hineinkommt |
 |---|---|---|---|
-| 2 | `config/concept_map.yaml` | Zuordnung XBRL-Konzept zu interner Größe (SPEC 7.2) | Je interner Größe (`revenue`, `ebit`, `net_income`, `operating_cash_flow`, `capex`, `total_assets`, `equity`, `financial_debt`, `lease_liabilities`, `cash`, `shares_diluted` …) eine Vorrangliste von US-GAAP-Konzepten, etwa `revenue: [us-gaap:Revenues, us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax, us-gaap:SalesRevenueNet]`. In Schritt 7 kommen die ESEF/IFRS-Konzepte dazu |
-| 2 | `src/stockagent/core/pit.py` | Zeitpunktbezug (Point-in-Time, SPEC 7.5, HR-07) | Reine Funktionen: aus allen Fassungen eines Werts die zum Analysedatum gültige wählen (`published_at <= as_of`, Restatements erst ab ihrem Datum). Wird von `store.pit_query(as_of=...)` genutzt |
-| 2 | `src/stockagent/data/quality.py` | Datenqualitätsprüfungen (SPEC 3.2) | Bilanzgleichung je Periode (Toleranz 0,5 Prozent), XBRL-Summenstruktur, Einheiten und Skalierung, Periodenlogik und TTM ohne Doppelzählung, Abgleich zweier Quellen, Ausreißer über Median und MAD, Restatements erkennen, Aktienanzahl um Splits bereinigen. Ergebnis sind `dq_flags` je Unternehmen, die die Konfidenz bestimmen |
-| 2 | `src/stockagent/data/sources/sec.py` | Anbindung SEC EDGAR | Mit `edgartools`: `company_tickers.json` (CIK, Ticker), Submissions (Name, SIC-Code, Geschäftsadresse, Gründungsstaat, Liste der Einreichungen), Company Facts (XBRL-Werte mit Konzept, Periode, Einheit, Einreichungsdatum). User-Agent aus `SEC_USER_AGENT` in `.env`, höchstens 10 Anfragen je Sekunde, Rohdaten über `rawstore`. In Schritt 9 kommt Form 4 (Insider) dazu |
-| 2 | `tests/fixtures/` | Kleine Beispieldaten für Tests | Ausschnitte echter SEC-Antworten (Company Facts, Submissions) für 2 bis 3 Firmen, damit Tests ohne Internet laufen. Je Datei Quelle und Abrufdatum im Kopf |
 | 3 | `src/stockagent/core/scores.py` | Qualitäts- und Risiko-Scores (SPEC 3.5) | Piotroski F-Score (9 Signale), Altman Z und Z'' (Produzenten und Nicht-Produzenten), Beneish M-Score (8 Variablen), Sloan-Accruals, Qualitätskomposit nach Asness, Frazzini, Pedersen. Jeder Score über den Rechenweg aus `core/calc.py` mit Prüfpunkten CP-01, CP-02, CP-07 (HR-19) |
 | 3 | `tests/metrics/` | Ein Test je Kennzahl | Je Kennzahl eine Datei `test_<id>.py` mit schrittweiser Handrechnung aus einem echten 10-K: jedes Zwischenergebnis einzeln geprüft, Quelle (Dokument, Seite) im Kommentar, dazu ein Fall mit verletztem Prüfpunkt |
 | 4 | `src/stockagent/core/fx.py` | Währungsregeln (SPEC 5.2) | Reine Funktionen: Bilanzposten zum Stichtagskurs, GuV und Cashflow zum Periodendurchschnitt, Unterwährungen (GBX, ZAc, ILA), ADR-Verhältnis, Fisher-Umrechnung von Diskontsätzen, Plausibilitätsprüfung INC-13. Über den Rechenweg mit CP-01 und CP-02 |
@@ -123,7 +113,7 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 | 5 | `src/stockagent/dashboard/__init__.py` | Paket Dashboard | Paketkennung, keine Logik |
 | 5 | `src/stockagent/dashboard/build.py` | Dashboard bauen (SPEC 13.3) | Schreibt eine einzelne HTML-Datei mit eingebetteten Daten. Ansicht Übersicht (alle Unternehmen mit Note, Konfidenz, Risiko, Branche, Land, filterbar) und Unternehmensseite mit Notenzerlegung. Weitere Ansichten in Schritt 11 |
 | 5 | `src/stockagent/dashboard/template.html` | HTML-Vorlage des Dashboards | Seitengerüst mit Filtern, Tabelle, Hell- und Dunkelmodus, Notenzerlegung. Baut auf `report/templates/universe.html` auf |
-| 5 | `src/stockagent/data/sources/sectors.py` | Branchencodes (SPEC 7.8) | Reihenfolge: SIC aus den SEC-Submissions, ggf. Datenanbieter, Wikidata (Eigenschaft Branche, über ISIN oder LEI), sonst Vorschlag von A0 mit Lucas Bestätigung. Quelle und Datum je Code, unsichere Zuordnung senkt die Konfidenz. Auch Kurzbeschreibung des Kernprodukts, soweit die Quelle sie liefert |
+| 5 | `src/stockagent/data/sources/sectors.py` | Branchencodes (SPEC 7.8) | SIC liegt seit Schritt 2 in `issuers`. Geschäftsbeschreibung für US-Firmen aus Item 1 des 10-K (die Submissions der SEC enthalten keine). Reihenfolge: SIC aus den SEC-Submissions, ggf. Datenanbieter, Wikidata (Eigenschaft Branche, über ISIN oder LEI), sonst Vorschlag von A0 mit Lucas Bestätigung. Quelle und Datum je Code, unsichere Zuordnung senkt die Konfidenz. Auch Kurzbeschreibung des Kernprodukts, soweit die Quelle sie liefert |
 | 5 | `state/watchlist.yaml` | Lucas Beobachtungsliste (SPEC 9.7) | Liste von ISINs, gepflegt mit `stockagent watch add|remove <ISIN>`. Titel der Liste gehen bei Läufen immer in die Tiefenanalyse |
 | 6 | `.claude/skills/analyze-stock/SKILL.md` | Skill /analyze-stock | Nimmt ISIN oder Name, löst auf ISIN und LEI auf, startet `stockagent analyze`, führt die Agenten in der Reihenfolge aus, die `stockagent next` vorgibt, und öffnet am Ende den finanziellen Überblick |
 | 6 | `schemas/json/` | Exportierte JSON-Schemas | Aus den Pydantic-Modellen erzeugte Schemas je Agentenausgabe (`a3_output.json`, `j1_output.json` …). Die Agent-Prompts verweisen darauf |
@@ -158,12 +148,6 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 
 | Schritt | Datei | Inhalt |
 |---|---|---|
-| 2 | `docs/adr/0002-isin-cik.md` | Wie ISIN und CIK der SEC zugeordnet werden |
-| 2 | `src/stockagent/core/calc.py` | Rechenweg mit Prüfpunkten (HR-19, SPEC 12.7) |
-| 2 | `src/stockagent/core/dq.py` | Arithmetik der Datenqualitätsprüfungen über den Rechenweg |
-| 2 | `config/source_map.yaml` | Quellenkarte (SPEC 8.9), danach in den Schritten 5, 6, 7, 9 erweitert |
-| 2 | `src/stockagent/data/sources/openfigi.py` | ISIN zu Ticker über OpenFIGI (ADR 0002) |
-| 2 | `src/stockagent/cli/` (Paket) | Aufteilung der heutigen `cli.py` je Bereich |
 | 3 | `src/stockagent/core/trends.py` | Trends und Zeitreihen (SPEC 3.4): Theil-Sen-Steigung, CAGR, Stabilität |
 | 4 | `src/stockagent/data/sources/damodaran.py` | Risikoprämie, Branchenbetas und -multiples als datierter Stand |
 | 6 | `agents_src/<agent>.md` | Vorlagen A1, A3, A4, A5, A7, A9, J1, J2 mit Pflicht-Präambel |
