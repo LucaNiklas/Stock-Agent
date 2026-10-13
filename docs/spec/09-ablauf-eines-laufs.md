@@ -81,3 +81,14 @@ Innerhalb der Kategorie sortiert das System nach Note, dann nach Konfidenz. Tief
 ### 9.8 Rückfragen während und nach dem Lauf
 
 Der Agent fragt Luca nur an festen Stellen. Beim Start fragt er nach der Kategorie. Bei einem Themen-Lauf bestätigt Luca die Trefferliste. Nach dem Lauf werden eskalierte Fälle vorgelegt (`/review-escalations` in Claude Code oder GitHub-Issues, Abschnitt 16.14). In Läufen nach Zeitplan stellt er keine Fragen. Was eine Entscheidung braucht, landet in der Eskalations-Warteschlange.
+
+### 9.9 Freitext-Abfrage
+
+Neben dem Dialog aus 9.7 nimmt `/stockagent` eine Anfrage in eigenen Worten an, etwa „suche mir Tier-1-Aktien aus Griechenland in der Branche Automobil und bewerte sie“.
+
+1. **Übersetzen.** Die Hauptsitzung übersetzt den Satz in einen strukturierten Filter `request.json` mit festem Schema: Stufe (7.9), Land oder Region (ISO-Codes), Branche und Unterbranche (IDs aus `config/sectors.yaml`), Größenklasse, Note, Kategorie, Handelbarkeit bei Trade Republic, Beobachtungsliste, Tiefe der Analyse. Erlaubt sind nur Werte aus diesen Listen. Ein Wert außerhalb wird abgelehnt, nicht geraten.
+2. **Zurückzeigen.** Vor jeder Arbeit zeigt das System den verstandenen Filter in Klartext und die Trefferzahl: „Tier 1, Land GR, Branche Automobil (Unterbranche von Nicht-Basiskonsumgüter): 2 Treffer“. Luca bestätigt oder korrigiert. Null Treffer werden mit dem engsten lockernden Vorschlag beantwortet („in Tier 1 bis 2 gibt es 3 Treffer“).
+3. **Auswählen.** Die Trefferliste entsteht deterministisch aus der Datenbank (Abteilung Berechnung), nie aus dem Vorwissen eines Modells (HR-04). Nur für Themen ohne Branchencode (etwa „Wasserstoff“) sucht A0 in den gespeicherten Geschäftsbeschreibungen, mit Belegstelle je Treffer und Lucas Bestätigung (9.7).
+4. **Bewerten.** Alle Treffer haben schon Note, Konfidenz und Risiko (9.6). Die Tiefenanalyse bekommen die besten Treffer bis zur Grenze aus HR-18, der Rest erscheint mit Note in der Laufübersicht.
+
+Dieselbe Übersetzung nutzt das Suchfeld im Dashboard (13.5). Gespeicherte Abfragen liegen in `state/views.yaml` und lassen sich mit Namen wieder aufrufen („Tier 1 Europa Qualität“).

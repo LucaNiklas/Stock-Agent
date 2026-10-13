@@ -55,13 +55,13 @@ Die Einträge für `<Abschnitte>` je Schritt.
 | 2 Abschlussdaten USA | 3.2, 7.2, 7.5 bis 7.7 |
 | 3 Formelregister | 3.3 bis 3.5, 12.2, 12.7, 18.1 |
 | 4 Marktdaten und Bewertung | 3.6, 5.2 Punkt 4, 6 und 7, 7.3, 12.7 |
-| 5 Note und erste Übersicht | 3.1, 3.11 (nur Standard), 6, 7.8, 12.7, 13.3, 14.2 |
+| 5 Note und erste Übersicht | 3.1, 3.11 (nur Standard), 6, 7.8, 7.9, 12.7, 13.3, 13.5, 14.2 |
 | 6 Tiefenanalyse | 8, 11.2 (Ebenen 0 bis 2), 12.3 bis 12.6, 16.4, 17.6 |
 | 7 EU-Daten, Rechnungslegung, Währung | 4, 5, 7.2, 7.4 |
 | 8 Weitere Scorecards | 3.11 |
 | 9 Insider | 1 Nr. 1 bis 4, 3.8 |
 | 10 Prüfer vollständig | 11 |
-| 11 Start und Dashboard | 9.6 bis 9.8, 13, 16.6 |
+| 11 Start und Dashboard | 9.6 bis 9.9, 13, 16.6 |
 | 12 Zeitplan | 9.1 bis 9.5, 16.12, 16.14 |
 
 ### 17.4 Prompts für den Betrieb

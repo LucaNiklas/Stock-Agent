@@ -79,6 +79,10 @@ uv run pytest && uv run ruff check . && uv run mypy
 - **HR-06 Architekturtest** (`test_arithmetic_only_in_core`) fehlt noch. Bisher eingehalten durch Code-Review, `core/dq.py` rechnet alle Prüfungen.
 - Das Feld „Primary Market MIC Code“ der Deutschen Börse ist kein verlässlicher Primärmarkt und darf nicht als Kursquelle dienen.
 
+## Oberfläche (Version 4.3)
+
+Indexstufe Tier 1 bis 4 (SPEC 7.9), Freitext-Abfrage (9.9) und Bedienkonzept mit Bewerten per Klick (13.5) sind festgelegt (ADR 0004). Was nach welchem Schritt sichtbar ist, steht im BAUPLAN unter „Fahrplan Oberfläche“. Die ersten Teile kommen mit Schritt 5.
+
 ## Nächster Schritt
 
 Bauschritt 3 „Formelregister und Kennzahlen“ (SPEC 3.3 bis 3.5, 12.2, 12.7, 18.1): Kennzahlen in `config/metrics.yaml` und `core/registry.py` über den Rechenweg aus `core/calc.py`, Trends in `core/trends.py`, Scores in `core/scores.py`. Jede Kennzahl mit Handrechnung aus einem echten 10-K (die drei Firmen aus `tests/test_sec_abnahme.py` bieten sich an). Aktienzahlen um Splits bereinigen (DQ-08 erkennt sie schon). Skill `/add-metric` nutzen.
