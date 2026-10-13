@@ -143,14 +143,16 @@ def test_migration_from_schema_3_keeps_listings(tmp_path: Path) -> None:
 
 def test_migration_from_schema_4_adds_metric_tables(tmp_path: Path) -> None:
     db = tmp_path / "alt.duckdb"
-    c = duckdb.connect(str(db))
-    c.execute("CREATE TABLE meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL)")
-    c.execute("INSERT INTO meta VALUES ('schema_version', '4')")
-    c.execute("CREATE TABLE facts (fact_id BIGINT, issuer_id VARCHAR)")
-    c.execute("INSERT INTO facts VALUES (1, 'sec:0000320193')")
+    c = store.connect(db)  # Datenbank im Stand von Schema 4 nachbauen
+    c.execute("DROP TABLE metrics; DROP TABLE metric_runs; DROP TABLE hinweise")
+    c.execute("UPDATE meta SET value = '4' WHERE key = 'schema_version'")
+    c.execute(
+        "INSERT INTO isin_cik (isin, status, method, detail, checked_at) "
+        "VALUES ('X', 'keine', 'keine', '', now())"
+    )
     c.close()
     conn = store.connect(db)
-    assert conn.execute("SELECT issuer_id FROM facts").fetchall() == [("sec:0000320193",)]
+    assert conn.execute("SELECT isin FROM isin_cik").fetchall() == [("X",)]
     assert conn.execute("SELECT count(*) FROM metrics").fetchone() == (0,)
     assert conn.execute("SELECT count(*) FROM hinweise").fetchone() == (0,)
 
