@@ -167,6 +167,7 @@ def fcf_wert(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     ocf = d.hole("operating_cash_flow", t)
     capex = d.hole("capex", t)
     _cp01(r, t, ocf, capex)
+    r.pruefe("CP-02", "Investitionen als Auszahlung nicht negativ", capex.wert >= 0)
     return r.schritt(
         "fcf",
         "ocf - capex - capex_immateriell",
@@ -368,8 +369,11 @@ def fcf_per_share_cagr_5y(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 @metric("share_count_change_3y")
 def share_count_change_3y(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     t0 = d.vorjahr(t, 3)
-    ende = split_bereinigt(r, d, "aktien_ende", d.hole("shares_diluted", t), je_aktie=False)
-    anfang = split_bereinigt(r, d, "aktien_anfang", d.hole("shares_diluted", t0), je_aktie=False)
+    a_ende, a_anfang = d.hole("shares_diluted", t), d.hole("shares_diluted", t0)
+    r.pruefe_eingaben(a_ende, a_anfang, gleiche_periode=False)
+    r.pruefe("CP-01", "Aktienanzahl in Stück", a_ende.einheit == "shares")
+    ende = split_bereinigt(r, d, "aktien_ende", a_ende, je_aktie=False)
+    anfang = split_bereinigt(r, d, "aktien_anfang", a_anfang, je_aktie=False)
     r.pruefe("CP-02", "Aktienanzahl positiv", anfang > 0 and ende > 0)
     return r.schritt("veraenderung", "ende / anfang - 1", ende=ende, anfang=anfang)
 
@@ -428,11 +432,17 @@ def fcf_after_sbc(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 def nettoverschuldung(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     kasse = d.hole("cash", t)
     _cp01(r, t, kasse)
+    schulden, miete = finanzschulden(r, d, t), leasing(r, d, t)
+    r.pruefe(
+        "CP-02",
+        "Finanzschulden, Leasing und Kasse nicht negativ",
+        schulden >= 0 and miete >= 0 and kasse.wert >= 0,
+    )
     return r.schritt(
         "nettoverschuldung",
         "finanzschulden + leasing - kasse - wertpapiere_kurzfristig",
-        finanzschulden=finanzschulden(r, d, t),
-        leasing=leasing(r, d, t),
+        finanzschulden=schulden,
+        leasing=miete,
         kasse=kasse,
         wertpapiere_kurzfristig=_opt(r, d, "st_investments", t),
     )

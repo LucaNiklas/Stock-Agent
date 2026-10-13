@@ -10,6 +10,13 @@
 
 methodology_version: "1.0"
 
+# Trends je Kennzahl (SPEC 3.4, core/trends.py)
+trends:
+  max_jahre: 10                # Länge der Reihe für Streuung und Steigung
+  mindest_jahre: 5             # darunter keine Streuung und keine Steigung (SPEC 3.4 Nr. 1)
+  # CP-05 gegen die eigene Historie nutzt config/quality.yaml ausreisser (Schwelle 4,
+  # mindestens 4 Vorjahre)
+
 metrics:
 - id: gross_margin
   version: '1.0'
@@ -299,6 +306,7 @@ metrics:
   scorecards: *id001
   quelle: Koller, Goedhart, Wessels. Valuation (McKinsey), 7. Auflage
   pruefpunkte:
+  - CP-01
   - CP-02
   tests:
   - tests/metrics/test_share_count_change_3y.py
@@ -322,6 +330,7 @@ metrics:
   quelle: Koller, Goedhart, Wessels. Valuation (McKinsey), 7. Auflage
   pruefpunkte:
   - CP-01
+  - CP-02
   tests:
   - tests/metrics/test_fcf.py
 - id: fcf_conversion
@@ -430,6 +439,7 @@ metrics:
   quelle: Koller, Goedhart, Wessels. Valuation (McKinsey), 7. Auflage
   pruefpunkte:
   - CP-01
+  - CP-02
   tests:
   - tests/metrics/test_fcf_after_sbc.py
 - id: net_debt
@@ -456,6 +466,7 @@ metrics:
   quelle: Koller, Goedhart, Wessels. Valuation (McKinsey), 7. Auflage
   pruefpunkte:
   - CP-01
+  - CP-02
   tests:
   - tests/metrics/test_net_debt.py
 - id: net_debt_incl_pensions
@@ -483,6 +494,7 @@ metrics:
   quelle: Koller, Goedhart, Wessels. Valuation (McKinsey), 7. Auflage
   pruefpunkte:
   - CP-01
+  - CP-02
   tests:
   - tests/metrics/test_net_debt_incl_pensions.py
 - id: net_debt_to_ebitda
