@@ -26,7 +26,7 @@ Projekt mit uv und Python 3.12, CI, Grundtypen (`Money`, `Fact`, `Evidence`, `Cl
 
 14.509 Aktien aus den Listen der Deutschen Börse, ISIN-Prüfung, LEI, Hauptsitz und Rechtssitz aus der GLEIF mit Plausibilitätsprüfung, Erkennung von Hinterlegungsscheinen, Lucas Trade-Republic-Prüfungen, Anzeige im Terminal und als HTML (ADR 0001).
 
-### Schritt 2: Abschlussdaten USA (erledigt, Pull Request siehe STATUS.md)
+### Schritt 2: Abschlussdaten USA (erledigt, LucaNiklas/Stock-Agent#7)
 
 Python-Teil der Abteilung Recherche für die USA: Quellenkarte, Zuordnung ISIN zu CIK über OpenFIGI und die Tickerliste der SEC (ADR 0002), Stammdaten (SIC, Adresse) für alle zugeordneten SEC-Melder, Company Facts und XBRL des Originalberichts für eine Auswahl, `pit_query`, Rechenweg `core/calc.py` (vorgezogen), Datenqualität DQ-01 bis DQ-08, CLI als Paket, Befehle `sec update | show | map`.
 
