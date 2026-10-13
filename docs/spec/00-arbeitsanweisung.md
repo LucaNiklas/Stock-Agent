@@ -1,5 +1,5 @@
 # Stock-Agent: Recherche- und Bewertungssystem für Einzelaktien
-## Spezifikation für Claude Code (Stand 11.10.2026, Version 4.1)
+## Spezifikation für Claude Code (Stand 13.10.2026, Version 4.2)
 
 Dieses Dokument ersetzt Version 3. Version 4 grenzt den Umfang ein: Das System **zeigt und bewertet** Aktien, die bei Trade Republic handelbar sind, und erstellt auf Anfrage einen finanziellen Überblick über einzelne Unternehmen. Es tätigt **keine Orders**, verbindet sich mit keinem Depot und plant **keine Beträge, Positionsgrößen oder Allokationen**. Gebaut wird Schritt für Schritt (Abschnitt 16.10). Wo eine Entscheidung bei Luca liegt, steht sie in Abschnitt 19 und im Code als Konfigurationswert mit Default.
 

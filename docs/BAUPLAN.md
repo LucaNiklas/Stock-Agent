@@ -1,6 +1,6 @@
 # Bauplan
 
-Stand: 12.10.2026. Dieses Dokument beschreibt alle Bauschritte und sagt für jede Datei, die heute nur ein Platzhalter ist, **wann** sie gebaut wird und **was genau** hineinkommt. Verbindlich bleibt die Spezifikation (`docs/spec/`). Der Bauplan ist die Arbeitsliste dazu. Nach jedem Bauschritt werden die erledigten Zeilen hier entfernt und `docs/STATUS.md` aktualisiert.
+Stand: 13.10.2026. Dieses Dokument beschreibt alle Bauschritte und sagt für jede Datei, die heute nur ein Platzhalter ist, **wann** sie gebaut wird und **was genau** hineinkommt. Verbindlich bleibt die Spezifikation (`docs/spec/`). Der Bauplan ist die Arbeitsliste dazu. Nach jedem Bauschritt werden die erledigten Zeilen hier entfernt und `docs/STATUS.md` aktualisiert.
 
 ## Warum 13 Schritte (0 bis 12)?
 
@@ -28,8 +28,9 @@ Projekt mit uv und Python 3.12, CI, Grundtypen (`Money`, `Fact`, `Evidence`, `Cl
 
 ### Schritt 2: Abschlussdaten USA
 
-- **Ziel:** Geprüfte Abschlusszahlen der US-Emittenten mit Zeitpunktbezug, dazu Branche (SIC) und Geschäftsadresse der SEC.
-- **Entsteht:** SEC-Anbindung, Tabellen `issuers`, `documents`, `facts`, `store.pit_query(as_of=...)`, Datenqualitätsprüfungen aus SPEC 3.2, Zuordnung ISIN zu CIK (Verfahren als ADR 0002 festhalten, weil die SEC keine ISIN liefert).
+- **Ziel:** Geprüfte Abschlusszahlen der US-Emittenten mit Zeitpunktbezug, dazu Branche (SIC) und Geschäftsadresse der SEC. Das ist der Python-Teil der Abteilung Recherche für die USA (SPEC 8.1, ADR 0003).
+- **Entsteht zuerst:** `src/stockagent/core/calc.py` mit dem Rechenweg (`schritt`, `pruefe`, `ergebnis`) und dem Prüfpunkt-Katalog CP-01 bis CP-08 (SPEC 12.7), vorgezogen aus Schritt 3, weil die Datenqualitätsprüfungen schon rechnen.
+- **Danach:** Quellenkarte `config/source_map.yaml` mit den US-Quellen (SPEC 8.9), Zuordnung ISIN zu CIK über OpenFIGI und die Tickerliste der SEC (ADR 0002), SEC-Anbindung, Tabellen `issuers`, `documents`, `facts`, `store.pit_query(as_of=...)`, Datenqualitätsprüfungen aus SPEC 3.2 (Arithmetik in `core/dq.py`).
 - **Aufräumen:** `cli.py` in ein Paket `cli/` aufteilen (je Bereich eine Datei), `tests/test_universe.py` in `test_identifiers.py`, `test_sources.py`, `test_universe_update.py` aufteilen.
 - **Braucht von Luca:** `SEC_USER_AGENT` in `.env` (Name und E-Mail).
 - **Abnahme:** 10 US-Firmen aus dem Universum geladen, Bilanzgleichung erfüllt, Kernwerte gegen den Originalbericht geprüft, SIC-Code und Adresse für alle SEC-Melder im Universum.
@@ -37,8 +38,7 @@ Projekt mit uv und Python 3.12, CI, Grundtypen (`Money`, `Fact`, `Evidence`, `Cl
 ### Schritt 3: Formelregister und Kennzahlen
 
 - **Ziel:** Alle Kennzahlen aus SPEC 3.3 bis 3.5, jede schrittweise mit Prüfpunkten (HR-19).
-- **Entsteht zuerst:** `src/stockagent/core/calc.py` mit dem Rechenweg (`schritt`, `pruefe`, `ergebnis`) und dem Prüfpunkt-Katalog CP-01 bis CP-08 (SPEC 12.7). Neue Datei, deshalb heute kein Platzhalter.
-- **Danach:** Kennzahlen in `config/metrics.yaml` und `core/registry.py`, Trends (SPEC 3.4) in einer neuen Datei `core/trends.py`, Scores in `core/scores.py`. Skill `/add-metric` (schon geschrieben) nutzen.
+- **Entsteht:** Kennzahlen über den Rechenweg aus Schritt 2: in `config/metrics.yaml` und `core/registry.py`, Trends (SPEC 3.4) in einer neuen Datei `core/trends.py`, Scores in `core/scores.py`. Skill `/add-metric` (schon geschrieben) nutzen.
 - **Abnahme:** Jede Kennzahl mit schrittweiser Handrechnung aus einem echten 10-K getestet, Zwischenergebnisse einzeln geprüft. Ein verletzter Prüfpunkt stoppt die Rechnung mit `unknown` und INC-15. Der Rechenweg wird gespeichert.
 
 ### Schritt 4: Marktdaten und Bewertung
@@ -57,7 +57,7 @@ Projekt mit uv und Python 3.12, CI, Grundtypen (`Money`, `Fact`, `Evidence`, `Cl
 ### Schritt 6: Tiefenanalyse Ende zu Ende
 
 - **Ziel:** Finanzieller Überblick mit 14 Abschnitten für ein US-Unternehmen über Lucas Claude-Abo.
-- **Entsteht:** Zustandsautomat, Annahme von Agentenausgaben, Werkzeuge, Prompts, Agentenvorlagen in `agents_src/` (A1, A3, A4, A5, A7, A9, J1, J2) mit Modellen aus `config/models.yaml`, Berichtsvorlagen, Skill `/analyze-stock`, Befehl `analyze`. Der `SubagentStop`-Hook ruft `stockagent accept`.
+- **Entsteht:** Zustandsautomat mit den vier Abteilungen (SPEC 8.1), Dossier je Unternehmen, Aufträge nach SPEC 8.10 aus der Quellenkarte, Nachforderung, Werkzeugrechte je Abteilung, Annahme von Agentenausgaben, Werkzeuge, Prompts, Agentenvorlagen in `agents_src/` (A1, A3, A4, A5, A7, A9, J1, J2) mit Modellen aus `config/models.yaml`, Berichtsvorlagen, Skill `/analyze-stock`, Befehl `analyze`. Der `SubagentStop`-Hook ruft `stockagent accept`.
 - **Abnahme:** Alle Ausgaben schemakonform, jeder Agent lief mit seinem Modell, ein Schritt außerhalb der Reihenfolge wird abgelehnt, alle 14 Abschnitte vorhanden.
 
 ### Schritt 7: Europa, Rechnungslegung, Währung
@@ -159,8 +159,11 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 | Schritt | Datei | Inhalt |
 |---|---|---|
 | 2 | `docs/adr/0002-isin-cik.md` | Wie ISIN und CIK der SEC zugeordnet werden |
+| 2 | `src/stockagent/core/calc.py` | Rechenweg mit Prüfpunkten (HR-19, SPEC 12.7) |
+| 2 | `src/stockagent/core/dq.py` | Arithmetik der Datenqualitätsprüfungen über den Rechenweg |
+| 2 | `config/source_map.yaml` | Quellenkarte (SPEC 8.9), danach in den Schritten 5, 6, 7, 9 erweitert |
+| 2 | `src/stockagent/data/sources/openfigi.py` | ISIN zu Ticker über OpenFIGI (ADR 0002) |
 | 2 | `src/stockagent/cli/` (Paket) | Aufteilung der heutigen `cli.py` je Bereich |
-| 3 | `src/stockagent/core/calc.py` | Rechenweg mit Prüfpunkten (HR-19, SPEC 12.7) |
 | 3 | `src/stockagent/core/trends.py` | Trends und Zeitreihen (SPEC 3.4): Theil-Sen-Steigung, CAGR, Stabilität |
 | 4 | `src/stockagent/data/sources/damodaran.py` | Risikoprämie, Branchenbetas und -multiples als datierter Stand |
 | 6 | `agents_src/<agent>.md` | Vorlagen A1, A3, A4, A5, A7, A9, J1, J2 mit Pflicht-Präambel |

@@ -12,7 +12,7 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 - Je Bauschritt ein Branch `schritt-NN-kurzname` und ein Pull Request. Gemergt wird erst nach Lucas Freigabe, nie direkt auf `main` pushen.
 - Agenten laufen später über Lucas Claude-Abo, nicht über einen API-Schlüssel. Haiku sucht und sammelt, Sonnet schreibt und prüft, Opus nur für die anspruchsvollsten Schritte (`config/models.yaml`, SPEC 8.7). Gemini ist ein optionaler Prüfer, sein Test kommt in Schritt 10.
 - Kommunikation auf Deutsch.
-- **Rechenregel (HR-19, Lucas Vorgabe):** Jede Berechnung läuft schrittweise. Nach jedem Abschnitt wird das bisher Gerechnete mit einem Prüfpunkt kontrolliert, erst dann geht es weiter. Ein verletzter Prüfpunkt stoppt die Rechnung. Details in SPEC 12.7, gebaut als `core/calc.py` zu Beginn von Bauschritt 3, genutzt in den Schritten 3, 4, 5 und 7.
+- **Rechenregel (HR-19, Lucas Vorgabe):** Jede Berechnung läuft schrittweise. Nach jedem Abschnitt wird das bisher Gerechnete mit einem Prüfpunkt kontrolliert, erst dann geht es weiter. Ein verletzter Prüfpunkt stoppt die Rechnung. Details in SPEC 12.7, gebaut als `core/calc.py` in Bauschritt 2 (vorgezogen), genutzt ab Schritt 2 in jeder Rechnung.
 
 ## Erledigt
 
@@ -61,7 +61,7 @@ uv run pytest && uv run ruff check . && uv run mypy
 
 ## Danach
 
-Bauschritt 3 beginnt mit dem Rechenweg `core/calc.py` und dem Prüfpunkt-Katalog CP-01 bis CP-08 (SPEC 12.7), bevor die erste Kennzahl gebaut wird.
+Seit Version 4.2 arbeitet das System in vier Abteilungen (Recherche, Berechnung, Auswertung, Prüfung) mit Quellenkarte (ADR 0003). Der Rechenweg `core/calc.py` kommt schon in Bauschritt 2.
 
 ## Nächster Schritt
 

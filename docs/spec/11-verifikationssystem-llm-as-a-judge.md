@@ -67,7 +67,7 @@ Eskaliert wird bei `mismatch` in Kernkennzahlen, `contradicted` bei einer Behaup
 
 ### 11.6 Kalibrierung der Prüfer
 
-1. Goldstandard-Datensatz in `eval/gold/`. Start mit 5 Unternehmen, für die Luca Kernkennzahlen aus den Originalberichten händisch prüft, später auf 20 erweitern. Dazu absichtlich fehlerhafte Analysen (falsche Zahl, falsche Periode, erfundene Aussage, fehlender Risikofaktor), um die Fangquote zu messen.
+1. Goldstandard-Datensatz in `eval/gold/`. Start mit mindestens 20 Fällen aus 5 Unternehmen, für die Luca Kernkennzahlen aus den Originalberichten händisch prüft. Kleine Stichproben reichen am Anfang, weil Verbesserungen an Prompts große Effekte haben (Vorbild Anthropic, 8.1). Später auf 20 Unternehmen erweitern. Dazu absichtlich fehlerhafte Analysen (falsche Zahl, falsche Periode, erfundene Aussage, fehlender Risikofaktor), um die Fangquote zu messen.
 2. Metriken. Fangquote je Fehlerart, Fehlalarmquote, Übereinstimmung Jury mit Luca (Cohens Kappa), Stabilität bei Wiederholung.
 3. Mindestanforderung vor Produktivbetrieb. J1 findet mindestens 95 Prozent der eingebauten Zahlenfehler, J2 mindestens 85 Prozent der erfundenen Aussagen.
 4. Jede Prompt- oder Modelländerung läuft gegen den Goldstandard. Verschlechterungen blockieren die Änderung (Test in der CI).

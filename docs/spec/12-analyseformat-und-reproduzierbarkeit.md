@@ -106,7 +106,7 @@ Abgelehnte Ausgaben gehen mit der Fehlermeldung bis zu zweimal zurück an den Ag
 
 Grundsatz. Gerechnet wird ausschließlich in Python (HR-01, HR-06), nie im Kopf eines Sprachmodells. Jede Berechnung ist ein Rechenweg aus kleinen, benannten Schritten. Nach jedem Abschnitt hält die Rechnung an und prüft, ob das bisher Gerechnete stimmt. Erst wenn der Prüfpunkt bestanden ist, geht es weiter.
 
-**Aufbau (`core/calc.py`, gebaut in Bauschritt 3)**
+**Aufbau (`core/calc.py`, gebaut in Bauschritt 2 für die Datenqualitätsprüfungen, genutzt ab da in jedem Schritt)**
 
 ```python
 r = Rechenweg("roic", version="1.0", lei=lei, periode="2025")
@@ -142,6 +142,7 @@ return r.ergebnis(roic)
 
 | Bereich | Bauschritt | Pflicht-Prüfpunkte |
 |---|---|---|
+| Datenqualität (3.2) | 2 | CP-01 (Einheiten, Währung, Periode), CP-03 (Bilanzgleichung, Summenstruktur), CP-04 (zweiter Weg), CP-05 (Ausreißer) |
 | Kennzahlen (3.3) | 3 | CP-01, CP-02 je Zwischenschritt, CP-04 wo ein zweiter Weg existiert, CP-05 |
 | Scores Piotroski, Altman, Beneish (3.5) | 3 | CP-01, CP-02, CP-07 (Punktzahl im gültigen Bereich), CP-04 gegen veröffentlichte Werte im Test |
 | Normalisierung und Währung (4, 5) | 7 | CP-01 (Standard und Währung je Eingabe), CP-03 nach jeder Anpassung, CP-02 für Wechselkurse (INC-13) |
