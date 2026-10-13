@@ -1,11 +1,11 @@
 ---
 name: add-metric
-description: Neue Finanzkennzahl in das Formelregister aufnehmen, schrittweise mit Rechenweg und Prüfpunkten (HR-19). Verwenden, wenn Luca sagt "füge Kennzahl X hinzu" oder eine Kennzahl aus SPEC 3.3 gebaut wird. Voraussetzung ist core/calc.py aus Bauschritt 3.
+description: Neue Finanzkennzahl in das Formelregister aufnehmen, schrittweise mit Rechenweg und Prüfpunkten (HR-19). Verwenden, wenn Luca sagt "füge Kennzahl X hinzu" oder eine Kennzahl aus SPEC 3.3 gebaut wird. Voraussetzung ist core/calc.py aus Bauschritt 2.
 ---
 
 # Kennzahl hinzufügen
 
-Verbindlich sind SPEC 3.3, 12.2, 12.7 und 18.1 sowie die harten Regeln HR-01, HR-06, HR-12 und HR-19 (`docs/spec/00-arbeitsanweisung.md`). Gibt es `src/stockagent/core/calc.py` noch nicht, abbrechen und Luca sagen, dass zuerst der Rechenweg aus Bauschritt 3 gebaut werden muss.
+Verbindlich sind SPEC 3.3, 12.2, 12.7 und 18.1 sowie die harten Regeln HR-01, HR-06, HR-12 und HR-19 (`docs/spec/00-arbeitsanweisung.md`). Gibt es `src/stockagent/core/calc.py` noch nicht, abbrechen und Luca sagen, dass zuerst der Rechenweg aus Bauschritt 2 gebaut werden muss.
 
 ## Ablauf
 

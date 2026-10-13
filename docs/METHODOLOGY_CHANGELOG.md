@@ -16,6 +16,14 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Modellzuordnung je Agent (Haiku, Sonnet, Opus, optional Gemini) in config/models.yaml.
 - A9 Synthese-Agent wieder in Abschnitt 8.3 (war bei Version 4.0 versehentlich im Anhang).
 
+## 4.2 (13.10.2026)
+
+- Vier Abteilungen (Recherche, Berechnung, Auswertung, Prüfung) mit getrennten Rechten und Übergabe über Dateien (SPEC 8.1, ADR 0003).
+- Quellenkarte `config/source_map.yaml`: je Information feste Quellenreihenfolge, Python vor Agent (SPEC 8.9).
+- Feste Auftragsform und Aufwandsgrenzen für Agenten (SPEC 8.10).
+- Rechenweg `core/calc.py` in Bauschritt 2 vorgezogen, Datenqualität rechnet über Prüfpunkte (SPEC 12.7).
+- Goldstandard startet mit mindestens 20 Fällen (SPEC 11.6).
+
 ## Änderungshistorie der Spezifikation
 
 Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit Abschnitt 1 nur die fachlichen Korrekturen enthält.
@@ -73,3 +81,13 @@ Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit 
 | Thema | vorher | jetzt |
 |---|---|---|
 | Berechnungen | Formeln im Register, Ergebnis geprüft | jede Berechnung schrittweise über einen Rechenweg mit Prüfpunkten nach jedem Abschnitt, Abbruch bei verletztem Prüfpunkt (HR-19, 12.7). Gebaut in Bauschritt 3, genutzt ab Schritt 3 bis 5 und 7 |
+
+### Änderungen in Version 4.2
+
+| Thema | Version 4.1 | Version 4.2 |
+|---|---|---|
+| Aufbau | Liste von Agenten | vier Abteilungen mit Übergabe-Artefakten (8.1) |
+| Recherche | A1 sucht frei per Websuche | Quellenkarte legt Quellen und Reihenfolge fest, Python holt alles mit fester Adresse (8.9) |
+| Aufträge | frei formuliert | Ziel, Format, Quellen, Grenzen, Aufwandsgrenze (8.10) |
+| Rechenweg | ab Bauschritt 3 | ab Bauschritt 2 (12.7) |
+| Goldstandard | Start mit 5 Unternehmen | mindestens 20 Fälle aus 5 Unternehmen (11.6) |

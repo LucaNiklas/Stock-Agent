@@ -25,7 +25,7 @@ Inoffizielle Bibliotheken, die das private Protokoll von Trade Republic nutzen (
 
 | Region | Primärquelle | Format | Kosten | Hinweise |
 |---|---|---|---|---|
-| USA | SEC EDGAR, `data.sec.gov` (Company Facts, Company Concept, Frames, Submissions) | JSON mit US-GAAP-XBRL-Konzepten | kostenlos | Pflicht-Header `User-Agent` mit Name und E-Mail, höchstens 10 Anfragen pro Sekunde. Bibliothek `edgartools` nutzen |
+| USA | SEC EDGAR, `data.sec.gov` (Company Facts, Submissions) und das XBRL des Originalberichts unter `www.sec.gov/Archives` | JSON mit US-GAAP-XBRL-Konzepten | kostenlos | Pflicht-Header `User-Agent` mit Name und E-Mail, höchstens 10 Anfragen pro Sekunde. Zuordnung ISIN zu CIK über OpenFIGI und die Tickerliste der SEC (ADR 0002). Welche Information aus welcher Quelle kommt, steht in der Quellenkarte (8.9) |
 | EU, regulierte Märkte | ESEF-Inline-XBRL über `filings.xbrl.org` (XBRL International), Python-Paket `xbrl-filings-api` | xBRL-JSON, Bericht als XHTML | kostenlos | Abdeckung ab Geschäftsjahr 2020, nicht vollständig. Freiverkehrswerte fehlen, weil dort keine ESEF-Pflicht gilt. Im Anhang ist nur Block-Tagging Pflicht, deshalb fehlen Angaben wie Leasingaufwand, LIFO, aktienbasierte Vergütung und Segmente meist strukturiert. Für EU-Werte ist der PDF-Rückfall (7.4) der Normalfall für Anhangangaben |
 | EU, Rückfall | Unternehmensregister und Investor-Relations-Seiten | PDF | kostenlos | Extraktion nach Abschnitt 7.4 |
 | EU, mittelfristig | ESAP (European Single Access Point), Aufbau läuft | | | Bei Verfügbarkeit als Primärquelle einbinden |

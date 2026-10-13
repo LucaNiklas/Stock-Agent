@@ -17,7 +17,9 @@ Die Agenten laufen als Subagents in Claude Code und damit über Lucas Claude-Abo
 3. Der `SubagentStop`-Hook führt `uv run stockagent accept <run_id> <datei>` aus. Python prüft Schema und alle Gates (12.6) und schreibt den Zustand fort. Eine Ausgabe in falscher Reihenfolge oder mit verletztem Gate wird abgelehnt und geht mit Fehlermeldung zurück (höchstens zweimal, dann `escalated`).
 4. Ist der Zustand `done`, rendert Python den Bericht.
 
-Damit bleiben Reihenfolge, Blindheit der Prüfer und Gates in Python erzwungen, auch wenn Claude Code die Aufrufe ausführt. Ein Test spielt einen Lauf mit aufgezeichneten Antworten durch und prüft, dass Schritte außerhalb der Reihenfolge abgelehnt werden.
+Unabhängige Aufträge derselben Abteilung (etwa A1 je Dokumenttyp oder A3, A4, A6) nennt `stockagent next` gemeinsam, und Claude Code startet sie parallel. Jede Abteilung bekommt als Eingabe nur das Übergabe-Artefakt der vorigen (8.1).
+
+Damit bleiben Reihenfolge, Trennung der Abteilungen, Blindheit der Prüfer und Gates in Python erzwungen, auch wenn Claude Code die Aufrufe ausführt. Ein Test spielt einen Lauf mit aufgezeichneten Antworten durch und prüft, dass Schritte außerhalb der Reihenfolge abgelehnt werden.
 
 **Später optional: API-Betrieb.** Für Läufe ohne Luca (Zeitplan) kann derselbe Zustandsautomat die Agenten über das Claude Agent SDK mit API-Schlüssel aufrufen. Das kostet pro Token und wird nur nach Lucas Entscheidung gebaut (19).
 

@@ -19,10 +19,10 @@ Nur wenn der Zeitplan aktiv ist.
 
 1. Konfiguration laden, Hashes ins Manifest.
 2. Universum aktualisieren (wöchentlich) oder aus Cache.
-3. Daten nachladen (inkrementell, nur neue Einreichungen).
-4. P2 bis P6 deterministisch für alle Unternehmen.
+3. Abteilung Recherche: Daten nachladen nach der Quellenkarte (inkrementell, nur neue Einreichungen).
+4. Abteilung Berechnung: P3 bis P6 deterministisch für alle Unternehmen.
 5. Liste der Tiefenanalysen aus der Anfrage (9.8) und der Beobachtungsliste bilden.
-6. Tiefenanalyse (8.5).
+6. Tiefenanalyse durch die vier Abteilungen (8.5).
 7. Bericht und Endkontrolle.
 8. Dashboard bauen, optional Benachrichtigung.
 9. Notenkontrolle fortschreiben (Abschnitt 14).
