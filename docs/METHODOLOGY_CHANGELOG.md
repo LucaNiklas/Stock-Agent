@@ -28,7 +28,8 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 
 - Indexstufe Tier 1 bis 4 als Filter, bezogen auf den Heimatmarkt, ohne Einfluss auf die Note (SPEC 7.9, ADR 0004).
 - Freitext-Abfrage, die in einen geprüften Filter übersetzt wird (SPEC 9.9).
-- Bedienkonzept mit Lese- und Arbeitsmodus, Filterleiste, Bewerten per Klick (SPEC 13.5), Fahrplan in docs/BAUPLAN.md.
+- Dashboard als Bedienzentrale: Suchen, Filtern und Bewerten per Klick, Claude Code im Hintergrund über `claude -p` (SPEC 13.5), Fahrplan in docs/BAUPLAN.md.
+- Korrektur: Subagents können verschachtelt werden. Die Leitung bleibt beim Zustandsautomaten, kein Agent bekommt das Werkzeug `Agent` (SPEC 8.1, 16.4, ADR 0003).
 
 ## Datenqualität 1.0, Konzeptzuordnung 1.0, Quellenkarte 1.0 (13.10.2026, Bauschritt 2)
 
@@ -124,5 +125,5 @@ Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit 
 |---|---|---|
 | Filter | Note, Konfidenz, Risiko, Branche, Land, Größe | dazu Indexstufe Tier 1 bis 4, Kategorie, Datenlage (7.9, 13.5) |
 | Start | Dialog in zwei Runden (9.7) | dazu Anfrage in eigenen Worten (9.9) |
-| Oberfläche | statische Seite | Lesemodus und Arbeitsmodus mit Bewerten per Klick (13.5) |
+| Oberfläche | statische Seite | Dashboard als Bedienzentrale mit Bewerten per Klick (13.5) |
 

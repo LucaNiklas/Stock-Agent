@@ -47,20 +47,28 @@ Gestaltung. Farben ausschließlich für Kategorien und Ampeln, nie als einziger 
 
 Optional nach jedem Lauf eine kurze Nachricht mit Anzahl attraktiver Unternehmen, Eskalationen und Link zum Dashboard. Kanal konfigurierbar (E-Mail per SMTP, Telegram-Bot, Push über Claude).
 
-### 13.5 Bedienkonzept
+### 13.5 Bedienkonzept: das Dashboard als Bedienzentrale
 
-Ziel: Luca findet jede Aktie des Universums über Filter oder Freitext, sieht ihre Note sofort und startet die Tiefenanalyse mit einem Klick.
+Ziel: Luca bedient das ganze System über das Dashboard im Browser. Er tippt nichts in Claude Code und kein Terminal. Claude Code arbeitet im Hintergrund, gestartet vom Dashboard über Lucas Abo.
 
-**Zwei Betriebsarten.**
+**Start.** Ein Doppelklick auf `Stockagent.command` im Projektordner (macOS) oder `uv run stockagent app` startet den lokalen Server und öffnet das Dashboard im Browser. Der Server hört nur auf 127.0.0.1 (nur der eigene Rechner) und schreibt nur nach `state/` und `runs/`.
 
-| Art | Technik | Kann |
+**Wie das Dashboard Claude Code nutzt.** Claude Code läuft auch ohne Bildschirm (`claude -p`, laut Dokumentation mit der Anmeldung des Abos, solange nicht `--bare` gesetzt ist). Der Server ruft es für genau zwei Dinge auf, immer mit festen Rechten und ohne Rückfragen (`--permission-prompts none`):
+
+| Aufgabe | Aufruf | Rechte |
 |---|---|---|
-| Lesen | statische HTML-Datei (13.3), auch als privates Artifact | ansehen, filtern, sortieren, suchen, vergleichen |
-| Arbeiten | lokaler Server `stockagent serve` auf 127.0.0.1, dieselbe Seite plus kleine Schnittstelle | zusätzlich Beobachtungsliste, Trade-Republic-Prüfung und Notizen speichern, Tiefenanalyse anfordern |
+| Freitext in Filter übersetzen (9.9) | `claude -p` mit `--json-schema` für `request.json`, Modellklasse `fast` | keine Werkzeuge |
+| Tiefenanalyse | `claude -p "/analyze-stock <ISIN>"` mit `--output-format stream-json` | nur die Werkzeuge aus 16.4 und `stockagent next | accept` |
 
-Eine statische Seite kann nichts speichern und nichts starten. Deshalb gibt es den lokalen Server. Er hört nur auf dem eigenen Rechner (127.0.0.1) und schreibt nur nach `state/`.
+Alles andere (Filtern, Noten, Kennzahlen, Speichern) erledigt Python ohne Modell und sofort.
 
-**Filterleiste** über der Tabelle, jeder Filter mit Anzahl Treffer je Wert:
+**Ansicht „Suchen und Bewerten“ (Startseite).**
+
+- Ein großes Eingabefeld: „Tier-1-Aktien aus Griechenland, Branche Automobil“. Das Dashboard zeigt darunter den verstandenen Filter als Schaltflächen (Tier 1 · Griechenland · Automobil) mit Trefferzahl. Jede Schaltfläche lässt sich wegklicken oder ändern. Bei null Treffern erscheint ein Vorschlag zum Lockern.
+- Name, ISIN, WKN oder Ticker im selben Feld springen direkt zur Aktie, ohne Modellaufruf.
+- Darunter die Trefferliste mit Note, Konfidenz, Risiko, Kategorie, Tier, Branche, Land, Trade-Republic-Status. Knöpfe „Alle bewerten“ und „Auswahl bewerten“ starten die Tiefenanalyse für die besten Treffer bis zur Grenze aus HR-18. Vorher zeigt das Dashboard den Laufplan (Anzahl, geschätzte Dauer, Hinweis auf das Kontingent des Abos) und wartet auf Bestätigung.
+
+**Filterleiste** in der Übersicht, jeder Filter mit Anzahl Treffer je Wert:
 
 - Stufe: Tier 1 bis 4 (7.9)
 - Land und Region: Hauptsitz, wahlweise Rechtssitz. Regionen als Gruppen (DACH, Europa, Nordamerika, Asien-Pazifik, Schwellenländer)
@@ -70,23 +78,22 @@ Eine statische Seite kann nichts speichern und nichts starten. Deshalb gibt es d
 - Datenlage: Abschlussdaten aus SEC, ESEF, Anbieter oder keine (erklärt jedes N)
 - Nur Beobachtungsliste
 
-Filter stehen in der Adresszeile der Seite, eine Ansicht lässt sich also als Lesezeichen speichern.
+Filter stehen in der Adresszeile, eine Ansicht lässt sich als Lesezeichen speichern oder mit Namen ablegen („Tier 1 Europa Qualität“, `state/views.yaml`).
 
-**Suchfeld** mit zwei Bedeutungen: Name, ISIN, WKN oder Ticker springt direkt zum Titel. Ein Satz („Tier 1 Griechenland Automobil“) wird nach 9.9 in Filter übersetzt und als Filterleiste angezeigt. Im Lesemodus übersetzt eine feste Wortliste (Länder, Branchen, Stufen, Noten), Freitext mit Sprachmodell nur im Arbeitsmodus über Claude Code.
-
-**Klick auf eine Aktie** öffnet ihre Seite (Unternehmensseite aus 13.3). Ohne Tiefenanalyse zeigt sie Note, Säulenzerlegung, Kennzahlen mit Rechenweg und Datenqualität sofort, weil alles schon berechnet ist. Der Knopf „Tiefenanalyse“ (nur Arbeitsmodus):
-
-1. schreibt die ISIN in die Warteschlange `state/analysis_queue.yaml`,
-2. startet, wenn Luca es in `config/run_profiles.yaml` erlaubt, Claude Code ohne Bildschirm (`claude -p "/analyze-stock <ISIN>"`) über Lucas Abo, sonst arbeitet `/stockagent` die Warteschlange beim nächsten Start ab,
-3. zeigt den Fortschritt aus `runs/<run_id>/` (welche Abteilung arbeitet gerade) und danach den finanziellen Überblick.
-
-Mehrfachauswahl in der Tabelle legt mehrere Titel gleichzeitig in die Warteschlange. Die Grenze aus HR-18 gilt auch hier.
+**Klick auf eine Aktie** öffnet ihre Seite. Ohne Tiefenanalyse zeigt sie Note, Säulenzerlegung, Kennzahlen mit Rechenweg und Datenqualität sofort. Der Knopf „Tiefenanalyse starten“ startet Claude Code im Hintergrund. Die Seite zeigt den Fortschritt je Abteilung (Recherche, Berechnung, Auswertung, Prüfung, mit dem gerade arbeitenden Agenten) und danach den finanziellen Überblick mit 14 Abschnitten. Läuft schon eine Analyse, kommt die neue in die Warteschlange `state/analysis_queue.yaml`. Schließen des Browsers bricht nichts ab, der Zustandsautomat setzt fort (8.6).
 
 **Weitere Bedienelemente:**
 
-- Stern für die Beobachtungsliste (`state/watchlist.yaml`) und ein Notizfeld je Titel (`state/notes.yaml`), beides nur Lucas Eingaben, ohne Einfluss auf die Note.
-- Trade-Republic-Prüfung direkt in der Zeile (ja oder nein, schreibt `state/tr_checks.yaml` wie `stockagent tr-check`).
+- Stern für die Beobachtungsliste (`state/watchlist.yaml`) und ein Notizfeld je Titel (`state/notes.yaml`), ohne Einfluss auf die Note.
+- Trade-Republic-Prüfung direkt in der Zeile (ja oder nein, schreibt `state/tr_checks.yaml`).
+- Knopf „Daten aktualisieren“ für Universum und SEC-Daten mit Fortschrittsanzeige (Python, kein Modell).
+- Eskalationen mit beiden Werten, Quellen und Eingabefeld für Lucas Entscheidung.
 - Spaltenwahl und Export der gefilterten Liste als CSV.
 - Jede Zahl mit Tooltip zu Quelle und Rechenweg (13.1), jede Note mit Zerlegung, jedes N mit Grund.
-- Abdeckungsanzeige oben, etwa „14.509 Aktien, davon 3.117 mit Note, Rest ohne strukturierte Daten (Grund je Titel)“, damit sichtbar bleibt, was noch fehlt (HR-16).
+- Abdeckungsanzeige oben, etwa „14.509 Aktien, davon 3.117 mit Note, Rest ohne strukturierte Daten (Grund je Titel)“ (HR-16).
+- Anzeige des Abo-Verbrauchs der letzten Läufe aus `log.jsonl`, damit Luca vor großen Läufen sieht, was sie kosten.
 - Hell- und Dunkelmodus, lesbar auf dem Handy (Tabelle wird zu Karten).
+
+**Lesemodus.** Dieselbe Seite lässt sich als statische Datei (13.3) oder als privates Artifact teilen. Dort gehen Ansehen, Filtern und Suchen nach Name. Freitext, Bewerten und Speichern brauchen den lokalen Server und sind dann ausgeblendet.
+
+Claude Code im Terminal (`/stockagent`, `/analyze-stock`) bleibt als zweiter Weg erhalten, etwa für Rückfragen zu einem Bericht. Nötig ist er nicht.

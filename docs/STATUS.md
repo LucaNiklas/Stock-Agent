@@ -81,7 +81,7 @@ uv run pytest && uv run ruff check . && uv run mypy
 
 ## Oberfläche (Version 4.3)
 
-Indexstufe Tier 1 bis 4 (SPEC 7.9), Freitext-Abfrage (9.9) und Bedienkonzept mit Bewerten per Klick (13.5) sind festgelegt (ADR 0004). Was nach welchem Schritt sichtbar ist, steht im BAUPLAN unter „Fahrplan Oberfläche“. Die ersten Teile kommen mit Schritt 5.
+Das Dashboard wird die Bedienzentrale: suchen in eigenen Worten, filtern nach Tier, Land und Branche, bewerten per Klick. Claude Code läuft dabei im Hintergrund (SPEC 7.9, 9.9, 13.5, ADR 0004). Was nach welchem Schritt sichtbar ist, steht im BAUPLAN unter „Fahrplan Oberfläche“. Die ersten Teile kommen mit Schritt 5.
 
 ## Nächster Schritt
 

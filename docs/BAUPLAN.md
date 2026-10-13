@@ -47,16 +47,16 @@ Python-Teil der Abteilung Recherche für die USA: Quellenkarte, Zuordnung ISIN z
 
 - **Ziel:** Erstes nutzbares Ergebnis. Alle US-Titel mit Note, Konfidenz und Risiko in einer Übersicht, die Luca nach Branche, Land und Stufe filtern kann.
 - **Entsteht:** Branchencodes und Kernprodukt, Scorecard Standard, Note, Konfidenz, Risiko, Kategorie, Tabelle `grade_snapshots` für die Notenkontrolle (SPEC 14.2), Befehle `screen`, `status`, `dashboard`.
-- **Neu (Oberfläche, SPEC 7.9 und 13.5):** Indexstufe Tier 1 bis 4 mit `config/tiers.yaml`, Quellenmodul `data/sources/indices.py` (ETF-Positionsdateien und freie Indexzusammensetzungen, je Index Quelle prüfen) und Tabelle `index_members`. Dashboard im Lesemodus mit Filterleiste (Stufe, Land und Region, Branche bis Unterbranche, Größe, Note, Konfidenz, Risiko, Kategorie, Handelbarkeit, Datenlage), Suchfeld für Name, ISIN, WKN, Ticker und feste Wortliste, Filter in der Adresszeile, Abdeckungsanzeige, Unternehmensseite mit Notenzerlegung und Rechenweg, CSV-Export. Arbeitsmodus `stockagent serve` mit Stern für die Beobachtungsliste, Notizen und Trade-Republic-Prüfung in der Zeile. Ersetzt `universe serve` und baut auf `report/templates/universe.html` auf.
+- **Neu (Oberfläche, SPEC 7.9 und 13.5):** Indexstufe Tier 1 bis 4 mit `config/tiers.yaml`, Quellenmodul `data/sources/indices.py` (ETF-Positionsdateien und freie Indexzusammensetzungen, je Index Quelle prüfen) und Tabelle `index_members`. Das Dashboard als Bedienzentrale: lokaler Server `stockagent app` mit Doppelklick-Start `Stockagent.command`, Startseite „Suchen und Bewerten“ mit Eingabefeld (Name, ISIN, WKN, Ticker und feste Wortliste für Land, Branche, Stufe, Note), Filterleiste (Stufe, Land und Region, Branche bis Unterbranche, Größe, Note, Konfidenz, Risiko, Kategorie, Handelbarkeit, Datenlage) mit Trefferzahlen, Filter in der Adresszeile, Abdeckungsanzeige, Unternehmensseite mit Notenzerlegung und Rechenweg, Stern, Notizen und Trade-Republic-Prüfung per Klick, Knopf „Daten aktualisieren“, CSV-Export. Ersetzt `universe serve` und baut auf `report/templates/universe.html` auf.
 - **Braucht von Luca:** Freigabe der Domains für die Indexquellen (Liste entsteht bei der Quellenprüfung).
-- **Abnahme:** Jeder US-Titel hat eine Note oder Status N mit Grund. Die Notenberechnung läuft über den Rechenweg mit CP-07. Jeder Titel hat eine Stufe mit Quelle und Datum. Die Filter „Tier 1, US, Branche Halbleiter“ und „Tier 4, Note A“ liefern dieselben Treffer wie die entsprechende SQL-Abfrage (Test). Stern, Notiz und Trade-Republic-Prüfung überleben einen Neustart des Servers.
+- **Abnahme:** Jeder US-Titel hat eine Note oder Status N mit Grund. Die Notenberechnung läuft über den Rechenweg mit CP-07. Jeder Titel hat eine Stufe mit Quelle und Datum. Die Filter „Tier 1, US, Branche Halbleiter“ und „Tier 4, Note A“ liefern dieselben Treffer wie die entsprechende SQL-Abfrage (Test). Stern, Notiz und Trade-Republic-Prüfung überleben einen Neustart des Servers. Der Server lehnt Verbindungen von anderen Rechnern ab (Test).
 
 ### Schritt 6: Tiefenanalyse Ende zu Ende
 
 - **Ziel:** Finanzieller Überblick mit 14 Abschnitten für ein US-Unternehmen über Lucas Claude-Abo.
 - **Entsteht:** Zustandsautomat mit den vier Abteilungen (SPEC 8.1), Dossier je Unternehmen, Aufträge nach SPEC 8.10 aus der Quellenkarte, Nachforderung, Werkzeugrechte je Abteilung, Annahme von Agentenausgaben, Werkzeuge, Prompts, Agentenvorlagen in `agents_src/` (A1, A3, A4, A5, A7, A9, J1, J2) mit Modellen aus `config/models.yaml`, Berichtsvorlagen, Skill `/analyze-stock`, Befehl `analyze`. Der `SubagentStop`-Hook ruft `stockagent accept`.
-- **Neu (Oberfläche, SPEC 13.5):** Knopf „Tiefenanalyse“ auf der Unternehmensseite und Mehrfachauswahl in der Tabelle schreiben in `state/analysis_queue.yaml`. `/stockagent` und `/analyze-stock` arbeiten die Warteschlange ab, die Unternehmensseite zeigt den Fortschritt je Abteilung und danach den finanziellen Überblick.
-- **Abnahme:** Alle Ausgaben schemakonform, jeder Agent lief mit seinem Modell, ein Schritt außerhalb der Reihenfolge wird abgelehnt, alle 14 Abschnitte vorhanden. Ein Klick auf „Tiefenanalyse“ führt bis zum fertigen Überblick auf der Unternehmensseite.
+- **Neu (Oberfläche, SPEC 13.5):** Knopf „Tiefenanalyse starten“ auf der Unternehmensseite und „Auswahl bewerten“ in der Liste starten Claude Code im Hintergrund (`claude -p "/analyze-stock <ISIN>"` mit `stream-json`, feste Rechte, `--permission-prompts none`). Fortschrittsanzeige je Abteilung, Warteschlange `state/analysis_queue.yaml`, wenn schon eine Analyse läuft, Anzeige des Abo-Verbrauchs aus `log.jsonl`. Vorher prüfen: läuft `claude -p` über die Anmeldung des Abos auf Lucas Mac.
+- **Abnahme:** Alle Ausgaben schemakonform, jeder Agent lief mit seinem Modell, ein Schritt außerhalb der Reihenfolge wird abgelehnt, alle 14 Abschnitte vorhanden. Ein Klick auf „Tiefenanalyse starten“ führt ohne Terminal bis zum fertigen Überblick auf der Unternehmensseite. Ein geschlossener Browser bricht die Analyse nicht ab.
 
 ### Schritt 7: Europa, Rechnungslegung, Währung
 
@@ -84,9 +84,9 @@ Python-Teil der Abteilung Recherche für die USA: Quellenkarte, Zuordnung ISIN z
 
 ### Schritt 11: Start und Dashboard
 
-- **Ziel:** Bequemer Start über `/stockagent` mit Kategorie-Abfrage oder freiem Satz und volles Dashboard.
+- **Ziel:** Alles über das Dashboard: Suche in eigenen Worten, Bewerten ganzer Trefferlisten, alle Ansichten. Claude Code nur im Hintergrund.
 - **Entsteht:** Befehl `stockagent run` mit Dialog (`questionary`), Laufplan, alle Ansichten aus SPEC 13.3 (Änderungen, Karte Branche mal Land, Vergleich, Eskalationen, Historie, Methodik).
-- **Neu (Oberfläche, SPEC 9.9 und 13.5):** Freitext-Abfrage („Tier 1 Griechenland Automobil, bewerte sie“) mit Übersetzung in `request.json`, Rückmeldung des verstandenen Filters mit Trefferzahl und Vorschlag bei null Treffern, gespeicherte Ansichten in `state/views.yaml`, Suchfeld im Arbeitsmodus mit Freitext. Start der Tiefenanalyse direkt aus dem Browser über Claude Code ohne Bildschirm (`claude -p`), wenn Luca das in `config/run_profiles.yaml` erlaubt. Vorher gegen die aktuelle Dokumentation von Claude Code prüfen, ob das über das Abo läuft.
+- **Neu (Oberfläche, SPEC 9.9 und 13.5):** Eingabefeld des Dashboards versteht ganze Sätze („Tier 1 Griechenland Automobil, bewerte sie“): Wortliste zuerst, sonst Übersetzung über `claude -p` mit `--json-schema` ohne Werkzeuge. Verstandener Filter als änderbare Schaltflächen mit Trefferzahl, Vorschlag bei null Treffern, „Alle bewerten“ mit Laufplan und Bestätigung, gespeicherte Ansichten in `state/views.yaml`. Der Dialog `stockagent run` und `/stockagent` bleiben als zweiter Weg.
 - **Abnahme:** Alle Startwege aus SPEC 9.6 funktionieren, Antworten in `request.json`. Zehn Beispielsätze aus einer Testliste werden in den richtigen Filter übersetzt, ein Satz mit unbekanntem Land oder unbekannter Branche wird abgelehnt statt geraten.
 
 ### Schritt 12: Zeitplan (optional)
@@ -98,17 +98,17 @@ Python-Teil der Abteilung Recherche für die USA: Quellenkarte, Zuordnung ISIN z
 
 ## Fahrplan Oberfläche
 
-Was Luca nach welchem Schritt sehen und tun kann (SPEC 13.5). Die Oberfläche wächst mit, jeder Schritt erweitert dieselbe Seite.
+Ziel ist ein Dashboard als Bedienzentrale: Luca tippt nichts in Claude Code oder ins Terminal (SPEC 13.5). Claude Code läuft im Hintergrund, gestartet vom Dashboard über Lucas Abo. Jeder Schritt erweitert dieselbe Seite.
 
-| Nach Schritt | Sehen | Tun |
+| Nach Schritt | Sehen | Tun im Dashboard |
 |---|---|---|
-| 1 und 2 (heute) | Universum als HTML mit Suche, `sec show` im Terminal | Trade-Republic-Prüfung und SEC-Zuordnung im Terminal |
-| 5 | Übersicht aller Titel mit Note, Konfidenz, Risiko, Kategorie, Stufe, Branche, Land. Filterleiste, Suchfeld, Abdeckungsanzeige, Unternehmensseite mit Notenzerlegung und Rechenweg | Filtern, sortieren, exportieren. Im Arbeitsmodus Stern, Notiz, Trade-Republic-Prüfung per Klick |
-| 6 | Fortschritt und finanzieller Überblick auf der Unternehmensseite | Tiefenanalyse per Klick anfordern, einzeln oder als Mehrfachauswahl |
+| 1 und 2 (heute) | Universum als HTML mit Suche, `sec show` im Terminal | noch nichts, Prüfungen über das Terminal |
+| 5 | Startseite „Suchen und Bewerten“, Übersicht aller Titel mit Note, Konfidenz, Risiko, Kategorie, Tier, Branche, Land, Filterleiste, Abdeckungsanzeige, Unternehmensseite mit Notenzerlegung und Rechenweg | Start per Doppelklick, suchen (Name, ISIN, feste Wortliste), filtern, sortieren, exportieren, Stern, Notiz, Trade-Republic-Prüfung, Daten aktualisieren |
+| 6 | Fortschritt je Abteilung und finanzieller Überblick auf der Unternehmensseite, Abo-Verbrauch | Tiefenanalyse per Klick starten, einzeln oder als Auswahl, Warteschlange |
 | 7 und 8 | dieselben Ansichten auch für EU-Werte und mit den Branchen-Scorecards | mehr Titel mit Note |
 | 9 | Insider-Zeitachse auf der Unternehmensseite, Insider als Filter | |
-| 10 | Eskalationen mit Eingabefeld | Entscheidungen direkt auf der Seite |
-| 11 | Änderungen seit dem letzten Lauf, Karte Branche mal Land, Vergleich, Historie, Methodik | Freitext-Suche, gespeicherte Ansichten, Tiefenanalyse direkt aus dem Browser |
+| 10 | Eskalationen mit beiden Werten und Quellen | Entscheidungen direkt auf der Seite |
+| 11 | Änderungen seit dem letzten Lauf, Karte Branche mal Land, Vergleich, Historie, Methodik | Suche in ganzen Sätzen, „Alle bewerten“ mit Laufplan, gespeicherte Ansichten |
 
 ## Platzhalter: wann und was
 
@@ -168,7 +168,8 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 |---|---|---|
 | 5 | `config/tiers.yaml` | Indizes je Stufe und Land mit Quelle und Stand (SPEC 7.9) |
 | 5 | `src/stockagent/data/sources/indices.py` | Indexmitglieder aus ETF-Positionsdateien und freien Zusammensetzungen |
-| 5 | `src/stockagent/dashboard/server.py` | Arbeitsmodus `stockagent serve`: Seite plus Schnittstelle, schreibt nur nach `state/` |
+| 5 | `src/stockagent/dashboard/server.py` | Lokaler Server `stockagent app` auf 127.0.0.1: Dashboard plus Schnittstelle, schreibt nur nach `state/` und `runs/`, startet ab Schritt 6 Claude Code im Hintergrund |
+| 5 | `Stockagent.command` | Doppelklick-Start unter macOS: `uv run stockagent app` im Projektordner |
 | 5 | `state/notes.yaml` | Lucas Notizen je Titel |
 | 6 | `state/analysis_queue.yaml` | Warteschlange angeforderter Tiefenanalysen |
 | 11 | `state/views.yaml` | Gespeicherte Ansichten und Abfragen |

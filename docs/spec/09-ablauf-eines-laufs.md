@@ -42,7 +42,8 @@ Grundsatz. Die quantitative Note (Abschnitt 6) wird bei jedem Lauf für alle Unt
 
 | Weg | Befehl | Wann |
 |---|---|---|
-| In Claude Code | im Repository `claude` starten, dann `/stockagent` | Normalfall. Der Skill fragt die Kategorie ab (9.7), zeigt den Laufplan und startet nach Bestätigung |
+| Dashboard | Doppelklick auf `Stockagent.command` oder `uv run stockagent app` | Normalfall ab Schritt 5: Suchen, Filtern, Bewerten per Klick, Claude Code läuft im Hintergrund (13.5) |
+| In Claude Code | im Repository `claude` starten, dann `/stockagent` | Zweiter Weg. Der Skill fragt die Kategorie ab (9.7), zeigt den Laufplan und startet nach Bestätigung |
 | Im Terminal ohne Claude Code | `uv run stockagent run` | Dieselben Fragen als Terminal-Dialog (Bibliothek `questionary`) |
 | Ohne Rückfragen | `uv run stockagent run --category sector:health_care --region europe --size small,mid --depth standard --budget-eur 10 --yes` | Skripte und Wiederholungen |
 | Nur Noten | `uv run stockagent screen` | Aktualisiert Universum und Noten ohne Tiefenanalyse |
@@ -84,11 +85,11 @@ Der Agent fragt Luca nur an festen Stellen. Beim Start fragt er nach der Kategor
 
 ### 9.9 Freitext-Abfrage
 
-Neben dem Dialog aus 9.7 nimmt `/stockagent` eine Anfrage in eigenen Worten an, etwa „suche mir Tier-1-Aktien aus Griechenland in der Branche Automobil und bewerte sie“.
+Das Eingabefeld des Dashboards (13.5) nimmt eine Anfrage in eigenen Worten an, etwa „suche mir Tier-1-Aktien aus Griechenland in der Branche Automobil und bewerte sie“. `/stockagent` in Claude Code versteht dieselben Sätze.
 
-1. **Übersetzen.** Die Hauptsitzung übersetzt den Satz in einen strukturierten Filter `request.json` mit festem Schema: Stufe (7.9), Land oder Region (ISO-Codes), Branche und Unterbranche (IDs aus `config/sectors.yaml`), Größenklasse, Note, Kategorie, Handelbarkeit bei Trade Republic, Beobachtungsliste, Tiefe der Analyse. Erlaubt sind nur Werte aus diesen Listen. Ein Wert außerhalb wird abgelehnt, nicht geraten.
-2. **Zurückzeigen.** Vor jeder Arbeit zeigt das System den verstandenen Filter in Klartext und die Trefferzahl: „Tier 1, Land GR, Branche Automobil (Unterbranche von Nicht-Basiskonsumgüter): 2 Treffer“. Luca bestätigt oder korrigiert. Null Treffer werden mit dem engsten lockernden Vorschlag beantwortet („in Tier 1 bis 2 gibt es 3 Treffer“).
+1. **Übersetzen.** Ein Aufruf von Claude Code ohne Werkzeuge (`claude -p` mit `--json-schema`, Modellklasse `fast`) übersetzt den Satz in einen strukturierten Filter `request.json` mit festem Schema: Stufe (7.9), Land oder Region (ISO-Codes), Branche und Unterbranche (IDs aus `config/sectors.yaml`), Größenklasse, Note, Kategorie, Handelbarkeit bei Trade Republic, Beobachtungsliste, Tiefe der Analyse. Erlaubt sind nur Werte aus diesen Listen. Ein Wert außerhalb wird abgelehnt, nicht geraten.
+2. **Zurückzeigen.** Vor jeder Arbeit zeigt das Dashboard den verstandenen Filter als änderbare Schaltflächen und die Trefferzahl: „Tier 1, Land GR, Branche Automobil (Unterbranche von Nicht-Basiskonsumgüter): 2 Treffer“. Luca bestätigt oder korrigiert. Null Treffer werden mit dem engsten lockernden Vorschlag beantwortet („in Tier 1 bis 2 gibt es 3 Treffer“).
 3. **Auswählen.** Die Trefferliste entsteht deterministisch aus der Datenbank (Abteilung Berechnung), nie aus dem Vorwissen eines Modells (HR-04). Nur für Themen ohne Branchencode (etwa „Wasserstoff“) sucht A0 in den gespeicherten Geschäftsbeschreibungen, mit Belegstelle je Treffer und Lucas Bestätigung (9.7).
 4. **Bewerten.** Alle Treffer haben schon Note, Konfidenz und Risiko (9.6). Die Tiefenanalyse bekommen die besten Treffer bis zur Grenze aus HR-18, der Rest erscheint mit Note in der Laufübersicht.
 
-Dieselbe Übersetzung nutzt das Suchfeld im Dashboard (13.5). Gespeicherte Abfragen liegen in `state/views.yaml` und lassen sich mit Namen wieder aufrufen („Tier 1 Europa Qualität“).
+Einfache Anfragen aus bekannten Wörtern (Land, Branche, Stufe, Note) übersetzt eine feste Wortliste ohne Modellaufruf. Das Modell wird nur gefragt, wenn die Wortliste den Satz nicht vollständig versteht. Gespeicherte Abfragen liegen in `state/views.yaml` und lassen sich mit Namen wieder aufrufen („Tier 1 Europa Qualität“).
