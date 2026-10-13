@@ -13,6 +13,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Protocol
 
+from stockagent.core.anzeige import formatiere
 from stockagent.core.calc import Ergebnis
 
 
@@ -79,7 +80,12 @@ def _treffer(
     if "kennzahl" in regel:
         schwelle = _schwelle(metrics_cfg, regel["kennzahl"], regel["schwelle"])
         return [
-            (w.metric_id, w.period_end, f"Wert {w.ergebnis.wert} {regel['vergleich']} {schwelle}")
+            (
+                w.metric_id,
+                w.period_end,
+                f"Wert {formatiere(w.ergebnis.wert, 'faktor', 2)} "
+                f"{'über' if regel['vergleich'] == 'ueber' else 'unter'} {schwelle}",
+            )
             for w in werte
             if w.metric_id == regel["kennzahl"]
             and w.statistik == "wert"
@@ -89,7 +95,12 @@ def _treffer(
         ]
     if "trend_warnung" in regel:
         return [
-            (w.metric_id, w.period_end, "; ".join(w.ergebnis.warnungen))
+            (
+                w.metric_id,
+                w.period_end,
+                f"robuster z-Wert {formatiere(w.ergebnis.wert, 'faktor', 1)} gegen die Vorjahre "
+                f"({'; '.join(w.ergebnis.warnungen)})",
+            )
             for w in werte
             if w.statistik == regel["trend_warnung"] and w.ergebnis.warnungen
         ]

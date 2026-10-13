@@ -21,9 +21,17 @@ def test_sbc_to_revenue_hand_calculation() -> None:
 
 
 def test_sbc_to_revenue_failed_checkpoint_stops() -> None:
-    erg = rechne("sbc_to_revenue", mit("revenue", T25, Decimal(0)))
+    erg = rechne("sbc_to_revenue", mit("revenue", T25, Decimal(-1)))
     assert erg.unknown and erg.ungereimtheit == "INC-15"
     assert erg.grund is not None and erg.grund.startswith("CP-02")
+
+
+def test_sbc_to_revenue_not_meaningful_is_unknown_without_inconsistency() -> None:
+    """Wirtschaftlich möglicher Fall (Verlust, negatives Eigenkapital, kein Umsatz):
+    nicht aussagekräftig, kein Datenfehler."""
+    erg = rechne("sbc_to_revenue", mit("revenue", T25, Decimal(0)))
+    assert erg.unknown and erg.ungereimtheit is None
+    assert erg.grund is not None and erg.grund.startswith("Nicht definiert")
 
 
 def test_sbc_to_revenue_missing_input_is_unknown() -> None:

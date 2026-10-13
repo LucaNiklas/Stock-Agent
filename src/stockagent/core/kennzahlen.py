@@ -196,7 +196,22 @@ def split_bereinigt(r: Rechenweg, d: Reihen, name: str, w: Eingabe, je_aktie: bo
     return wert
 
 
-def _quote(r: Rechenweg, name: str, zaehler: Wert, nenner: Wert, nenner_text: str) -> Decimal:
+def _quote(
+    r: Rechenweg,
+    name: str,
+    zaehler: Wert,
+    nenner: Wert,
+    nenner_text: str,
+    wirtschaftlich: bool = False,
+) -> Decimal:
+    """Quote mit positivem Nenner. `wirtschaftlich`: Der Nenner darf aus wirtschaftlichen Gründen
+    null oder negativ sein (Verlust, negatives Eigenkapital, kein Zinsaufwand). Dann ist die Quote
+    nicht aussagekräftig (unknown ohne Ungereimtheit). Sonst ist ein Nenner ab null ein
+    Datenfehler (CP-02 stoppt), etwa eine Bilanzsumme von null."""
+    if wirtschaftlich and _w(nenner) <= 0:
+        raise NichtDefiniert(
+            f"{nenner_text} nicht positiv ({_w(nenner)}), Quote nicht aussagekräftig"
+        )
     r.pruefe("CP-02", f"{nenner_text} positiv", _w(nenner) > 0)
     return r.schritt(name, "zaehler / nenner", zaehler=zaehler, nenner=nenner)
 
@@ -222,6 +237,8 @@ def _marge(r: Rechenweg, d: Reihen, t: date, zaehler: Wert) -> Decimal:
         _cp01(r, t, zaehler, umsatz)
     else:
         _cp01(r, t, umsatz)
+    if umsatz.wert == 0:
+        raise NichtDefiniert("Umsatz null, Marge nicht aussagekräftig")
     m = _quote(r, "marge", zaehler, umsatz, "Umsatz")
     r.pruefe("CP-02", "Marge höchstens 100 %", m <= 1)
     return m
@@ -255,15 +272,13 @@ def gp_to_assets(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 def _roe_direkt_und_dupont(r: Rechenweg, d: Reihen, t: date) -> tuple[Decimal, Decimal]:
     ni, umsatz = d.hole("net_income", t), d.hole("revenue", t)
     _cp01(r, t, ni, umsatz, d.hole("equity", t), d.hole("total_assets", t))
-    r.pruefe(
-        "CP-02",
-        "Eigenkapital am Anfang und Ende positiv",
-        d.hole("equity", t).wert > 0 and d.hole("equity", d.vorjahr(t)).wert > 0,
-    )
+    if not (d.hole("equity", t).wert > 0 and d.hole("equity", d.vorjahr(t)).wert > 0):
+        raise NichtDefiniert("Eigenkapital am Anfang oder Ende nicht positiv")
+    r.pruefe("CP-02", "Eigenkapital am Anfang und Ende positiv", True)
     ek = _durchschnitt(r, d, "equity", t)
     bs = _durchschnitt(r, d, "total_assets", t)
     direkt = r.schritt("roe_direkt", "ni / ek", ni=ni, ek=ek)
-    nettomarge = _quote(r, "nettomarge", ni, umsatz, "Umsatz")
+    nettomarge = _quote(r, "nettomarge", ni, umsatz, "Umsatz", wirtschaftlich=True)
     umschlag = r.schritt("kapitalumschlag", "umsatz / bs", umsatz=umsatz, bs=bs)
     hebel = r.schritt("hebel", "bs / ek", bs=bs, ek=ek)
     dupont_wert = r.schritt(
@@ -322,7 +337,7 @@ def roic(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     ic = r.schritt(
         "investiertes_kapital_durchschnitt", "(anfang + ende) / 2", anfang=anfang, ende=ende
     )
-    return _quote(r, "roic", nopat, ic, "Investiertes Kapital")
+    return _quote(r, "roic", nopat, ic, "Investiertes Kapital", wirtschaftlich=True)
 
 
 # ------------------------------------------------------------------ Wachstum
@@ -394,7 +409,7 @@ def fcf(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 def _zu_jahresueberschuss(r: Rechenweg, d: Reihen, t: date, zaehler: Wert) -> Decimal:
     ni = d.hole("net_income", t)
     _cp01(r, t, ni)
-    return _quote(r, "quote", zaehler, ni, "Jahresüberschuss")
+    return _quote(r, "quote", zaehler, ni, "Jahresüberschuss", wirtschaftlich=True)
 
 
 @metric("fcf_conversion")
@@ -472,14 +487,21 @@ def net_debt_incl_pensions(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 @metric("net_debt_to_ebitda")
 def net_debt_to_ebitda(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     _cp01(r, t, d.hole("ebit", t), d.hole("depreciation", t))
-    return _quote(r, "net_debt_to_ebitda", nettoverschuldung(r, d, t), ebitda(r, d, t), "EBITDA")
+    return _quote(
+        r,
+        "net_debt_to_ebitda",
+        nettoverschuldung(r, d, t),
+        ebitda(r, d, t),
+        "EBITDA",
+        wirtschaftlich=True,
+    )
 
 
 @metric("interest_coverage")
 def interest_coverage(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     ebit, zinsen = d.hole("ebit", t), d.hole("interest_expense", t)
     _cp01(r, t, ebit, zinsen)
-    return _quote(r, "zinsdeckung", ebit, zinsen, "Zinsaufwand")
+    return _quote(r, "zinsdeckung", ebit, zinsen, "Zinsaufwand", wirtschaftlich=True)
 
 
 @metric("current_ratio")
@@ -534,7 +556,9 @@ def payout_fcf(r: Rechenweg, d: Reihen, t: date) -> Decimal:
         dividenden=_opt(r, d, "dividends_paid", t),
         rueckkaeufe=_opt(r, d, "buybacks", t),
     )
-    return _quote(r, "payout_fcf", ausschuettung, fcf_wert(r, d, t), "Free Cashflow")
+    return _quote(
+        r, "payout_fcf", ausschuettung, fcf_wert(r, d, t), "Free Cashflow", wirtschaftlich=True
+    )
 
 
 @metric("capex_to_depreciation")
@@ -555,7 +579,14 @@ def acquisition_intensity(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     summe_u = r.schritt("uebernahmen_5j", " + ".join(uebernahmen), **uebernahmen)
     summe_o = r.schritt("ocf_5j", " + ".join(ocf), **ocf)
     r.pruefe("CP-01", "eine Währung", len({_w2(o) for o in ocf.values()}) <= 1)
-    return _quote(r, "acquisition_intensity", summe_u, summe_o, "Operativer Cashflow 5 Jahre")
+    return _quote(
+        r,
+        "acquisition_intensity",
+        summe_u,
+        summe_o,
+        "Operativer Cashflow 5 Jahre",
+        wirtschaftlich=True,
+    )
 
 
 def _w2(v: Wert) -> str | None:

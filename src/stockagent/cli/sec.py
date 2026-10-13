@@ -9,7 +9,8 @@ from typing import Annotated
 import typer
 from rich.table import Table
 
-from stockagent import sec_update
+from stockagent import metrics_update, sec_update
+from stockagent.cli import metrics as metrics_cli
 from stockagent.cli.common import app, connect, console
 from stockagent.core import dq
 from stockagent.data import concepts, quality, store
@@ -60,6 +61,10 @@ def update(
         else:
             flags = ", ".join(f"{k} {v}" for k, v in sorted(r.flags.items()))
             typer.echo(f"{r.isin} {r.name}: {r.facts} Werte, Prüfungen: {flags}")
+    # Abteilung Berechnung: Kennzahlen für alle Firmen mit neu geladenen Werten
+    neu = [r.isin for r in res.loaded if not r.error]
+    if neu:
+        metrics_cli.ausgabe_lauf(metrics_update.update(paths, isins=neu))
 
 
 @sec_app.command("map")

@@ -21,9 +21,17 @@ def test_fcf_conversion_hand_calculation() -> None:
 
 
 def test_fcf_conversion_failed_checkpoint_stops() -> None:
-    erg = rechne("fcf_conversion", mit("net_income", T25, Decimal(-1)))
+    erg = rechne("fcf_conversion", verschiedene_waehrung("net_income"))
     assert erg.unknown and erg.ungereimtheit == "INC-15"
-    assert erg.grund is not None and erg.grund.startswith("CP-02")
+    assert erg.grund is not None and erg.grund.startswith("CP-01")
+
+
+def test_fcf_conversion_not_meaningful_is_unknown_without_inconsistency() -> None:
+    """Wirtschaftlich möglicher Fall (Verlust, negatives Eigenkapital, kein Umsatz):
+    nicht aussagekräftig, kein Datenfehler."""
+    erg = rechne("fcf_conversion", mit("net_income", T25, Decimal(-1)))
+    assert erg.unknown and erg.ungereimtheit is None
+    assert erg.grund is not None and erg.grund.startswith("Nicht definiert")
 
 
 def test_fcf_conversion_missing_input_is_unknown() -> None:

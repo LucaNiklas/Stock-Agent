@@ -23,9 +23,17 @@ def test_dupont_hand_calculation() -> None:
 
 
 def test_dupont_failed_checkpoint_stops() -> None:
-    erg = rechne("dupont", mit("equity", T25, Decimal(-1)))
+    erg = rechne("dupont", verschiedene_waehrung("net_income"))
     assert erg.unknown and erg.ungereimtheit == "INC-15"
-    assert erg.grund is not None and erg.grund.startswith("CP-02")
+    assert erg.grund is not None and erg.grund.startswith("CP-01")
+
+
+def test_dupont_not_meaningful_is_unknown_without_inconsistency() -> None:
+    """Wirtschaftlich möglicher Fall (Verlust, negatives Eigenkapital, kein Umsatz):
+    nicht aussagekräftig, kein Datenfehler."""
+    erg = rechne("dupont", mit("equity", T25, Decimal(-1)))
+    assert erg.unknown and erg.ungereimtheit is None
+    assert erg.grund is not None and erg.grund.startswith("Nicht definiert")
 
 
 def test_dupont_missing_input_is_unknown() -> None:

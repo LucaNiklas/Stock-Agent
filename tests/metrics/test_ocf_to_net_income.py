@@ -21,9 +21,17 @@ def test_ocf_to_net_income_hand_calculation() -> None:
 
 
 def test_ocf_to_net_income_failed_checkpoint_stops() -> None:
-    erg = rechne("ocf_to_net_income", mit("net_income", T25, Decimal(0)))
+    erg = rechne("ocf_to_net_income", verschiedene_waehrung("net_income"))
     assert erg.unknown and erg.ungereimtheit == "INC-15"
-    assert erg.grund is not None and erg.grund.startswith("CP-02")
+    assert erg.grund is not None and erg.grund.startswith("CP-01")
+
+
+def test_ocf_to_net_income_not_meaningful_is_unknown_without_inconsistency() -> None:
+    """Wirtschaftlich möglicher Fall (Verlust, negatives Eigenkapital, kein Umsatz):
+    nicht aussagekräftig, kein Datenfehler."""
+    erg = rechne("ocf_to_net_income", mit("net_income", T25, Decimal(0)))
+    assert erg.unknown and erg.ungereimtheit is None
+    assert erg.grund is not None and erg.grund.startswith("Nicht definiert")
 
 
 def test_ocf_to_net_income_missing_input_is_unknown() -> None:

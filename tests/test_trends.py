@@ -49,7 +49,9 @@ def test_trend_hand_calculation() -> None:
     assert q(tr["stdabw"].wert, 3) == Decimal("49944.228")
     # 15 Paare, Median der sortierten Steigungen ist die 8.: (416161 - 383285) / 2 = 16438
     assert tr["steigung"].wert == Decimal("16438")
-    assert any(s["name"] == "steigung_2023_2025" for s in tr["steigung"].rechenweg["schritte"])
+    assert any(
+        s["name"] == "steigung_2023-09-30_2025-09-27" for s in tr["steigung"].rechenweg["schritte"]
+    )
     # Vorjahre 274515 .. 391035: Median 383285, MAD 11043, z = 0,6745 * 32876 / 11043
     assert q(tr["plausibilitaet"].wert) == Decimal("2.008047")
     assert not tr["plausibilitaet"].warnungen
@@ -86,6 +88,13 @@ def test_gap_year_gives_no_change() -> None:
     werte = {t: w for t, w in UMSATZ.items() if t != T24}
     erg = _trend(werte)["veraenderung_vj"]
     assert erg.unknown and erg.ungereimtheit is None and "Vorjahr" in str(erg.grund)
+
+
+def test_52_53_week_years_count_as_separate_years() -> None:
+    """Johnson & Johnson: Jahresenden 1.1.2023 und 31.12.2023 sind zwei Geschäftsjahre."""
+    assert trends.geschaeftsjahr(date(2025, 12, 28), date(2023, 1, 1)) == -3
+    assert trends.geschaeftsjahr(date(2025, 12, 28), date(2023, 12, 31)) == -2
+    assert trends.geschaeftsjahr(date(2026, 1, 31), date(2025, 2, 1)) == -1
 
 
 def test_same_fiscal_year_twice_stops() -> None:

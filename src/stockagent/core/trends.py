@@ -13,7 +13,8 @@ Rechenweg, damit eine nicht berechenbare Statistik die anderen nicht mitnimmt:
 - `stdabw`: Stichproben-Standardabweichung über bis zu 10 Jahre. Für die EBIT-Marge ist das die
   Margenstabilität aus SPEC 3.4 Nr. 3, die in Schritt 5 in den Qualitätsscore eingeht.
 - `steigung`: Theil-Sen-Schätzer, der Median aller paarweisen Steigungen je Geschäftsjahr,
-  unempfindlich gegen einzelne Ausreißer.
+  unempfindlich gegen einzelne Ausreißer. Geschäftsjahre zählen relativ zum Stichtag
+  (`geschaeftsjahr`), nicht nach Kalenderjahr.
 - `plausibilitaet`: CP-05, robuster z-Wert des Stichtagswerts gegen die Vorjahre
   (`dq.ausreisser`, Schwelle aus `config/quality.yaml`). Ein Ausreißer ist eine Warnung.
 
@@ -88,13 +89,26 @@ def _rechenweg(metric_id: str, statistik: str, subjekt: str, stichtag: date) -> 
     )
 
 
+def geschaeftsjahr(stichtag: date, periode_ende: date) -> int:
+    """Geschäftsjahr relativ zum Stichtag: 0 im Stichtagsjahr, -1 im Vorjahr usw.
+
+    Gezählt über den Abstand in Tagen, nicht über das Kalenderjahr. Bei 52/53-Wochen-Jahren
+    liegen sonst zwei Jahresenden im selben Kalenderjahr (Johnson & Johnson: 1.1.2023 und
+    31.12.2023)."""
+    return int((Decimal((periode_ende - stichtag).days) / Decimal("365.25")).to_integral_value())
+
+
+def _gj(r: Rechenweg, w: Eingabe) -> int:
+    return geschaeftsjahr(date.fromisoformat(r.periode), w.periode_ende)
+
+
 def _cp01(r: Rechenweg, werte: Sequence[Eingabe], mindest: int) -> None:
     if len(werte) < mindest:
         raise EingabeFehlt(
             f"mindestens {mindest} Geschäftsjahre (vorhanden {len(werte)})", r.periode
         )
     r.pruefe_eingaben(*werte, gleiche_periode=False)
-    jahre = [w.periode_ende.year for w in werte]
+    jahre = [_gj(r, w) for w in werte]
     r.pruefe("CP-01", "jedes Geschäftsjahr nur einmal", len(set(jahre)) == len(jahre))
 
 
@@ -114,7 +128,7 @@ def niveau(r: Rechenweg, werte: Sequence[Eingabe]) -> Decimal:
 
 def veraenderung_vj(r: Rechenweg, werte: Sequence[Eingabe]) -> Decimal:
     jetzt = _im_stichtagsjahr(r, werte)
-    vorjahr = [w for w in werte if w.periode_ende.year == jetzt.periode_ende.year - 1]
+    vorjahr = [w for w in werte if _gj(r, w) == -1]
     if not vorjahr:
         raise NichtDefiniert("Kennzahl im Vorjahr nicht berechenbar")
     vor = vorjahr[0]
@@ -130,7 +144,7 @@ def veraenderung_vj(r: Rechenweg, werte: Sequence[Eingabe]) -> Decimal:
 
 def cagr(r: Rechenweg, werte: Sequence[Eingabe], jahre: int) -> Decimal:
     jetzt = _im_stichtagsjahr(r, werte)
-    anfang = [w for w in werte if w.periode_ende.year == jetzt.periode_ende.year - jahre]
+    anfang = [w for w in werte if _gj(r, w) == -jahre]
     if not anfang:
         raise NichtDefiniert(f"Kennzahl {jahre} Geschäftsjahre vorher nicht berechenbar")
     _cp01(r, [anfang[0], jetzt], 2)
@@ -148,7 +162,7 @@ def stdabw(r: Rechenweg, werte: Sequence[Eingabe], mindest: int) -> Decimal:
     mittel = r.schritt("mittelwert", f"({' + '.join(namen)}) / {len(werte)}", **namen)
     quadrate = {
         f"q{i}": r.schritt(
-            f"abweichung_quadrat_{w.periode_ende.year}", "(x - m) * (x - m)", x=w.wert, m=mittel
+            f"abweichung_quadrat_{w.periode_ende}", "(x - m) * (x - m)", x=w.wert, m=mittel
         )
         for i, w in enumerate(werte)
     }
@@ -164,16 +178,16 @@ def steigung(r: Rechenweg, werte: Sequence[Eingabe], mindest: int) -> Decimal:
     r.pruefe(
         "CP-02",
         "Jahresabstand jedes Paares positiv",
-        all(b.periode_ende.year > a.periode_ende.year for a, b in paare),
+        all(_gj(r, b) > _gj(r, a) for a, b in paare),
     )
     steigungen = [
         r.schritt(
-            f"steigung_{a.periode_ende.year}_{b.periode_ende.year}",
+            f"steigung_{a.periode_ende}_{b.periode_ende}",
             "(b - a) / (jahr_b - jahr_a)",
             a=a.wert,
             b=b.wert,
-            jahr_a=a.periode_ende.year,
-            jahr_b=b.periode_ende.year,
+            jahr_a=_gj(r, a),
+            jahr_b=_gj(r, b),
         )
         for a, b in paare
     ]

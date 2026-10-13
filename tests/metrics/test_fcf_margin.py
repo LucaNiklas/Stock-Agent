@@ -23,9 +23,17 @@ def test_fcf_margin_hand_calculation() -> None:
 
 
 def test_fcf_margin_failed_checkpoint_stops() -> None:
-    erg = rechne("fcf_margin", mit("revenue", T25, Decimal(0)))
+    erg = rechne("fcf_margin", mit("revenue", T25, Decimal(-1)))
     assert erg.unknown and erg.ungereimtheit == "INC-15"
     assert erg.grund is not None and erg.grund.startswith("CP-02")
+
+
+def test_fcf_margin_not_meaningful_is_unknown_without_inconsistency() -> None:
+    """Wirtschaftlich möglicher Fall (Verlust, negatives Eigenkapital, kein Umsatz):
+    nicht aussagekräftig, kein Datenfehler."""
+    erg = rechne("fcf_margin", mit("revenue", T25, Decimal(0)))
+    assert erg.unknown and erg.ungereimtheit is None
+    assert erg.grund is not None and erg.grund.startswith("Nicht definiert")
 
 
 def test_fcf_margin_missing_input_is_unknown() -> None:

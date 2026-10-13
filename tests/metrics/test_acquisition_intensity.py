@@ -24,9 +24,17 @@ def test_acquisition_intensity_hand_calculation() -> None:
 
 
 def test_acquisition_intensity_failed_checkpoint_stops() -> None:
-    erg = rechne("acquisition_intensity", mit("operating_cash_flow", T21, Decimal("-566468000000")))
+    erg = rechne("acquisition_intensity", verschiedene_waehrung("operating_cash_flow"))
     assert erg.unknown and erg.ungereimtheit == "INC-15"
-    assert erg.grund is not None and erg.grund.startswith("CP-02")
+    assert erg.grund is not None and erg.grund.startswith("CP-01")
+
+
+def test_acquisition_intensity_not_meaningful_is_unknown_without_inconsistency() -> None:
+    """Wirtschaftlich möglicher Fall (Verlust, negatives Eigenkapital, kein Umsatz):
+    nicht aussagekräftig, kein Datenfehler."""
+    erg = rechne("acquisition_intensity", mit("operating_cash_flow", T21, Decimal("-566468000000")))
+    assert erg.unknown and erg.ungereimtheit is None
+    assert erg.grund is not None and erg.grund.startswith("Nicht definiert")
 
 
 def test_acquisition_intensity_missing_input_is_unknown() -> None:

@@ -22,9 +22,17 @@ def test_net_debt_to_ebitda_hand_calculation() -> None:
 
 
 def test_net_debt_to_ebitda_failed_checkpoint_stops() -> None:
-    erg = rechne("net_debt_to_ebitda", mit("ebit", T25, Decimal("-11698000000")))
+    erg = rechne("net_debt_to_ebitda", verschiedene_waehrung("cash"))
     assert erg.unknown and erg.ungereimtheit == "INC-15"
-    assert erg.grund is not None and erg.grund.startswith("CP-02")
+    assert erg.grund is not None and erg.grund.startswith("CP-01")
+
+
+def test_net_debt_to_ebitda_not_meaningful_is_unknown_without_inconsistency() -> None:
+    """Wirtschaftlich möglicher Fall (Verlust, negatives Eigenkapital, kein Umsatz):
+    nicht aussagekräftig, kein Datenfehler."""
+    erg = rechne("net_debt_to_ebitda", mit("ebit", T25, Decimal("-11698000000")))
+    assert erg.unknown and erg.ungereimtheit is None
+    assert erg.grund is not None and erg.grund.startswith("Nicht definiert")
 
 
 def test_net_debt_to_ebitda_missing_input_is_unknown() -> None:

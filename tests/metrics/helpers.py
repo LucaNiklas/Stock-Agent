@@ -11,11 +11,11 @@ from stockagent.core.reihen import Reihen
 from tests.metrics.apple import APPLE, T25
 
 
-def verschiedene_waehrung(name: str = "capex", t: date = T25) -> Reihen:
+def verschiedene_waehrung(name: str = "capex", t: date = T25, reihen: Reihen = APPLE) -> Reihen:
     """Ein Wert in EUR statt USD: CP-01 muss stoppen."""
-    w = {k: dict(v) for k, v in APPLE.werte.items()}
+    w = {k: dict(v) for k, v in reihen.werte.items()}
     w[name][t] = replace(w[name][t], waehrung="EUR")
-    return Reihen(APPLE.subjekt, APPLE.stichtage, w, APPLE.splits)
+    return Reihen(reihen.subjekt, reihen.stichtage, w, reihen.splits)
 
 
 def mit_zinsen(betrag: Decimal) -> Reihen:
