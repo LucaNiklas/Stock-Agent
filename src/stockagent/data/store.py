@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import csv
 import tempfile
-from dataclasses import dataclass
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -74,8 +74,10 @@ CREATE TABLE IF NOT EXISTS isin_cik (
     method      VARCHAR NOT NULL,       -- openfigi, name, manuell, keine
     status      VARCHAR NOT NULL,       -- zugeordnet, unsicher, keine
     detail      VARCHAR NOT NULL,
-    checked_at  TIMESTAMP NOT NULL      -- naives UTC
+    checked_at  TIMESTAMP NOT NULL,     -- naives UTC
+    figi_name   VARCHAR                 -- Name laut OpenFIGI, für die Neubewertung
 );
+ALTER TABLE isin_cik ADD COLUMN IF NOT EXISTS figi_name VARCHAR;
 CREATE TABLE IF NOT EXISTS issuers (
     issuer_id               VARCHAR PRIMARY KEY,
     lei                     VARCHAR,
@@ -340,19 +342,27 @@ class IsinCik:
     method: str
     status: str
     detail: str
+    figi_name: str | None = None
 
 
 def save_isin_cik(conn: duckdb.DuckDBPyConnection, rows: list[IsinCik], now: datetime) -> None:
     if not rows:
         return
     conn.executemany(
-        "INSERT OR REPLACE INTO isin_cik VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [[r.isin, r.cik, r.ticker, r.method, r.status, r.detail, _utc_naive(now)] for r in rows],
+        "INSERT OR REPLACE INTO isin_cik "
+        "(isin, cik, ticker, method, status, detail, checked_at, figi_name) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            [r.isin, r.cik, r.ticker, r.method, r.status, r.detail, _utc_naive(now), r.figi_name]
+            for r in rows
+        ],
     )
 
 
 def load_isin_cik(conn: duckdb.DuckDBPyConnection) -> dict[str, IsinCik]:
-    rows = conn.execute("SELECT isin, cik, ticker, method, status, detail FROM isin_cik").fetchall()
+    rows = conn.execute(
+        "SELECT isin, cik, ticker, method, status, detail, figi_name FROM isin_cik"
+    ).fetchall()
     return {r[0]: IsinCik(*r) for r in rows}
 
 

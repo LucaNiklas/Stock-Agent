@@ -201,3 +201,53 @@ def test_openfigi_pause_also_between_calls(tmp_path: Path) -> None:
     client.map(["A"])
     client.map(["B"])
     assert waits == [2.4]
+
+
+def test_decide_adr_shell_of_depositary_is_no_filer() -> None:
+    huelle = {"OBOCY": sec.TickerEntry("0002000001", "Ottobock SE & Co. KGaA/ADR", "OBOCY", None)}
+    r = sec_update.decide(
+        sec_update.Listing("US1", "OTTOBOCK UNSP.ADS/5 O.N.", None),
+        openfigi.FigiResult("US1", "OBOCY", "OTTOBOCK", ""),
+        huelle,
+        {},
+        (False, None),
+    )
+    assert r.cik is None and r.status == "keine" and "ADR-Registrierung" in r.detail
+
+
+def test_decide_never_compares_empty_names() -> None:
+    leer = {(): [TICKERS["AAPL"], TICKERS["JPM"]]}
+    # LEI-Name nur in chinesischer Schrift ergibt keine lateinischen Wörter
+    r = sec_update.decide(
+        sec_update.Listing("US1", "SDIC POWER HLDG GDR REG S", "国投电力控股股份有限公司"),
+        None,
+        TICKERS,
+        leer,
+        (False, None),
+    )
+    assert r.cik is None and r.status == "keine"
+
+
+def test_stored_mappings_follow_current_rules(paths: Paths) -> None:
+    sec_update.update(paths, fetcher=FakeWeb(), sleep=no_sleep, now=NOW)
+    conn = store.connect(paths.db)
+    # Eine früher gespeicherte, nach heutigen Regeln falsche Zuordnung
+    store.save_isin_cik(
+        conn,
+        [store.IsinCik("US0378331005", JPM, "AAPL", "openfigi", "zugeordnet", "alt")],
+        NOW,
+    )
+    conn.close()
+    web = FakeWeb()
+    sec_update.update(paths, fetcher=web, sleep=no_sleep, now=NOW)
+    assert web.posts == []  # ohne neue Abfrage bei OpenFIGI
+    conn = store.connect(paths.db)
+    assert store.load_isin_cik(conn)["US0378331005"].cik == APPLE
+    conn.close()
+
+
+def test_figi_name_is_kept_for_re_evaluation(paths: Paths) -> None:
+    sec_update.update(paths, fetcher=FakeWeb(), sleep=no_sleep, now=NOW)
+    conn = store.connect(paths.db)
+    assert store.load_isin_cik(conn)["US0378331005"].figi_name == "APPLE INC"
+    conn.close()

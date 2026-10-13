@@ -80,7 +80,11 @@ def _instanz_eingabe(f: InstanceFact, url: str) -> Eingabe:
     currency = None if unit == "shares" else f.unit_raw
     start = f"{f.period_start}.." if f.period_start else ""
     return Eingabe(
-        f.value, f"{f.concept}@{start}{f.period_end} ({url})", unit, f.period_end, currency,
+        f.value,
+        f"{f.concept}@{start}{f.period_end} ({url})",
+        unit,
+        f.period_end,
+        currency,
         f.period_start,
     )
 
@@ -110,8 +114,11 @@ def _ergebnis_flags(
     ctx: Kontext, check: str, erg: Ergebnis, stopp: str, period_end: date, concept: str | None
 ) -> list[DqFlag]:
     if erg.unknown:
-        return [_flag(ctx, check, stopp, erg.grund or "", period_end=period_end, concept=concept,
-                      erg=erg)]
+        return [
+            _flag(
+                ctx, check, stopp, erg.grund or "", period_end=period_end, concept=concept, erg=erg
+            )
+        ]
     return [
         _flag(ctx, check, "warnung", w, period_end=period_end, concept=concept, erg=erg)
         for w in erg.warnungen
@@ -124,7 +131,8 @@ def jahresstichtage(facts: Sequence[StoredFact]) -> list[date]:
     ends = {
         f.period_end
         for f in facts
-        if f.form in ANNUAL_FORMS and dq.periode_passt(f.period_start, f.period_end, "FY")
+        if f.form in ANNUAL_FORMS
+        and dq.periode_passt(f.period_start, f.period_end, "FY")
         and f.period_start is not None
     }
     return sorted(ends, reverse=True)
@@ -168,8 +176,13 @@ def bilanzgleichung(
                 break
         else:
             flags.append(
-                _flag(ctx, "DQ-01", "warnung", "Passivseite nicht vollständig gemeldet",
-                      period_end=stichtag)
+                _flag(
+                    ctx,
+                    "DQ-01",
+                    "warnung",
+                    "Passivseite nicht vollständig gemeldet",
+                    period_end=stichtag,
+                )
             )
             continue
         erg = dq.bilanzgleichung(
@@ -225,8 +238,12 @@ def summenstruktur(ctx: Kontext, cmap: dict[str, Any], cfg: dict[str, Any]) -> l
             flags += _ergebnis_flags(ctx, "DQ-02", erg, stufe, end, summe.parent)
     flags.insert(
         0,
-        _flag(ctx, "DQ-02", "ok", f"{geprueft} Summen im {ctx.bericht.form} "
-              f"{ctx.bericht.accession} geprüft"),
+        _flag(
+            ctx,
+            "DQ-02",
+            "ok",
+            f"{geprueft} Summen im {ctx.bericht.form} {ctx.bericht.accession} geprüft",
+        ),
     )
     return flags
 
@@ -322,9 +339,12 @@ def perioden(
     neun = [f for (s, e), f in umsatz.items() if dq.ist_neunmonatig(s, e)]
     for ytd in sorted(neun, key=lambda f: f.period_end, reverse=True)[:3]:
         drin = [
-            q for q in quartale
-            if q.period_start is not None and ytd.period_start is not None
-            and q.period_start >= ytd.period_start and q.period_end <= ytd.period_end
+            q
+            for q in quartale
+            if q.period_start is not None
+            and ytd.period_start is not None
+            and q.period_start >= ytd.period_start
+            and q.period_end <= ytd.period_end
         ]
         if len(drin) != 3:
             continue
@@ -358,9 +378,7 @@ def perioden(
 
 def zweiter_weg(ctx: Kontext, cmap: dict[str, Any], cfg: dict[str, Any]) -> list[DqFlag]:
     if ctx.bericht is None:
-        return [
-            _flag(ctx, "DQ-05", "warnung", "Kein Originalbericht geladen, zweiter Weg fehlt")
-        ]
+        return [_flag(ctx, "DQ-05", "warnung", "Kein Originalbericht geladen, zweiter Weg fehlt")]
     warn = Decimal(cfg["abgleich_zweiter_weg"]["warnung"])
     stopp = Decimal(cfg["abgleich_zweiter_weg"]["stopp"])
     # Company Facts aus genau dieser Einreichung, damit derselbe Berichtsstand verglichen wird
@@ -376,8 +394,11 @@ def zweiter_weg(ctx: Kontext, cmap: dict[str, Any], cfg: dict[str, Any]) -> list
         treffer = None
         for concept in cmap["us-gaap"][metric]:
             kandidaten = [
-                (k, v[0]) for k, v in inst.items()
-                if k[0] == concept and k[2] == stichtag and len(v) == 1
+                (k, v[0])
+                for k, v in inst.items()
+                if k[0] == concept
+                and k[2] == stichtag
+                and len(v) == 1
                 and (k[1] is None or dq.periode_passt(k[1], k[2], "FY"))
                 and k in cf
             ]
@@ -448,8 +469,14 @@ def ausreisser(
             )
         if erg.unknown:
             flags.append(
-                _flag(ctx, "DQ-06", "info", f"{metric}: {erg.grund}",
-                      period_end=letzter.period_end, erg=erg)
+                _flag(
+                    ctx,
+                    "DQ-06",
+                    "info",
+                    f"{metric}: {erg.grund}",
+                    period_end=letzter.period_end,
+                    erg=erg,
+                )
             )
     flags.insert(
         0, _flag(ctx, "DQ-06", "ok", f"Letzter Jahreswert gegen Historie: {', '.join(geprueft)}")
@@ -463,9 +490,7 @@ def ausreisser(
 def restatements(ctx: Kontext, cmap: dict[str, Any], stichtage: list[date]) -> list[DqFlag]:
     kern = {c for m in cmap["kernwerte"] for c in cmap["us-gaap"][m]}
     juengste = set(stichtage[:3])
-    flags = [
-        _flag(ctx, "DQ-07", "ok", f"{len(ctx.restatements)} geänderte Fassungen gespeichert")
-    ]
+    flags = [_flag(ctx, "DQ-07", "ok", f"{len(ctx.restatements)} geänderte Fassungen gespeichert")]
     for alt, neu in ctx.restatements:
         if alt.concept in kern and alt.period_end in juengste:
             flags.append(
@@ -503,9 +528,9 @@ def splits(ctx: Kontext, cmap: dict[str, Any], cfg: dict[str, Any]) -> list[DqFl
                     ctx,
                     "DQ-08",
                     "info",
-                    f"Aktienanzahl springt im Verhältnis {v.verhaeltnis} zwischen {vorher.period_end} "
-                    f"und {nachher.period_end}: Split oder Zusammenlegung. Bereinigung in "
-                    "Bauschritt 3.",
+                    f"Aktienanzahl springt im Verhältnis {v.verhaeltnis} zwischen "
+                    f"{vorher.period_end} und {nachher.period_end}: Split oder "
+                    "Zusammenlegung. Bereinigung in Bauschritt 3.",
                     period_end=nachher.period_end,
                     concept=nachher.concept,
                     erg=v.ergebnis,

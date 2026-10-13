@@ -13,6 +13,8 @@ Ablauf nach der Quellenkarte (`config/source_map.yaml`):
 
 from __future__ import annotations
 
+import dataclasses
+import re
 import time
 from collections import Counter, defaultdict
 from collections.abc import Callable
@@ -67,6 +69,11 @@ def record_override(path: Path, isin: str, cik: str | None, on: date) -> None:
 # ------------------------------------------------------------------ Zuordnung
 
 
+# Die SEC führt ADR-Programme der Depotbanken (Formular F-6) als eigene Melder mit "/ADR" im
+# Namen und SIC 8880. Sie reichen keine Abschlüsse ein.
+_ADR_HUELLE = re.compile(r"/ADR/?\s*$", re.IGNORECASE)
+
+
 @dataclass(frozen=True)
 class Listing:
     isin: str
@@ -82,6 +89,17 @@ def decide(
     override: tuple[bool, str | None],
 ) -> store.IsinCik:
     """Zuordnung einer ISIN. Im Zweifel leer (Status `unsicher` oder `keine`), nie geraten."""
+    row = _decide(listing, figi, by_ticker, by_name, override)
+    return dataclasses.replace(row, figi_name=figi.name if figi else None)
+
+
+def _decide(
+    listing: Listing,
+    figi: openfigi.FigiResult | None,
+    by_ticker: dict[str, sec.TickerEntry],
+    by_name: dict[tuple[str, ...], list[sec.TickerEntry]],
+    override: tuple[bool, str | None],
+) -> store.IsinCik:
     has_override, override_cik = override
     if has_override:
         if override_cik is None:
@@ -98,6 +116,16 @@ def decide(
                 "keine",
                 f"Ticker {figi.ticker} nicht in der Tickerliste der SEC (kein SEC-Melder, "
                 "etwa ein ADR ohne eigene Berichte)",
+            )
+        if _ADR_HUELLE.search(entry.name):
+            return store.IsinCik(
+                listing.isin,
+                None,
+                figi.ticker,
+                "openfigi",
+                "keine",
+                f"Ticker {figi.ticker} gehört nur zur ADR-Registrierung der Depotbank "
+                f"({entry.name}), ohne eigene Abschlüsse bei der SEC",
             )
         names = [n for n in (listing.name, listing.lei_name, figi.name) if n]
         if any(names_plausibly_match(n, entry.name) for n in names):
@@ -119,8 +147,10 @@ def decide(
             f"{listing.name}",
         )
     # Rückfall: exakt gleicher Name (ohne Rechtsform) wie ein SEC-Melder, nur mit LEI-Namen
-    if listing.lei_name:
-        treffer = by_name.get(tuple(name_tokens(listing.lei_name)), [])
+    tokens = tuple(name_tokens(listing.lei_name or ""))
+    # Leere Namen (etwa nur chinesische Schrift oder nur Rechtsform) nie vergleichen
+    if tokens:
+        treffer = by_name.get(tokens, [])
         ciks = {t.cik for t in treffer}
         if len(ciks) == 1:
             t = treffer[0]
@@ -181,6 +211,30 @@ def map_isins(
     by_name: dict[tuple[str, ...], list[sec.TickerEntry]] = defaultdict(list)
     for t in tickers:
         by_name[tuple(name_tokens(t.name))].append(t)
+    # Gespeicherte Zuordnungen nach den aktuellen Regeln neu bewerten, ohne OpenFIGI zu fragen:
+    # Der Ticker ist gespeichert. So wirken Regeländerungen sofort, und die Tickerliste der SEC
+    # ist bei jedem Lauf aktuell.
+    stale_isins = {li.isin for li in stale}
+    neu = [
+        decide(
+            li,
+            openfigi.FigiResult(
+                li.isin,
+                known[li.isin].ticker,
+                known[li.isin].figi_name,
+                "" if known[li.isin].ticker else known[li.isin].detail,
+            ),
+            by_ticker,
+            by_name,
+            (False, None),
+        )
+        for li in listings
+        if li.isin not in stale_isins and known[li.isin].method in ("openfigi", "name", "keine")
+    ]
+    geaendert = [r for r in neu if r != known[r.isin]]
+    if geaendert:
+        store.save_isin_cik(conn, geaendert, now)
+        progress(f"Nach aktuellen Regeln neu bewertet: {len(geaendert)} Zuordnungen geändert")
     to_query = [li.isin for li in stale if li.isin not in overrides]
     if to_query:
         progress(f"OpenFIGI: {len(to_query)} ISINs (etwa {len(to_query) // 250 + 1} Minuten)")
