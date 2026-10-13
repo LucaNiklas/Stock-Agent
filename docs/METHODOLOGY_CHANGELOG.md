@@ -24,6 +24,13 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Rechenweg `core/calc.py` in Bauschritt 2 vorgezogen, Datenqualität rechnet über Prüfpunkte (SPEC 12.7).
 - Goldstandard startet mit mindestens 20 Fällen (SPEC 11.6).
 
+## 4.3 (13.10.2026)
+
+- Indexstufe Tier 1 bis 4 als Filter, bezogen auf den Heimatmarkt, ohne Einfluss auf die Note (SPEC 7.9, ADR 0004).
+- Freitext-Abfrage, die in einen geprüften Filter übersetzt wird (SPEC 9.9).
+- Dashboard als Bedienzentrale: Suchen, Filtern und Bewerten per Klick, Claude Code im Hintergrund über `claude -p` (SPEC 13.5), Fahrplan in docs/BAUPLAN.md.
+- Korrektur: Subagents können verschachtelt werden. Die Leitung bleibt beim Zustandsautomaten, kein Agent bekommt das Werkzeug `Agent` (SPEC 8.1, 16.4, ADR 0003).
+
 ## Datenqualität 1.0, Konzeptzuordnung 1.0, Quellenkarte 1.0 (13.10.2026, Bauschritt 2)
 
 Erste Fassungen von `config/quality.yaml`, `config/concept_map.yaml` und `config/source_map.yaml`.
@@ -111,3 +118,12 @@ Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit 
 | Aufträge | frei formuliert | Ziel, Format, Quellen, Grenzen, Aufwandsgrenze (8.10) |
 | Rechenweg | ab Bauschritt 3 | ab Bauschritt 2 (12.7) |
 | Goldstandard | Start mit 5 Unternehmen | mindestens 20 Fälle aus 5 Unternehmen (11.6) |
+
+### Änderungen in Version 4.3
+
+| Thema | Version 4.2 | Version 4.3 |
+|---|---|---|
+| Filter | Note, Konfidenz, Risiko, Branche, Land, Größe | dazu Indexstufe Tier 1 bis 4, Kategorie, Datenlage (7.9, 13.5) |
+| Start | Dialog in zwei Runden (9.7) | dazu Anfrage in eigenen Worten (9.9) |
+| Oberfläche | statische Seite | Dashboard als Bedienzentrale mit Bewerten per Klick (13.5) |
+

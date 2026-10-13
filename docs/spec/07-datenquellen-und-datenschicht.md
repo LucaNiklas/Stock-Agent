@@ -103,6 +103,7 @@ facts(fact_id PK, issuer_id FK, concept, internal_metric, value, unit, unit_raw,
       doc_id FK, page, xbrl_context, extraction_run_id, raw_sha256, retrieved_at, superseded_by)
       # nur über store.pit_query(as_of=...) gelesen (HR-07). superseded_by nur bei echter Änderung,
       # nicht bei bloßer Rundung (core/pit.py)
+index_members(index_id, isin, tier, valid_from, valid_to, source_sha256)   # 7.9, ab Schritt 5
 dq_flags(issuer_id, check_id[DQ-01..DQ-08], severity[ok|info|warnung|stopp], period_end, concept, detail,
          trace_json, checked_at)
 prices(isin, date, close, volume, currency, source)
@@ -128,3 +129,23 @@ Vergleichsgruppen und Scorecards brauchen für jedes Unternehmen einen Branchenc
 4. Fehlt alles, schlägt der Kategorie-Agent A0 eine Branche mit Belegstelle aus der Geschäftsbeschreibung vor. Wirksam wird sie erst nach Lucas Bestätigung. Bis dahin hat das Unternehmen Status N mit Grund "Branche unbekannt".
 
 Quelle und Datum des Codes stehen an jedem Unternehmen. Eine unsichere Zuordnung (Quellen 3 und 4) senkt die Konfidenz um eine Stufe.
+
+### 7.9 Indexstufe (Tier)
+
+Die Indexstufe sagt, wie etabliert eine Aktie an ihrem Heimatmarkt ist: wie bekannt, wie liquide, wie gut von Analysten und Presse abgedeckt. Sie ist ein Filter und eine Markierung, kein Qualitätsurteil. Sie geht weder in die Note noch in die Kategorie ein (HR-13, Entscheidung 19 Nr. 6). Ein Titel in keinem Index kann die Note A haben.
+
+Eine Aktie kann nicht zugleich im DAX und im S&P 500 stehen. „In allen großen Indizes“ wird deshalb so gelesen: im großen Index ihres eigenen Marktes. Das macht die Stufe zwischen Ländern vergleichbar. Ein griechischer Tier-1-Wert ist kleiner als ein amerikanischer, aber an seinem Markt ebenso etabliert. Wer absolute Größe sucht, kombiniert die Stufe mit der Größenklasse aus 3.1.
+
+| Stufe | Bedeutung | Regel (höchste zutreffende Stufe zählt) | Beispiele für Indizes |
+|---|---|---|---|
+| Tier 1 | Leitwert | Mitglied im Leitindex des Heimatlandes (Land laut 7.1) oder in einem großen länderübergreifenden Leitindex | DAX, S&P 500, Nasdaq-100, Dow Jones, FTSE 100, CAC 40, SMI, AEX, IBEX 35, FTSE MIB, ATX, OMXS30, FTSE/Athex Large Cap, Nikkei 225, Hang Seng, S&P/TSX 60, Euro Stoxx 50 |
+| Tier 2 | Breiter Standardwert | Mitglied im zweiten Index des Heimatmarkts oder in einem breiten globalen Standardindex für große und mittlere Werte | MDAX, S&P MidCap 400, FTSE 250, Stoxx Europe 600, MSCI World, MSCI ACWI |
+| Tier 3 | Nebenwert im Index | Mitglied in einem Nebenwerte-Index | SDAX, TecDAX (ohne DAX-Mitglieder), S&P SmallCap 600, Russell 2000, MSCI ACWI Small Cap |
+| Tier 4 | Ohne Index | in keinem der gelisteten Indizes | Freiverkehr, Mikrowerte, viele Hinterlegungsscheine |
+
+Regeln:
+
+1. Die Liste der Indizes je Stufe und je Land steht in `config/tiers.yaml` (Index, Land, Stufe, Quelle, Stand). Länder ohne eingetragenen Leitindex haben kein Tier 1, das wird in der Übersicht angezeigt statt verschwiegen.
+2. Quelle der Mitglieder: Positionsdateien von ETFs, die den Index nachbilden (7.3, „ETF-Bestände“), oder die Zusammensetzung, die Börse oder Indexanbieter frei veröffentlichen. Index-Lizenzen werden nicht gekauft. Für jeden Index wird die Quelle in Schritt 5 einzeln geprüft (Nutzungsbedingungen, Format, ISIN enthalten) und in der Quellenkarte (8.9) eingetragen.
+3. Zuordnung über die ISIN. Ein Hinterlegungsschein erbt die Stufe seiner Stammaktie, sobald Mehrfachlistings zusammengeführt sind (3.1), und wird bis dahin als „Stufe der Stammaktie unbekannt“ markiert.
+4. Die Stufe trägt Datum und Quelle. Indexänderungen kommen mit dem wöchentlichen Universums-Lauf, ältere Stände bleiben in der Datenbank (Tabelle `index_members` mit `valid_from`, `valid_to`), damit Backtests den damaligen Stand sehen (HR-07).

@@ -45,15 +45,18 @@ Python-Teil der Abteilung Recherche für die USA: Quellenkarte, Zuordnung ISIN z
 
 ### Schritt 5: Note und erste Übersicht
 
-- **Ziel:** Erstes nutzbares Ergebnis. Alle US-Titel mit Note, Konfidenz und Risiko in einer Übersicht.
-- **Entsteht:** Branchencodes und Kernprodukt, Scorecard Standard, Note, Konfidenz, Risiko, Kategorie, Dashboard, Beobachtungsliste mit `stockagent watch`, Befehle `screen`, `status`, `dashboard`, Tabelle `grade_snapshots` für die Notenkontrolle (SPEC 14.2).
-- **Abnahme:** Jeder US-Titel hat eine Note oder Status N mit Grund. Die Notenberechnung läuft über den Rechenweg mit CP-07.
+- **Ziel:** Erstes nutzbares Ergebnis. Alle US-Titel mit Note, Konfidenz und Risiko in einer Übersicht, die Luca nach Branche, Land und Stufe filtern kann.
+- **Entsteht:** Branchencodes und Kernprodukt, Scorecard Standard, Note, Konfidenz, Risiko, Kategorie, Tabelle `grade_snapshots` für die Notenkontrolle (SPEC 14.2), Befehle `screen`, `status`, `dashboard`.
+- **Neu (Oberfläche, SPEC 7.9 und 13.5):** Indexstufe Tier 1 bis 4 mit `config/tiers.yaml`, Quellenmodul `data/sources/indices.py` (ETF-Positionsdateien und freie Indexzusammensetzungen, je Index Quelle prüfen) und Tabelle `index_members`. Das Dashboard als Bedienzentrale: lokaler Server `stockagent app` mit Doppelklick-Start `Stockagent.command`, Startseite „Suchen und Bewerten“ mit Eingabefeld (Name, ISIN, WKN, Ticker und feste Wortliste für Land, Branche, Stufe, Note), Filterleiste (Stufe, Land und Region, Branche bis Unterbranche, Größe, Note, Konfidenz, Risiko, Kategorie, Handelbarkeit, Datenlage) mit Trefferzahlen, Filter in der Adresszeile, Abdeckungsanzeige, Unternehmensseite mit Notenzerlegung und Rechenweg, Stern, Notizen und Trade-Republic-Prüfung per Klick, Knopf „Daten aktualisieren“, CSV-Export. Ersetzt `universe serve` und baut auf `report/templates/universe.html` auf.
+- **Braucht von Luca:** Freigabe der Domains für die Indexquellen (Liste entsteht bei der Quellenprüfung).
+- **Abnahme:** Jeder US-Titel hat eine Note oder Status N mit Grund. Die Notenberechnung läuft über den Rechenweg mit CP-07. Jeder Titel hat eine Stufe mit Quelle und Datum. Die Filter „Tier 1, US, Branche Halbleiter“ und „Tier 4, Note A“ liefern dieselben Treffer wie die entsprechende SQL-Abfrage (Test). Stern, Notiz und Trade-Republic-Prüfung überleben einen Neustart des Servers. Der Server lehnt Verbindungen von anderen Rechnern ab (Test).
 
 ### Schritt 6: Tiefenanalyse Ende zu Ende
 
 - **Ziel:** Finanzieller Überblick mit 14 Abschnitten für ein US-Unternehmen über Lucas Claude-Abo.
 - **Entsteht:** Zustandsautomat mit den vier Abteilungen (SPEC 8.1), Dossier je Unternehmen, Aufträge nach SPEC 8.10 aus der Quellenkarte, Nachforderung, Werkzeugrechte je Abteilung, Annahme von Agentenausgaben, Werkzeuge, Prompts, Agentenvorlagen in `agents_src/` (A1, A3, A4, A5, A7, A9, J1, J2) mit Modellen aus `config/models.yaml`, Berichtsvorlagen, Skill `/analyze-stock`, Befehl `analyze`. Der `SubagentStop`-Hook ruft `stockagent accept`.
-- **Abnahme:** Alle Ausgaben schemakonform, jeder Agent lief mit seinem Modell, ein Schritt außerhalb der Reihenfolge wird abgelehnt, alle 14 Abschnitte vorhanden.
+- **Neu (Oberfläche, SPEC 13.5):** Knopf „Tiefenanalyse starten“ auf der Unternehmensseite und „Auswahl bewerten“ in der Liste starten Claude Code im Hintergrund (`claude -p "/analyze-stock <ISIN>"` mit `stream-json`, feste Rechte, `--permission-prompts none`). Fortschrittsanzeige je Abteilung, Warteschlange `state/analysis_queue.yaml`, wenn schon eine Analyse läuft, Anzeige des Abo-Verbrauchs aus `log.jsonl`. Vorher prüfen: läuft `claude -p` über die Anmeldung des Abos auf Lucas Mac.
+- **Abnahme:** Alle Ausgaben schemakonform, jeder Agent lief mit seinem Modell, ein Schritt außerhalb der Reihenfolge wird abgelehnt, alle 14 Abschnitte vorhanden. Ein Klick auf „Tiefenanalyse starten“ führt ohne Terminal bis zum fertigen Überblick auf der Unternehmensseite. Ein geschlossener Browser bricht die Analyse nicht ab.
 
 ### Schritt 7: Europa, Rechnungslegung, Währung
 
@@ -81,9 +84,10 @@ Python-Teil der Abteilung Recherche für die USA: Quellenkarte, Zuordnung ISIN z
 
 ### Schritt 11: Start und Dashboard
 
-- **Ziel:** Bequemer Start über `/stockagent` mit Kategorie-Abfrage und volles Dashboard.
-- **Entsteht:** Befehl `stockagent run` mit Dialog (`questionary`), Laufplan, alle Ansichten aus SPEC 13.3.
-- **Abnahme:** Alle Startwege aus SPEC 9.6 funktionieren, Antworten in `request.json`.
+- **Ziel:** Alles über das Dashboard: Suche in eigenen Worten, Bewerten ganzer Trefferlisten, alle Ansichten. Claude Code nur im Hintergrund.
+- **Entsteht:** Befehl `stockagent run` mit Dialog (`questionary`), Laufplan, alle Ansichten aus SPEC 13.3 (Änderungen, Karte Branche mal Land, Vergleich, Eskalationen, Historie, Methodik).
+- **Neu (Oberfläche, SPEC 9.9 und 13.5):** Eingabefeld des Dashboards versteht ganze Sätze („Tier 1 Griechenland Automobil, bewerte sie“): Wortliste zuerst, sonst Übersetzung über `claude -p` mit `--json-schema` ohne Werkzeuge. Verstandener Filter als änderbare Schaltflächen mit Trefferzahl, Vorschlag bei null Treffern, „Alle bewerten“ mit Laufplan und Bestätigung, gespeicherte Ansichten in `state/views.yaml`. Der Dialog `stockagent run` und `/stockagent` bleiben als zweiter Weg.
+- **Abnahme:** Alle Startwege aus SPEC 9.6 funktionieren, Antworten in `request.json`. Zehn Beispielsätze aus einer Testliste werden in den richtigen Filter übersetzt, ein Satz mit unbekanntem Land oder unbekannter Branche wird abgelehnt statt geraten.
 
 ### Schritt 12: Zeitplan (optional)
 
@@ -91,6 +95,20 @@ Python-Teil der Abteilung Recherche für die USA: Quellenkarte, Zuordnung ISIN z
 - **Neue Dateien:** `.github/workflows/scheduled-run.yml` oder ein lokaler Zeitplan in der Claude-Desktop-App, Profil `scheduled` in `config/run_profiles.yaml`, Benachrichtigung.
 - **Braucht von Luca:** Entscheidung, ob ein API-Schlüssel mit Kosten pro Token genutzt werden soll (SPEC 19 Nr. 4).
 - **Abnahme:** Drei Läufe hintereinander ohne manuellen Eingriff.
+
+## Fahrplan Oberfläche
+
+Ziel ist ein Dashboard als Bedienzentrale: Luca tippt nichts in Claude Code oder ins Terminal (SPEC 13.5). Claude Code läuft im Hintergrund, gestartet vom Dashboard über Lucas Abo. Jeder Schritt erweitert dieselbe Seite.
+
+| Nach Schritt | Sehen | Tun im Dashboard |
+|---|---|---|
+| 1 und 2 (heute) | Universum als HTML mit Suche, `sec show` im Terminal | noch nichts, Prüfungen über das Terminal |
+| 5 | Startseite „Suchen und Bewerten“, Übersicht aller Titel mit Note, Konfidenz, Risiko, Kategorie, Tier, Branche, Land, Filterleiste, Abdeckungsanzeige, Unternehmensseite mit Notenzerlegung und Rechenweg | Start per Doppelklick, suchen (Name, ISIN, feste Wortliste), filtern, sortieren, exportieren, Stern, Notiz, Trade-Republic-Prüfung, Daten aktualisieren |
+| 6 | Fortschritt je Abteilung und finanzieller Überblick auf der Unternehmensseite, Abo-Verbrauch | Tiefenanalyse per Klick starten, einzeln oder als Auswahl, Warteschlange |
+| 7 und 8 | dieselben Ansichten auch für EU-Werte und mit den Branchen-Scorecards | mehr Titel mit Note |
+| 9 | Insider-Zeitachse auf der Unternehmensseite, Insider als Filter | |
+| 10 | Eskalationen mit beiden Werten und Quellen | Entscheidungen direkt auf der Seite |
+| 11 | Änderungen seit dem letzten Lauf, Karte Branche mal Land, Vergleich, Historie, Methodik | Suche in ganzen Sätzen, „Alle bewerten“ mit Laufplan, gespeicherte Ansichten |
 
 ## Platzhalter: wann und was
 
@@ -141,13 +159,20 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 | 10 | `eval/run_eval.py` | Goldstandard-Lauf (SPEC 11.6) | Lässt die Prüfer gegen `eval/gold/` laufen und misst Fangquote je Fehlerart, Fehlalarme, Übereinstimmung mit Luca (Cohens Kappa). Mindestwerte: J1 95 Prozent, J2 85 Prozent |
 | 10 | `src/stockagent/judges/final_check.py` | J4 Endkontrolle (SPEC 11.2) | Prüft den fertigen Bericht: Zahlen gleich `decision.json`, Belege je Absatz, keine Kaufaufforderung, Gegenposition vollständig |
 | 10 | `src/stockagent/judges/jury.py` | J3 Jury (SPEC 11.2, 11.3) | Drei Richter (Opus, Sonnet, Gemini oder Haiku), Rubrik mit sechs Kriterien, Median je Kriterium, Uneinigkeit bei Spannweite über 2, Reihenfolge Bull/Bear in der Hälfte vertauscht |
-| 11 | `.claude/skills/stockagent/SKILL.md` | Skill /stockagent | Kategorie-Abfrage in zwei Runden mit AskUserQuestion (SPEC 9.7), Laufplan zeigen, nach Bestätigung `stockagent run` starten, Fortschritt melden, Ergebnis zusammenfassen, Dashboard öffnen |
+| 11 | `.claude/skills/stockagent/SKILL.md` | Skill /stockagent | Freitext-Abfrage nach SPEC 9.9 oder Kategorie-Abfrage in zwei Runden mit AskUserQuestion (SPEC 9.7), Abarbeiten der Warteschlange aus `state/analysis_queue.yaml`, Laufplan zeigen, nach Bestätigung `stockagent run` starten, Fortschritt melden, Ergebnis zusammenfassen, Dashboard öffnen |
 | 11 | `config/run_profiles.yaml` | Laufprofile (SPEC 9.6, 9.7) | Profile für `stockagent run --profile`: Kategorie, Größenklassen, Tiefe, Höchstzahl Tiefenanalysen. In Schritt 12 das Profil `scheduled` |
 
 ## Neue Dateien ohne heutigen Platzhalter
 
 | Schritt | Datei | Inhalt |
 |---|---|---|
+| 5 | `config/tiers.yaml` | Indizes je Stufe und Land mit Quelle und Stand (SPEC 7.9) |
+| 5 | `src/stockagent/data/sources/indices.py` | Indexmitglieder aus ETF-Positionsdateien und freien Zusammensetzungen |
+| 5 | `src/stockagent/dashboard/server.py` | Lokaler Server `stockagent app` auf 127.0.0.1: Dashboard plus Schnittstelle, schreibt nur nach `state/` und `runs/`, startet ab Schritt 6 Claude Code im Hintergrund |
+| 5 | `Stockagent.command` | Doppelklick-Start unter macOS: `uv run stockagent app` im Projektordner |
+| 5 | `state/notes.yaml` | Lucas Notizen je Titel |
+| 6 | `state/analysis_queue.yaml` | Warteschlange angeforderter Tiefenanalysen |
+| 11 | `state/views.yaml` | Gespeicherte Ansichten und Abfragen |
 | 3 | `src/stockagent/core/trends.py` | Trends und Zeitreihen (SPEC 3.4): Theil-Sen-Steigung, CAGR, Stabilität |
 | 4 | `src/stockagent/data/sources/damodaran.py` | Risikoprämie, Branchenbetas und -multiples als datierter Stand |
 | 6 | `agents_src/<agent>.md` | Vorlagen A1, A3, A4, A5, A7, A9, J1, J2 mit Pflicht-Präambel |

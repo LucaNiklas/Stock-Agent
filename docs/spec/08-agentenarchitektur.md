@@ -19,7 +19,7 @@ Daraus folgen drei Arten von Arbeit:
 2. LLM-Agenten nur dort, wo Suchen ohne feste Adresse (A1), Lesen, Einordnen und Argumentieren nötig ist.
 3. Prüfagenten, die beides kontrollieren.
 
-**Wer leitet.** In Claude Code starten Subagents keine weiteren Subagents. Die Leitung jeder Tiefenanalyse liegt deshalb beim Python-Zustandsautomaten, der den Plan festlegt, und bei der Hauptsitzung von Claude Code (Skill `/analyze-stock`), die die Aufträge ausführt und unabhängige Aufträge parallel startet (15.1). Ein eigener Leit-Agent als Subagent entfällt.
+**Wer leitet.** Die Leitung jeder Tiefenanalyse liegt beim Python-Zustandsautomaten, der den Plan festlegt, und bei der Hauptsitzung von Claude Code (Skill `/analyze-stock`), die die Aufträge ausführt und unabhängige Aufträge parallel startet (15.1). Claude Code erlaubt zwar verschachtelte Subagents (standardmäßig bis drei Ebenen, Stand Oktober 2026). Ein Leit-Agent als Subagent würde aber selbst entscheiden, wen er wann startet, und damit Reihenfolge, Blindheit der Prüfer und Verbrauchsgrenzen dem Modell überlassen. Deshalb hat kein Agent das Werkzeug `Agent` in seiner Werkzeugliste, und `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` steht in `.claude/settings.json` auf 1 (16.4).
 
 Das Vorbild aus der Forschung ist TradingAgents (UCLA, MIT, Tauric Research, AAAI 2025). Dort analysieren Fachagenten, ein Bull- und ein Bear-Researcher debattieren, ein Risikoteam prüft und ein Manager entscheidet. Übernommen wird die Rollentrennung und die Debatte. Nicht übernommen wird die Ausrichtung auf kurzfristiges Trading und technische Analyse, die zu einem Anlagehorizont von 15 bis 20 Jahren nicht passt.
 

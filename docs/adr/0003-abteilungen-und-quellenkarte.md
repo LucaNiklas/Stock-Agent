@@ -23,7 +23,7 @@ Als Ausgangspunkt diente der Bericht von Anthropic über sein Recherchesystem mi
 1. Vier Abteilungen (SPEC 8.1): Recherche, Berechnung, Auswertung und Aufbereitung, Prüfung. Jede hat eigene Werkzeugrechte und übergibt nur ein Artefakt als Datei (Dossier, Rechenergebnisse, Bericht). Die Berechnung ist reines Python ohne Sprachmodell.
 2. Quellenkarte `config/source_map.yaml` (SPEC 8.9): Je Information und Region die Quellen in fester Reihenfolge, mit Zugriff `python` oder `agent`. Was eine feste Adresse hat (SEC, GLEIF, ESEF, OpenFIGI), holt Python. Agenten suchen nur dort, wo es keine feste Adresse gibt, und nur auf den Domains des Eintrags.
 3. Feste Auftragsform mit vier Teilen und Aufwandsgrenzen je Auftragsart in `config/models.yaml` (SPEC 8.10). Die Aufträge erzeugt der Zustandsautomat.
-4. Kein Leit-Agent als Subagent: In Claude Code starten Subagents keine weiteren Subagents. Die Leitung liegt beim Zustandsautomaten (Plan) und der Hauptsitzung (Ausführung, parallele Aufrufe).
+4. Kein Leit-Agent als Subagent: Die Leitung liegt beim Zustandsautomaten (Plan) und der Hauptsitzung (Ausführung, parallele Aufrufe). Korrektur 13.10.2026: Ursprünglich hieß es, Subagents könnten keine Subagents starten. Das stimmt nicht, Claude Code erlaubt standardmäßig drei Ebenen. Die Entscheidung bleibt, weil sonst ein Modell Reihenfolge, Blindheit der Prüfer und Grenzen bestimmen würde. Durchgesetzt wird sie, indem kein Agent das Werkzeug `Agent` bekommt und die Verschachtelungstiefe auf 1 steht.
 5. Fehlt der Auswertung eine Information, stellt sie eine Nachforderung an die Recherche (höchstens eine Runde), statt selbst zu suchen.
 6. Goldstandard beginnt mit mindestens 20 Fällen aus 5 Unternehmen (SPEC 11.6).
 
