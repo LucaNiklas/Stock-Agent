@@ -22,3 +22,28 @@ gleif:
 universe:
   max_change_pct: 5        # größere Abweichung zur letzten Liste wird nicht ohne --force übernommen
   min_refresh_days: 6      # seltener als wöchentlich neu laden
+
+sec:
+  # Die SEC verlangt Name und E-Mail im User-Agent. Der Wert steht in der Umgebungsvariablen
+  # (oder in .env), nie im Repository.
+  user_agent_env: SEC_USER_AGENT
+  tickers_url: https://www.sec.gov/files/company_tickers_exchange.json
+  submissions_url: https://data.sec.gov/submissions/CIK{cik}.json
+  companyfacts_url: https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json
+  filing_index_url: https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_nodash}/index.json
+  filing_file_url: https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_nodash}/{name}
+  max_requests_per_s: 8     # die SEC erlaubt höchstens 10
+  master_refresh_days: 6    # Stammdaten (SIC, Adresse) seltener als wöchentlich neu laden
+  # Nur Werte aus Abschlussberichten und ihren Korrekturen. Andere Formulare (etwa DEF 14A mit
+  # der Tabelle Pay versus Performance) taggen Abschlusswerte gerundet oder anders abgegrenzt.
+  report_forms: [10-K, 10-K/A, 10-Q, 10-Q/A, 10-KT, 10-KT/A, 10-QT, 10-QT/A, 20-F, 20-F/A,
+                 40-F, 40-F/A, 6-K, 6-K/A]
+
+openfigi:
+  # ISIN -> Ticker (ADR 0002). Ohne API-Schlüssel, Grenzen live gemessen am 13.10.2026
+  # (Antwort-Header ratelimit-policy: 25;w=60, mehr als 10 Aufträge je Anfrage ergibt HTTP 413).
+  mapping_url: https://api.openfigi.com/v3/mapping
+  jobs_per_request: 10
+  requests_per_minute: 25
+  # Neu zuordnen, wenn die letzte Prüfung älter ist
+  recheck_days: 90

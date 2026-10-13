@@ -1,7 +1,8 @@
 # tests/fixtures/
 
-Kleine Beispieldaten für Tests.
+Kleine Beispieldaten für Tests, damit sie ohne Internet laufen.
 
-PLATZHALTER: wird in Bauschritt 2 gebaut (docs/BAUPLAN.md).
-
-Inhalt: Ausschnitte echter SEC-Antworten (Company Facts, Submissions) für 2 bis 3 Firmen, damit Tests ohne Internet laufen. Je Datei Quelle und Abrufdatum im Kopf.
+- `sec/`: gekürzte echte Antworten von SEC und OpenFIGI für Apple, PagerDuty und JPMorgan
+  (Bauschritt 2). Quelle und Abrufdatum stehen in jeder Datei, Übersicht in `sec/README.md`.
+- Die Beispieldateien der Deutschen Börse und der GLEIF (Bauschritt 1) erzeugt
+  `tests/universe_fixtures.py` im Format der echten Quellen.

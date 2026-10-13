@@ -1,0 +1,101 @@
+# Quellenkarte (SPEC 8.9, ADR 0003): Wo liegt welche Information?
+#
+# Je Information und Region die Quellen in fester Reihenfolge. Zugriff `python` heißt: ein Modul
+# unter src/stockagent/data/sources/ holt sie, nie ein Agent. Zugriff `agent` heißt: ein
+# Recherche-Agent (A1) sucht, aber nur auf den genannten Domains. Die Karte wächst mit den
+# Bauschritten (Feld `ab_schritt`). Ein Test prüft, dass jedes Quellenmodul hier steht und umgekehrt.
+#
+# Werte aus dieser Datei bestimmen, was die Recherche tut. Änderungen sind Methodikänderungen.
+
+version: "1.0"
+
+informationen:
+  universum:
+    beschreibung: Aktien an Börse Frankfurt und Xetra, Näherung für Trade Republic (ADR 0001)
+    region: alle
+    quellen:
+      - {name: Deutsche Börse, zugriff: python, modul: deutsche_boerse, ab_schritt: 1}
+
+  lei_und_land:
+    beschreibung: LEI, Rechtssitz und Hauptsitz
+    region: alle
+    quellen:
+      - {name: GLEIF, zugriff: python, modul: gleif, ab_schritt: 1}
+
+  isin_zu_cik:
+    beschreibung: Zuordnung ISIN -> CIK der SEC (ADR 0002)
+    region: US
+    quellen:
+      - {name: OpenFIGI (ISIN -> US-Ticker), zugriff: python, modul: openfigi, ab_schritt: 2}
+      - {name: SEC Tickerliste (Ticker -> CIK), zugriff: python, modul: sec, ab_schritt: 2}
+
+  stammdaten_sec:
+    beschreibung: SIC-Code, Geschäftsadresse, Gründungsstaat, Geschäftsjahresende
+    region: US
+    quellen:
+      - {name: SEC Submissions, zugriff: python, modul: sec, ab_schritt: 2}
+
+  abschlusswerte:
+    beschreibung: XBRL-Werte aus 10-K, 10-Q, 20-F, 40-F, 6-K mit Periode und Einreichung
+    region: US
+    quellen:
+      - {name: SEC Company Facts, zugriff: python, modul: sec, ab_schritt: 2}
+
+  abschlusswerte_zweiter_weg:
+    beschreibung: XBRL-Instanz und Berechnungsstruktur des letzten Jahresberichts (SPEC 3.2 Nr. 5)
+    region: US
+    quellen:
+      - {name: SEC Archives (Einreichung), zugriff: python, modul: sec_xbrl, ab_schritt: 2}
+
+  # ---------------------------------------------------------------- spätere Bauschritte
+  # Die folgenden Einträge sind angelegt, damit Recherche-Aufträge schon heute wissen, wohin sie
+  # später gehen. Module ohne `ab_schritt` <= aktueller Schritt existieren noch nicht.
+
+  branche_und_kernprodukt:
+    beschreibung: Branchencode und Kurzbeschreibung des Kernprodukts (SPEC 7.8)
+    region: alle
+    quellen:
+      - {name: SEC Submissions (SIC), zugriff: python, modul: sec, ab_schritt: 2}
+      - {name: Item 1 des 10-K (Geschäftsbeschreibung), zugriff: python, modul: sectors, ab_schritt: 5}
+      - {name: Wikidata, zugriff: python, modul: sectors, ab_schritt: 5}
+      - {name: Vorschlag A0 mit Lucas Bestätigung, zugriff: agent, domains: [], ab_schritt: 5}
+
+  kurse:
+    beschreibung: Tägliche Schlusskurse und Volumen (SPEC 7.3, Entscheidung 19 Nr. 1 offen)
+    region: alle
+    quellen:
+      - {name: offen, zugriff: python, modul: prices, ab_schritt: 4}
+
+  wechselkurse:
+    region: alle
+    quellen:
+      - {name: EZB-Referenzkurse, zugriff: python, modul: fx, ab_schritt: 4}
+
+  zinsen:
+    region: alle
+    quellen:
+      - {name: Bundesbank und FRED, zugriff: python, modul: rates, ab_schritt: 4}
+
+  abschlusswerte_eu:
+    region: EU
+    quellen:
+      - {name: filings.xbrl.org (ESEF), zugriff: python, modul: esef, ab_schritt: 7}
+      - name: Geschäftsbericht als PDF
+        zugriff: agent
+        domains: [Investor-Relations-Seite des Emittenten, unternehmensregister.de]
+        ab_schritt: 7
+
+  geschaeftsbericht_dokument:
+    beschreibung: Bericht als Dokument für die Tiefenanalyse (Text, Risikofaktoren, Vergütung)
+    region: US
+    quellen:
+      - {name: SEC Archives (10-K, DEF 14A), zugriff: python, modul: sec, ab_schritt: 6}
+
+  insider:
+    region: US
+    quellen:
+      - {name: SEC Form 4, zugriff: python, modul: sec, ab_schritt: 9}
+  insider_de:
+    region: DE
+    quellen:
+      - {name: BaFin Geschäfte von Führungskräften, zugriff: python, modul: bafin, ab_schritt: 9}

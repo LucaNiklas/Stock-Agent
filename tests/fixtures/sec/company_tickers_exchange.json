@@ -1,0 +1,53 @@
+{
+ "_quelle": "Abgerufen am 12.10.2026 von https://www.sec.gov/files/company_tickers_exchange.json, auf wenige Zeilen gek\u00fcrzt.",
+ "fields": [
+  "cik",
+  "name",
+  "ticker",
+  "exchange"
+ ],
+ "data": [
+  [
+   320193,
+   "Apple Inc.",
+   "AAPL",
+   "Nasdaq"
+  ],
+  [
+   1067983,
+   "BERKSHIRE HATHAWAY INC",
+   "BRK-B",
+   "NYSE"
+  ],
+  [
+   19617,
+   "JPMORGAN CHASE & CO",
+   "JPM",
+   "NYSE"
+  ],
+  [
+   1000184,
+   "SAP SE",
+   "SAP",
+   "NYSE"
+  ],
+  [
+   1568100,
+   "PagerDuty, Inc.",
+   "PD",
+   "NYSE"
+  ],
+  [
+   1046179,
+   "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD",
+   "TSM",
+   "NYSE"
+  ],
+  [
+   19617,
+   "JPMORGAN CHASE & CO",
+   "JPM-PD",
+   "NYSE"
+  ]
+ ]
+}

@@ -1,8 +1,98 @@
 # Zuordnung XBRL-Konzept zu interner Größe (SPEC 7.2).
-# PLATZHALTER: wird in Bauschritt 2 gebaut (docs/BAUPLAN.md).
 #
-# Inhalt: Je interner Größe (`revenue`, `ebit`, `net_income`, `operating_cash_flow`, `capex`,
-#   `total_assets`, `equity`, `financial_debt`, `lease_liabilities`, `cash`, `shares_diluted` …)
-#   eine Vorrangliste von US-GAAP-Konzepten, etwa `revenue: [us-gaap:Revenues,
-#   us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax, us-gaap:SalesRevenueNet]`. In
-#   Schritt 7 kommen die ESEF/IFRS-Konzepte dazu.
+# Regel: Je Periode gilt das erste Konzept der Liste, das für genau diese Periode einen Wert hat.
+# Firmen wechseln Konzepte über die Jahre (Apple meldet den Umsatz bis 2018 als Revenues, danach
+# als RevenueFromContractWithCustomerExcludingAssessedTax). Eine feste Wahl je Firma reicht
+# deshalb nicht.
+#
+# Geprüft am 13.10.2026 gegen die Company Facts von Apple, Microsoft, Coca-Cola, Caterpillar,
+# Walmart, Nike, JPMorgan und PagerDuty, Procter & Gamble und Johnson & Johnson. Fehlt ein Konzept (Nike meldet kein
+# OperatingIncomeLoss, JPMorgan keine Investitionen in Sachanlagen), bleibt die Größe leer und
+# wird in Schritt 3 als unknown mit Grund behandelt (HR-05). Geraten wird nie.
+#
+# In Schritt 7 kommen die ESEF/IFRS-Konzepte (ifrs-full) dazu.
+
+version: "1.0"
+
+us-gaap:
+  revenue:
+    - us-gaap:Revenues
+    - us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax
+    - us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax
+    - us-gaap:SalesRevenueNet
+    - us-gaap:RevenuesNetOfInterestExpense   # Banken (JPMorgan)
+  ebit:
+    - us-gaap:OperatingIncomeLoss
+  net_income:
+    # Anteil der Aktionäre der Muttergesellschaft vor dem Gesamtergebnis einschließlich
+    # Minderheiten (Caterpillar meldet seit 2011 nur ProfitLoss)
+    - us-gaap:NetIncomeLoss
+    - us-gaap:ProfitLoss
+  operating_cash_flow:
+    - us-gaap:NetCashProvidedByUsedInOperatingActivities
+    - us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations
+  capex:
+    - us-gaap:PaymentsToAcquirePropertyPlantAndEquipment
+    - us-gaap:PaymentsToAcquireProductiveAssets
+  total_assets:
+    - us-gaap:Assets
+  equity:
+    - us-gaap:StockholdersEquity
+    - us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest
+  financial_debt:
+    # Ein Gesamtkonzept ist selten. Die Summe aus kurz- und langfristigen Teilen bildet erst
+    # die Kennzahl in Schritt 3 über den Rechenweg. Hier nur der Abgleich je Konzept.
+    - us-gaap:LongTermDebt
+    - us-gaap:LongTermDebtNoncurrent
+    - us-gaap:LongTermDebtAndCapitalLeaseObligations   # Coca-Cola seit 2024, mit Finanzierungsleasing
+    - us-gaap:DebtLongtermAndShorttermCombinedAmount
+  financial_debt_teile:
+    - us-gaap:LongTermDebtNoncurrent
+    - us-gaap:LongTermDebtCurrent
+    - us-gaap:LongTermDebtAndCapitalLeaseObligations
+    - us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent
+    - us-gaap:ShortTermBorrowings
+    - us-gaap:OtherShortTermBorrowings
+    - us-gaap:CommercialPaper
+  lease_liabilities:
+    - us-gaap:OperatingLeaseLiability
+    - us-gaap:FinanceLeaseLiability
+  cash:
+    - us-gaap:CashAndCashEquivalentsAtCarryingValue
+    - us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents
+  shares_diluted:
+    - us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding
+  shares_outstanding:
+    - dei:EntityCommonStockSharesOutstanding
+    - us-gaap:CommonStockSharesOutstanding
+
+# Kernwerte für den Abgleich zweier Wege (SPEC 3.2 Nr. 5)
+kernwerte:
+  - revenue
+  - ebit
+  - net_income
+  - operating_cash_flow
+  - capex
+  - total_assets
+  - equity
+  - financial_debt
+  - shares_diluted
+
+# Bilanzgleichung (SPEC 3.2 Nr. 1): Aktiva gegen die erste vollständige Passivseite
+bilanz:
+  aktiva: us-gaap:Assets
+  passiva:
+    - [us-gaap:LiabilitiesAndStockholdersEquity]
+    - [us-gaap:Liabilities, us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest]
+    - [us-gaap:Liabilities, us-gaap:StockholdersEquity, us-gaap:MinorityInterest]
+    - [us-gaap:Liabilities, us-gaap:StockholdersEquity]
+
+# Zeitreihen für die Ausreißerprüfung (SPEC 3.2 Nr. 6), nur Jahreswerte
+ausreisser:
+  - revenue
+  - net_income
+  - operating_cash_flow
+  - total_assets
+
+# Split-Erkennung (SPEC 3.2 Nr. 8): Aktienanzahl vom Deckblatt jeder Einreichung
+split_reihe: dei:EntityCommonStockSharesOutstanding
