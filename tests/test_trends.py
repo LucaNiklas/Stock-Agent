@@ -69,7 +69,8 @@ def test_outlier_is_warning_not_stop() -> None:
 
 def test_negative_start_gives_unknown_cagr() -> None:
     tr = _trend({**UMSATZ, T22: "-5"})
-    assert tr["cagr_3j"].unknown and tr["cagr_3j"].ungereimtheit == "INC-15"
+    assert tr["cagr_3j"].unknown and tr["cagr_3j"].ungereimtheit is None
+    assert str(tr["cagr_3j"].grund).startswith("Nicht definiert")
     assert tr["cagr_5j"].wert is not None
 
 
@@ -77,12 +78,20 @@ def test_missing_stichtag_year_gives_unknown_level() -> None:
     werte = {t: w for t, w in UMSATZ.items() if t != T25}
     tr = _trend(werte)
     assert tr["niveau"].unknown and tr["veraenderung_vj"].unknown
+    assert tr["niveau"].ungereimtheit is None
     assert "plausibilitaet" not in tr
 
 
-def test_gap_year_stops_change() -> None:
+def test_gap_year_gives_no_change() -> None:
     werte = {t: w for t, w in UMSATZ.items() if t != T24}
-    assert _trend(werte)["veraenderung_vj"].grund.startswith("CP-01")
+    erg = _trend(werte)["veraenderung_vj"]
+    assert erg.unknown and erg.ungereimtheit is None and "Vorjahr" in str(erg.grund)
+
+
+def test_same_fiscal_year_twice_stops() -> None:
+    """Zwei Stichtage im selben Kalenderjahr (Wechsel des Geschäftsjahres): CP-01 stoppt."""
+    werte = {**UMSATZ, date(2025, 1, 31): "100000"}
+    assert str(_trend(werte)["stdabw"].grund).startswith("CP-01")
 
 
 def test_vertical_analysis() -> None:

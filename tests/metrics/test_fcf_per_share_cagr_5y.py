@@ -22,9 +22,15 @@ def test_fcf_per_share_cagr_5y_hand_calculation() -> None:
 
 
 def test_fcf_per_share_cagr_5y_failed_checkpoint_stops() -> None:
-    erg = rechne("fcf_per_share_cagr_5y", mit("operating_cash_flow", T20, Decimal(0)))
+    erg = rechne("fcf_per_share_cagr_5y", mit("shares_diluted", T20, Decimal(0)))
     assert erg.unknown and erg.ungereimtheit == "INC-15"
     assert erg.grund is not None and erg.grund.startswith("CP-02")
+
+
+def test_fcf_per_share_cagr_5y_negative_fcf_is_not_defined() -> None:
+    erg = rechne("fcf_per_share_cagr_5y", mit("operating_cash_flow", T20, Decimal(0)))
+    assert erg.unknown and erg.ungereimtheit is None
+    assert erg.grund is not None and erg.grund.startswith("Nicht definiert")
 
 
 def test_fcf_per_share_cagr_5y_missing_input_is_unknown() -> None:

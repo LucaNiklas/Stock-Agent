@@ -27,7 +27,13 @@ def read(name: str) -> bytes:
 
 def project(tmp_path: Path) -> Paths:
     (tmp_path / "config").mkdir()
-    for name in ("sources.yaml", "quality.yaml", "concept_map.yaml"):
+    for name in (
+        "sources.yaml",
+        "quality.yaml",
+        "concept_map.yaml",
+        "metrics.yaml",
+        "hinweise.yaml",
+    ):
         shutil.copy(ROOT / "config" / name, tmp_path / "config" / name)
     paths = Paths(tmp_path)
     conn = store.connect(paths.db)

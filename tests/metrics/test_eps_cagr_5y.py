@@ -22,9 +22,16 @@ def test_eps_cagr_5y_hand_calculation() -> None:
 
 
 def test_eps_cagr_5y_failed_checkpoint_stops() -> None:
-    erg = rechne("eps_cagr_5y", mit("eps_diluted", T20, Decimal(-1)))
+    erg = rechne("eps_cagr_5y", verschiedene_waehrung("eps_diluted", T20))
     assert erg.unknown and erg.ungereimtheit == "INC-15"
-    assert erg.grund is not None and erg.grund.startswith("CP-02")
+    assert erg.grund is not None and erg.grund.startswith("CP-01")
+
+
+def test_eps_cagr_5y_negative_start_is_not_defined() -> None:
+    """Verlust vor 5 Jahren: Wachstumsrate nicht definiert, kein Datenfehler."""
+    erg = rechne("eps_cagr_5y", mit("eps_diluted", T20, Decimal(-1)))
+    assert erg.unknown and erg.ungereimtheit is None
+    assert erg.grund is not None and erg.grund.startswith("Nicht definiert")
 
 
 def test_eps_cagr_5y_missing_input_is_unknown() -> None:

@@ -31,7 +31,7 @@ from itertools import combinations
 from typing import Any
 
 from stockagent.core import dq, registry
-from stockagent.core.calc import Eingabe, EingabeFehlt, Ergebnis, Rechenweg, rechne
+from stockagent.core.calc import Eingabe, EingabeFehlt, Ergebnis, NichtDefiniert, Rechenweg, rechne
 from stockagent.core.reihen import Reihen
 
 VERSION = "1.0"
@@ -98,36 +98,45 @@ def _cp01(r: Rechenweg, werte: Sequence[Eingabe], mindest: int) -> None:
     r.pruefe("CP-01", "jedes Geschäftsjahr nur einmal", len(set(jahre)) == len(jahre))
 
 
-def niveau(r: Rechenweg, werte: Sequence[Eingabe]) -> Decimal:
-    _cp01(r, werte[-1:], 1)
+def _im_stichtagsjahr(r: Rechenweg, werte: Sequence[Eingabe]) -> Eingabe:
     jetzt = werte[-1]
-    r.pruefe("CP-02", "Wert im Stichtagsjahr", jetzt.periode_ende.isoformat() == r.periode)
+    if jetzt.periode_ende.isoformat() != r.periode:
+        raise NichtDefiniert("Kennzahl im Stichtagsjahr nicht berechenbar")
+    return jetzt
+
+
+def niveau(r: Rechenweg, werte: Sequence[Eingabe]) -> Decimal:
+    jetzt = _im_stichtagsjahr(r, werte)
+    _cp01(r, [jetzt], 1)
+    r.pruefe("CP-02", "Wert ist eine endliche Zahl", jetzt.wert.is_finite())
     return r.schritt("niveau", "x", x=jetzt)
 
 
 def veraenderung_vj(r: Rechenweg, werte: Sequence[Eingabe]) -> Decimal:
-    _cp01(r, werte[-2:], 2)
-    vor, jetzt = werte[-2], werte[-1]
-    r.pruefe("CP-02", "Wert im Stichtagsjahr", jetzt.periode_ende.isoformat() == r.periode)
-    r.pruefe(
-        "CP-01",
-        "Vorjahr ist das direkt vorangehende Geschäftsjahr",
-        jetzt.periode_ende.year - vor.periode_ende.year == 1,
-    )
+    jetzt = _im_stichtagsjahr(r, werte)
+    vorjahr = [w for w in werte if w.periode_ende.year == jetzt.periode_ende.year - 1]
+    if not vorjahr:
+        raise NichtDefiniert("Kennzahl im Vorjahr nicht berechenbar")
+    vor = vorjahr[0]
+    _cp01(r, [vor, jetzt], 2)
     if jetzt.einheit in _RELATIV:
+        if vor.wert == 0:
+            raise NichtDefiniert("relative Veränderung bei Vorjahreswert null")
         r.pruefe("CP-02", "Vorjahreswert ungleich null", vor.wert != 0)
         return r.schritt("veraenderung", "(jetzt - vor) / abs(vor)", jetzt=jetzt, vor=vor)
+    r.pruefe("CP-02", "Differenz in Punkten", True)
     return r.schritt("veraenderung_punkte", "jetzt - vor", jetzt=jetzt, vor=vor)
 
 
 def cagr(r: Rechenweg, werte: Sequence[Eingabe], jahre: int) -> Decimal:
-    jetzt = werte[-1]
+    jetzt = _im_stichtagsjahr(r, werte)
     anfang = [w for w in werte if w.periode_ende.year == jetzt.periode_ende.year - jahre]
     if not anfang:
-        raise EingabeFehlt(f"Wert {jahre} Geschäftsjahre vor", r.periode)
+        raise NichtDefiniert(f"Kennzahl {jahre} Geschäftsjahre vorher nicht berechenbar")
     _cp01(r, [anfang[0], jetzt], 2)
-    r.pruefe("CP-02", "Wert im Stichtagsjahr", jetzt.periode_ende.isoformat() == r.periode)
-    r.pruefe("CP-02", "Anfangs- und Endwert positiv", anfang[0].wert > 0 and jetzt.wert > 0)
+    if not (anfang[0].wert > 0 and jetzt.wert > 0):
+        raise NichtDefiniert("Wachstumsrate nur bei positivem Anfangs- und Endwert")
+    r.pruefe("CP-02", "Anfangs- und Endwert positiv", True)
     faktor = r.schritt("faktor", "ende / anfang", ende=jetzt, anfang=anfang[0])
     potenz = r.potenz("faktor_je_jahr", faktor, 1, jahre)
     return r.schritt("cagr", "p - 1", p=potenz)
@@ -138,7 +147,9 @@ def stdabw(r: Rechenweg, werte: Sequence[Eingabe], mindest: int) -> Decimal:
     namen = {f"x{i}": w for i, w in enumerate(werte)}
     mittel = r.schritt("mittelwert", f"({' + '.join(namen)}) / {len(werte)}", **namen)
     quadrate = {
-        f"q{i}": r.schritt(f"abweichung_quadrat_{i}", "(x - m) * (x - m)", x=w, m=mittel)
+        f"q{i}": r.schritt(
+            f"abweichung_quadrat_{w.periode_ende.year}", "(x - m) * (x - m)", x=w.wert, m=mittel
+        )
         for i, w in enumerate(werte)
     }
     varianz = r.schritt("varianz", f"({' + '.join(quadrate)}) / {len(werte) - 1}", **quadrate)
@@ -158,9 +169,11 @@ def steigung(r: Rechenweg, werte: Sequence[Eingabe], mindest: int) -> Decimal:
     steigungen = [
         r.schritt(
             f"steigung_{a.periode_ende.year}_{b.periode_ende.year}",
-            f"(b - a) / {b.periode_ende.year - a.periode_ende.year}",
-            a=a,
-            b=b,
+            "(b - a) / (jahr_b - jahr_a)",
+            a=a.wert,
+            b=b.wert,
+            jahr_a=a.periode_ende.year,
+            jahr_b=b.periode_ende.year,
         )
         for a, b in paare
     ]

@@ -73,6 +73,11 @@ class EingabeFehlt(Exception):
         self.periode = periode
 
 
+class NichtDefiniert(Exception):
+    """Die Größe ist für diese Daten mathematisch nicht definiert, etwa eine Wachstumsrate bei
+    negativem Anfangswert. Kein Datenfehler: unknown mit Grund, keine Ungereimtheit (HR-05)."""
+
+
 class PruefpunktVerletzt(Exception):
     def __init__(self, rechenweg: Rechenweg, cp_id: str, text: str) -> None:
         super().__init__(f"{rechenweg.name}: {cp_id} verletzt: {text}")
@@ -357,7 +362,8 @@ class Rechenweg:
 
 def rechne(rechenweg: Rechenweg, rechnung: Callable[[Rechenweg], Decimal]) -> Ergebnis:
     """Führt eine Rechnung aus. Ein verletzter Stopp-Prüfpunkt ergibt `unknown` mit Grund und
-    INC-15, eine fehlende Eingabe `unknown` mit Grund ohne Ungereimtheit (HR-05)."""
+    INC-15, eine fehlende Eingabe oder eine nicht definierte Größe `unknown` mit Grund ohne
+    Ungereimtheit (HR-05)."""
     try:
         wert = rechnung(rechenweg)
     except PruefpunktVerletzt as exc:
@@ -365,6 +371,15 @@ def rechne(rechenweg: Rechenweg, rechnung: Callable[[Rechenweg], Decimal]) -> Er
     except EingabeFehlt as exc:
         return Ergebnis(
             rechenweg.name, None, str(exc), None, rechenweg._warnungen(), rechenweg._protokoll()
+        )
+    except NichtDefiniert as exc:
+        return Ergebnis(
+            rechenweg.name,
+            None,
+            f"Nicht definiert: {exc}",
+            None,
+            rechenweg._warnungen(),
+            rechenweg._protokoll(),
         )
     return rechenweg.ergebnis(wert)
 

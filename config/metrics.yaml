@@ -399,6 +399,8 @@ metrics:
   - CP-02
   tests:
   - tests/metrics/test_sloan_accruals.py
+  schwellen:
+    auffaellig_ueber: '0.10'   # Richtwert, das oberste Dezil nach Sloan (1996) beginnt etwa hier. Branchendezil folgt in Schritt 5
 - id: sbc_to_revenue
   version: '1.0'
   name: Aktienbasierte Vergütung zu Umsatz
@@ -723,7 +725,7 @@ metrics:
   richtung: higher_better
   rundung:
     anzeige: ganzzahl
-    nachkommastellen: 2
+    nachkommastellen: 0
   scorecards: *id001
   quelle: Piotroski (2000), Journal of Accounting Research 38
   pruefpunkte:

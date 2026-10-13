@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import date
 from decimal import Decimal
 
 from stockagent.core.calc import Eingabe
@@ -10,10 +11,10 @@ from stockagent.core.reihen import Reihen
 from tests.metrics.apple import APPLE, T25
 
 
-def verschiedene_waehrung(name: str = "capex") -> Reihen:
+def verschiedene_waehrung(name: str = "capex", t: date = T25) -> Reihen:
     """Ein Wert in EUR statt USD: CP-01 muss stoppen."""
     w = {k: dict(v) for k, v in APPLE.werte.items()}
-    w[name][T25] = replace(w[name][T25], waehrung="EUR")
+    w[name][t] = replace(w[name][t], waehrung="EUR")
     return Reihen(APPLE.subjekt, APPLE.stichtage, w, APPLE.splits)
 
 

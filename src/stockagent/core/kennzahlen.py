@@ -17,7 +17,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from stockagent.core.calc import Eingabe, EingabeFehlt, Rechenweg, Wert
+from stockagent.core.calc import Eingabe, EingabeFehlt, NichtDefiniert, Rechenweg, Wert
 from stockagent.core.registry import metric
 from stockagent.core.reihen import Reihen
 
@@ -206,7 +206,11 @@ def _w(v: Wert) -> Decimal:
 
 
 def _cagr(r: Rechenweg, anfang: Wert, ende: Wert, jahre: int) -> Decimal:
-    r.pruefe("CP-02", "Anfangs- und Endwert positiv", _w(anfang) > 0 and _w(ende) > 0)
+    if not (_w(anfang) > 0 and _w(ende) > 0):
+        raise NichtDefiniert(
+            f"Wachstumsrate nur bei positivem Anfangs- und Endwert ({_w(anfang)}, {_w(ende)})"
+        )
+    r.pruefe("CP-02", "Anfangs- und Endwert positiv", True)
     faktor = r.schritt("faktor", "ende / anfang", ende=ende, anfang=anfang)
     wachstum = r.potenz("faktor_je_jahr", faktor, 1, jahre)
     return r.schritt("cagr", "faktor_je_jahr - 1", faktor_je_jahr=wachstum)
@@ -327,6 +331,7 @@ def roic(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 def _umsatz_cagr(r: Rechenweg, d: Reihen, t: date, jahre: int) -> Decimal:
     ende, anfang = d.hole("revenue", t), d.hole("revenue", d.vorjahr(t, jahre))
     r.pruefe("CP-01", "eine Währung", ende.waehrung == anfang.waehrung)
+    r.pruefe("CP-02", "Umsatz nicht negativ", anfang.wert >= 0 and ende.wert >= 0)
     return _cagr(r, anfang, ende, jahre)
 
 

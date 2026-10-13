@@ -48,6 +48,7 @@ ERLAUBT: dict[tuple[str, str], str] = {
     ("gates/number.py", "m.start() - 15"): "Textausschnitt um eine gefundene Zahl",
     ("gates/number.py", "m.end() + 15"): "Textausschnitt um eine gefundene Zahl",
     ("agents/render.py", "src_dir / PREAMBLE_FILE"): "Pfad",
+    ("metrics_update.py", "config / name"): "Pfad",
     ("sec_update.py", "header + yaml.safe_dump(data, sort_keys=True)"): "Text",
     ("tr_checks.py", "header + yaml.safe_dump(body, sort_keys=False)"): "Text",
 }
@@ -70,6 +71,8 @@ def _harmlos(n: ast.BinOp | ast.AugAssign) -> bool:
             return True  # Zähler
         if isinstance(ziel, ast.Name) and ziel.id in ERLAUBT_ANHAENGEN:
             return True
+        if isinstance(n.op, ast.Add) and isinstance(n.value, (ast.List, ast.ListComp)):
+            return True  # Liste verlängern
         if isinstance(n.op, ast.Add) and isinstance(n.value, ast.Call):
             return ast.unparse(n.value).startswith("len(")  # Zähler um eine Anzahl
         return False
