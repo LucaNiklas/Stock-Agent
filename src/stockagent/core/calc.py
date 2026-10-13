@@ -3,7 +3,8 @@
 Jede Berechnung in `core/` ist eine Folge benannter Schritte. Die Formel eines Schritts ist
 zugleich ihr Rechentext: `schritt("marge", "ebit / umsatz", ebit=..., umsatz=...)` rechnet genau
 den angezeigten Ausdruck, damit Anzeige und Rechnung nie auseinanderlaufen. Erlaubt sind
-`+ - * /`, Klammern, Zahlen, die Namen der Eingaben sowie `abs`, `min`, `max` und `runde`.
+`+ - * /`, Klammern, Zahlen, die Namen der Eingaben sowie `abs`, `min`, `max`, `runde` und
+`wurzel`. Potenzen mit gebrochenem Exponenten (CAGR) rechnet `Rechenweg.potenz`.
 Den Median einer Liste rechnet `Rechenweg.median` als eigenen Schritt.
 
 Nach jedem Abschnitt kommt ein Prüfpunkt aus dem Katalog CP-01 bis CP-08. Ein verletzter
@@ -18,7 +19,7 @@ import ast
 import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, DivisionByZero, InvalidOperation, localcontext
 from enum import StrEnum
 from typing import Any
@@ -63,6 +64,15 @@ class RechenFehler(ValueError):
     """Formel unzulässig oder nicht auswertbar (Programmierfehler oder Division durch null)."""
 
 
+class EingabeFehlt(Exception):
+    """Eine Eingabe liegt nicht vor. Ergebnis unknown mit Grund, keine Ungereimtheit (HR-05)."""
+
+    def __init__(self, name: str, periode: str) -> None:
+        super().__init__(f"Eingabe fehlt: {name} ({periode})")
+        self.name = name
+        self.periode = periode
+
+
 class PruefpunktVerletzt(Exception):
     def __init__(self, rechenweg: Rechenweg, cp_id: str, text: str) -> None:
         super().__init__(f"{rechenweg.name}: {cp_id} verletzt: {text}")
@@ -81,6 +91,8 @@ class Eingabe:
     periode_ende: date
     waehrung: str | None = None
     periode_start: date | None = None
+    # Veröffentlichung der Fassung (für die Split-Bereinigung, SPEC 3.2 Nr. 8)
+    veroeffentlicht: datetime | None = None
 
     def beschreibung(self) -> dict[str, Any]:
         return {
@@ -150,6 +162,7 @@ _FUNCS: dict[str, Callable[..., Decimal]] = {
     "min": min,
     "max": max,
     "runde": lambda x: x.to_integral_value(),  # auf ganze Zahl, kaufmännisch zur geraden Ziffer
+    "wurzel": lambda x: x.sqrt(),
 }
 
 
@@ -205,13 +218,26 @@ class Rechenweg:
     pflicht: tuple[str, ...] = ()
     schritte: list[Schritt] = field(default_factory=list)
     pruefungen: list[Pruefung] = field(default_factory=list)
+    # Währungen aller bisher verwendeten Eingaben. Eine Rechnung mischt nie zwei Währungen
+    # (CP-01). Umrechnungen erzeugen ab Schritt 4 neue Eingaben in der Zielwährung.
+    waehrungen: set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         unbekannt = set(self.pflicht) - set(KATALOG)
         if unbekannt:
             raise ValueError(f"Unbekannte Prüfpunkte: {sorted(unbekannt)}")
 
+    def _merke_waehrungen(self, werte: Iterable[Wert]) -> None:
+        neu = {w.waehrung for w in werte if isinstance(w, Eingabe) and w.waehrung}
+        if neu - self.waehrungen:
+            self.waehrungen |= neu
+            if len(self.waehrungen) > 1:
+                text = f"Eingaben in mehreren Währungen: {sorted(self.waehrungen)}"
+                self.pruefungen.append(Pruefung("CP-01", text, False, Stufe.STOPP))
+                raise PruefpunktVerletzt(self, "CP-01", text)
+
     def schritt(self, name: str, formel: str, **eingaben: Wert) -> Decimal:
+        self._merke_waehrungen(eingaben.values())
         try:
             ergebnis = berechne(formel, **eingaben)
         except RechenFehler as exc:
@@ -243,6 +269,28 @@ class Rechenweg:
                 name=name,
                 formel="median(werte)",
                 eingaben={"werte": [str(_wert(w)) for w in werte]},
+                ergebnis=str(ergebnis),
+            )
+        )
+        return ergebnis
+
+    def potenz(
+        self, name: str, basis: Wert, exponent_zaehler: int, exponent_nenner: int
+    ) -> Decimal:
+        """basis ^ (zaehler / nenner) als protokollierter Schritt (CAGR), Basis positiv."""
+        b = _wert(basis)
+        if b <= 0 or exponent_nenner == 0:
+            text = f"Potenz nur für positive Basis definiert: {b}"
+            self.pruefungen.append(Pruefung("CP-02", text, False, Stufe.STOPP))
+            raise PruefpunktVerletzt(self, "CP-02", text)
+        with localcontext() as ctx:
+            ctx.prec = _PRECISION
+            ergebnis = (b.ln() * exponent_zaehler / exponent_nenner).exp()
+        self.schritte.append(
+            Schritt(
+                name=name,
+                formel=f"basis ^ ({exponent_zaehler} / {exponent_nenner})",
+                eingaben={"basis": str(b)},
                 ergebnis=str(ergebnis),
             )
         )
@@ -308,11 +356,16 @@ class Rechenweg:
 
 
 def rechne(rechenweg: Rechenweg, rechnung: Callable[[Rechenweg], Decimal]) -> Ergebnis:
-    """Führt eine Rechnung aus. Ein verletzter Stopp-Prüfpunkt ergibt `unknown` mit Grund."""
+    """Führt eine Rechnung aus. Ein verletzter Stopp-Prüfpunkt ergibt `unknown` mit Grund und
+    INC-15, eine fehlende Eingabe `unknown` mit Grund ohne Ungereimtheit (HR-05)."""
     try:
         wert = rechnung(rechenweg)
     except PruefpunktVerletzt as exc:
         return rechenweg.abbruch(exc)
+    except EingabeFehlt as exc:
+        return Ergebnis(
+            rechenweg.name, None, str(exc), None, rechenweg._warnungen(), rechenweg._protokoll()
+        )
     return rechenweg.ergebnis(wert)
 
 
