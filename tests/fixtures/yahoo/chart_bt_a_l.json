@@ -1,0 +1,80 @@
+{
+ "_quelle": "NACHGEBAUT im Format der Antwort von query2.finance.yahoo.com/v8/finance/chart (Stand Oktober 2026). Keine echten Kurse. Wird durch eine gek\u00fcrzte echte Antwort ersetzt, sobald die Domains freigegeben sind.",
+ "chart": {
+  "result": [
+   {
+    "meta": {
+     "currency": "GBp",
+     "symbol": "BT-A.L",
+     "exchangeName": "LSE",
+     "fullExchangeName": "LSE",
+     "instrumentType": "EQUITY",
+     "exchangeTimezoneName": "Europe/London",
+     "longName": "BT Group plc",
+     "shortName": "BT Group plc"
+    },
+    "timestamp": [
+     1791187200,
+     1791273600,
+     1791360000,
+     1791446400,
+     1791532800
+    ],
+    "events": {},
+    "indicators": {
+     "quote": [
+      {
+       "open": [
+        150.1,
+        151.2,
+        152.3,
+        153.4,
+        154.5
+       ],
+       "high": [
+        150.1,
+        151.2,
+        152.3,
+        153.4,
+        154.5
+       ],
+       "low": [
+        150.1,
+        151.2,
+        152.3,
+        153.4,
+        154.5
+       ],
+       "close": [
+        150.1,
+        151.2,
+        152.3,
+        153.4,
+        154.5
+       ],
+       "volume": [
+        1000,
+        2000,
+        3000,
+        4000,
+        5000
+       ]
+      }
+     ],
+     "adjclose": [
+      {
+       "adjclose": [
+        147.098,
+        148.176,
+        149.254,
+        150.332,
+        151.41
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "error": null
+ }
+}

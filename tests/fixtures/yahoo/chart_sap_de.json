@@ -1,0 +1,95 @@
+{
+ "_quelle": "NACHGEBAUT im Format der Antwort von query2.finance.yahoo.com/v8/finance/chart (Stand Oktober 2026). Keine echten Kurse. Wird durch eine gek\u00fcrzte echte Antwort ersetzt, sobald die Domains freigegeben sind.",
+ "chart": {
+  "result": [
+   {
+    "meta": {
+     "currency": "EUR",
+     "symbol": "SAP.DE",
+     "exchangeName": "XETRA",
+     "fullExchangeName": "XETRA",
+     "instrumentType": "EQUITY",
+     "exchangeTimezoneName": "Europe/Berlin",
+     "longName": "SAP SE",
+     "shortName": "SAP SE"
+    },
+    "timestamp": [
+     1791183600,
+     1791270000,
+     1791356400,
+     1791442800,
+     1791529200
+    ],
+    "events": {
+     "splits": {
+      "1791270000": {
+       "date": 1791270000,
+       "numerator": 2,
+       "denominator": 1,
+       "splitRatio": "2:1"
+      }
+     },
+     "dividends": {
+      "1791356400": {
+       "amount": 2.35,
+       "date": 1791356400
+      }
+     }
+    },
+    "indicators": {
+     "quote": [
+      {
+       "open": [
+        201.5,
+        null,
+        203.25,
+        202.0,
+        204.75
+       ],
+       "high": [
+        201.5,
+        null,
+        203.25,
+        202.0,
+        204.75
+       ],
+       "low": [
+        201.5,
+        null,
+        203.25,
+        202.0,
+        204.75
+       ],
+       "close": [
+        201.5,
+        null,
+        203.25,
+        202.0,
+        204.75
+       ],
+       "volume": [
+        1000,
+        null,
+        3000,
+        4000,
+        5000
+       ]
+      }
+     ],
+     "adjclose": [
+      {
+       "adjclose": [
+        197.47,
+        null,
+        199.185,
+        197.96,
+        200.655
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "error": null
+ }
+}

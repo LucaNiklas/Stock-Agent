@@ -1,0 +1,10 @@
+{
+ "_quelle": "NACHGEBAUT im Format der Antwort von query2.finance.yahoo.com/v8/finance/chart (Stand Oktober 2026). Keine echten Kurse. Wird durch eine gek\u00fcrzte echte Antwort ersetzt, sobald die Domains freigegeben sind.",
+ "chart": {
+  "result": null,
+  "error": {
+   "code": "Not Found",
+   "description": "No data found, symbol may be delisted"
+  }
+ }
+}

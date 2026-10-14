@@ -1,0 +1,45 @@
+{
+ "_quelle": "NACHGEBAUT im Format der Antwort von api.openfigi.com/v3/mapping. Wird durch eine echte Antwort ersetzt, sobald OpenFIGI f\u00fcr Nicht-US-ISINs abgefragt wurde.",
+ "antworten": {
+  "DE0007164600": [
+   {
+    "data": [
+     {
+      "figi": "BBG000BG7DY8",
+      "name": "SAP SE",
+      "ticker": "SAP",
+      "exchCode": "US",
+      "securityType": "ADR"
+     },
+     {
+      "figi": "BBG000BFNL38",
+      "name": "SAP SE",
+      "ticker": "SAP",
+      "exchCode": "GR",
+      "securityType": "Common Stock"
+     },
+     {
+      "figi": "BBG000BFNKX2",
+      "name": "SAP SE",
+      "ticker": "SAP",
+      "exchCode": "GF",
+      "securityType": "Common Stock"
+     }
+    ]
+   }
+  ],
+  "GB0030913577": [
+   {
+    "data": [
+     {
+      "figi": "BBG000C05R82",
+      "name": "BT GROUP PLC",
+      "ticker": "BT/A",
+      "exchCode": "LN",
+      "securityType": "Common Stock"
+     }
+    ]
+   }
+  ]
+ }
+}
