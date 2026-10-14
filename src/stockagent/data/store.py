@@ -1304,6 +1304,21 @@ def price_on_or_before(conn: duckdb.DuckDBPyConnection, isin: str, day: date) ->
     return rows[-1] if rows else None
 
 
+def first_price_date(conn: duckdb.DuckDBPyConnection, isin: str) -> date | None:
+    """Erster gespeicherter Handelstag: Ab hier ist bekannt, ob Yahoo Dividenden meldet."""
+    row = conn.execute("SELECT min(date) FROM prices WHERE isin = ?", [isin]).fetchone()
+    return None if row is None else row[0]
+
+
+def dividend_events(
+    conn: duckdb.DuckDBPyConnection, isin: str, nach: date, bis: date
+) -> list[PriceEvent]:
+    """Dividendenereignisse laut Kursquelle mit nach < Tag <= bis."""
+    return [
+        e for e in load_price_events(conn, isin) if e.kind == "dividende" and nach < e.date <= bis
+    ]
+
+
 def listing_is_receipt(conn: duckdb.DuckDBPyConnection, isin: str) -> bool:
     row = conn.execute("SELECT is_receipt FROM listings WHERE isin = ?", [isin]).fetchone()
     return bool(row and row[0])

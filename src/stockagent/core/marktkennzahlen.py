@@ -14,6 +14,10 @@ Konventionen:
   Kurswährung, das Ergebnis der Verhältniszahlen ist dasselbe.
 - Aktienzahl ist die verwässerte durchschnittliche Aktienzahl des Geschäftsjahres, um Splits
   bereinigt wie die Kurse. Rückkäufe nach dem Stichtag sind darin nicht enthalten.
+- Dividenden: Meldet die Firma für das Geschäftsjahr keine Dividendenzahlung, zählt 0 nur, wenn
+  auch Yahoo im Geschäftsjahr keine Dividende zeigt (Lucas Entscheidung 14.10.2026). Zeigt
+  Yahoo eine, fehlt vermutlich nur die Zuordnung des XBRL-Konzepts: `unknown` mit dem Vermerk
+  „Zuordnung prüfen“, daraus wird ein Hinweis an die Recherche (H-10).
 - Unternehmenswert = Börsenwert + Nettoverschuldung (mit Leasing) + Pensionsdefizit +
   Minderheitsanteile − at-equity-Beteiligungen, mit Brücke zurück zum Börsenwert (CP-03).
 """
@@ -24,7 +28,7 @@ from datetime import date
 from decimal import Decimal
 
 from stockagent.core import fx
-from stockagent.core.calc import Eingabe, NichtDefiniert, Rechenweg
+from stockagent.core.calc import Eingabe, EingabeFehlt, NichtDefiniert, Rechenweg, Wert
 from stockagent.core.kennzahlen import (
     _cp01,
     _opt,
@@ -108,6 +112,31 @@ def unternehmenswert(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     return ev
 
 
+# Erkennungszeichen im Grund für die Hinweisregel H-10 (config/hinweise.yaml)
+ZUORDNUNG_PRUEFEN = "Zuordnung prüfen"
+
+
+def dividenden(r: Rechenweg, d: Reihen, t: date) -> Wert:
+    """Gezahlte Dividenden laut Bericht, sonst 0, wenn auch Yahoo keine zeigt."""
+    if d.hat("dividends_paid", t):
+        div = d.hole("dividends_paid", t)
+        _cp01(r, t, div)
+        r.pruefe("CP-02", "Dividenden als Auszahlung nicht negativ", div.wert >= 0)
+        return div
+    if not d.hat("dividenden_yahoo", t):
+        d.hole("dividends_paid", t)  # Grund wie bei jeder fehlenden Eingabe
+    yahoo = d.hole("dividenden_yahoo", t)
+    r.pruefe("CP-02", "Anzahl Dividenden bei Yahoo nicht negativ", yahoo.wert >= 0)
+    if yahoo.wert > 0:
+        raise EingabeFehlt(
+            f"dividends_paid: Bericht meldet keine Dividende, Yahoo zeigt {yahoo.wert} im "
+            f"Geschäftsjahr ({yahoo.quelle}), {ZUORDNUNG_PRUEFEN}",
+            t.isoformat(),
+        )
+    r.vermerk(f"KEINE_DIVIDENDE: keine Dividende laut Bericht und Yahoo ({yahoo.quelle})")
+    return r.schritt("dividenden_keine_laut_bericht_und_yahoo", "0", anzahl_yahoo=yahoo)
+
+
 def _je_boersenwert(r: Rechenweg, d: Reihen, t: date, name: str, zaehler: Decimal) -> Decimal:
     return _quote(r, name, zaehler, boersenwert(r, d, t), "Börsenwert")
 
@@ -162,9 +191,7 @@ def pb(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 
 @metric("dividend_yield")
 def dividend_yield(r: Rechenweg, d: Reihen, t: date) -> Decimal:
-    div = d.hole("dividends_paid", t)
-    _cp01(r, t, div)
-    r.pruefe("CP-02", "Dividenden als Auszahlung nicht negativ", div.wert >= 0)
+    div = dividenden(r, d, t)
     return _je_boersenwert(r, d, t, "dividendenrendite", r.schritt("dividenden", "d", d=div))
 
 
@@ -187,8 +214,7 @@ def buyback_yield(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 
 @metric("shareholder_yield")
 def shareholder_yield(r: Rechenweg, d: Reihen, t: date) -> Decimal:
-    div = d.hole("dividends_paid", t)
-    _cp01(r, t, div)
+    div = dividenden(r, d, t)
     vorjahr = d.vorjahr(t)
     nd_vor = nettoverschuldung(r, d, vorjahr)
     nd = nettoverschuldung(r, d, t)

@@ -2,7 +2,7 @@
 # Die Berechnung rechnet nur. Was sie auffällig findet, schreibt sie als Hinweis in die Tabelle
 # `hinweise`. Ab Bauschritt 6 macht der Zustandsautomat daraus Aufträge an den genannten Agenten.
 # Schwellen der Scores stehen in config/metrics.yaml unter `schwellen` der jeweiligen Kennzahl.
-version: "1.0"
+version: "1.1"
 
 regeln:
   - id: H-01
@@ -58,3 +58,8 @@ regeln:
     abteilung: Auswertung
     anlass: "Vorjahreswerte nachträglich geändert (DQ-07): Grund der Änderung im Bericht suchen"
     dq_pruefung: DQ-07
+  - id: H-10
+    an: A1
+    abteilung: Recherche
+    anlass: "Bericht meldet einen Wert nicht, eine zweite Quelle zeigt ihn aber (etwa Dividende bei Yahoo): XBRL-Konzept im Bericht suchen und in config/concept_map.yaml zuordnen"
+    grund_enthaelt: "Zuordnung prüfen"

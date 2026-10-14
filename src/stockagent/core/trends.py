@@ -321,6 +321,9 @@ def perzentil_historie(
             raise EingabeFehlt(
                 f"mindestens {mindest} Geschäftsjahre (vorhanden {len(historie)})", r.periode
             )
+        if all(wert == jetzt.wert for _, wert in historie):
+            # Etwa Dividendenrendite 0 in jedem Jahr: kein Rang, sonst stünde dort 100 %
+            raise NichtDefiniert(f"Wert in allen {len(historie)} Jahren gleich ({jetzt.wert})")
         r.pruefe("CP-01", "Historie und aktueller Wert aus derselben Kennzahl", True)
         punkte = {
             f"p_{t:%Y_%m_%d}": r.schritt(

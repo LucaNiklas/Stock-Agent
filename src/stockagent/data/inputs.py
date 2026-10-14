@@ -79,6 +79,35 @@ def _fx_waehrungen(*waehrungen: str | None) -> list[str]:
     return sorted({w for w in waehrungen if w and w != "EUR"})
 
 
+def dividenden_yahoo(
+    conn: duckdb.DuckDBPyConnection, isin: str, stichtage: list[date]
+) -> dict[date, Eingabe]:
+    """Anzahl der Dividendenereignisse bei Yahoo je Geschäftsjahr (nach dem Vorjahresstichtag
+    bis zum Stichtag), nur für Jahre, die die gespeicherten Kurse ganz abdecken. Gegenprobe für
+    Firmen ohne gemeldete Dividendenzahlung (METHODOLOGY_CHANGELOG 4.7). Reine Auswahl."""
+    erster = store.first_price_date(conn, isin)
+    sym = store.load_price_symbol(conn, isin)
+    if erster is None or sym is None or sym.symbol is None:
+        return {}
+    out: dict[date, Eingabe] = {}
+    # stichtage absteigend: (Stichtag, Vorjahresstichtag)
+    for t, vorjahr in pairwise(stichtage):
+        if erster > vorjahr:
+            continue
+        ereignisse = store.dividend_events(conn, isin, vorjahr, t)
+        out[t] = Eingabe(
+            Decimal(len(ereignisse)),
+            f"Yahoo {sym.symbol} Dividendenereignisse nach {vorjahr.isoformat()} bis "
+            f"{t.isoformat()}"
+            + (f": {', '.join(e.date.isoformat() for e in ereignisse)}" if ereignisse else ""),
+            "anzahl",
+            t,
+            None,
+            vorjahr,
+        )
+    return out
+
+
 def kurse(
     conn: duckdb.DuckDBPyConnection,
     isin: str | None,
@@ -110,6 +139,7 @@ def kurse(
             f = store.fx_on_or_before(conn, str(w), k.date)
             if f is not None:
                 werte.setdefault(f"fx_{w}", {})[t] = _fx_eingabe(f, t)
+    werte["dividenden_yahoo"] = dividenden_yahoo(conn, isin, stichtage)
     luecken = {} if werte["kurs"] else {"kurs": "keine Kurse an den Geschäftsjahresenden"}
     return werte, luecken
 

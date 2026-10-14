@@ -157,3 +157,12 @@ def test_no_outlier_check_for_market_prices() -> None:
     sprung = {**UMSATZ, T25: "900000"}
     assert "plausibilitaet" in _trend(sprung, "fcf")
     assert "plausibilitaet" not in _trend(sprung, "market_cap")
+
+
+def test_percentile_not_defined_for_constant_series() -> None:
+    """Keine Dividende in 6 Jahren und heute: Rang wäre 100 %, sagt aber nichts."""
+    null = {t: "0" for t in UMSATZ}
+    erg = trends.perzentil_historie(
+        definition("pe"), "sec:test", _jahre(null), _jetzt("0"), T25, CFG
+    )
+    assert erg.unknown and erg.ungereimtheit is None and "gleich" in str(erg.grund)

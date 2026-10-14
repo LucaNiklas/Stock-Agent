@@ -31,6 +31,13 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Kursquelle Yahoo Finance für alle Länder, Kurse wie geliefert gespeichert (SPEC 7.3).
 - Einordnung gegen den Gesamtmarkt nur, wenn es einen Lauf über alle Titel gibt (SPEC 3.3).
 
+## 4.7 (14.10.2026, `methodology_version` der Kennzahlen 1.2, Hinweisregeln 1.1)
+
+- Dividenden mit Gegenprobe bei Yahoo (Lucas Entscheidung 14.10.2026). Meldet der Bericht für das Geschäftsjahr keine Dividendenzahlung, zählt die Dividende nur dann als 0, wenn auch Yahoo vom Tag nach dem Vorjahresstichtag bis zum Stichtag kein Dividendenereignis zeigt. Vermerk `KEINE_DIVIDENDE` am Wert. Gilt für Dividenden- und Aktionärsrendite.
+- Zeigt Yahoo eine Dividende, der Bericht aber keine, bleibt der Wert `unknown` mit „Zuordnung prüfen“. Neue Hinweisregel H-10 an A1 (Recherche): XBRL-Konzept suchen und in `config/concept_map.yaml` zuordnen. So wäre Johnson & Johnson (`PaymentsOfOrdinaryDividends`) automatisch aufgefallen.
+- Decken die gespeicherten Kurse das Geschäftsjahr nicht ganz ab, gibt es keine Gegenprobe, und der Wert bleibt `unknown`.
+- Rang gegen die eigene Geschichte nicht aussagekräftig, wenn der Wert in allen Jahren gleich ist (etwa Dividendenrendite 0 in jedem Jahr). Sonst stünde dort 100 %.
+
 ## 4.6 (14.10.2026, Bauschritt 4 Teil 2, `methodology_version` der Kennzahlen 1.1)
 
 - Zehn Kennzahlen mit Börsenkurs (SPEC 3.3): `market_cap`, `enterprise_value`, `pe`, `ev_ebit`, `ev_sales`, `fcf_yield`, `pb`, `dividend_yield`, `buyback_yield`, `shareholder_yield`. Je Geschäftsjahr mit dem Schlusskurs am Geschäftsjahresende (oder am letzten Handelstag davor, höchstens 7 Tage, `config/metrics.yaml` `kurse`), zusätzlich als Statistik `aktuell` mit dem letzten Schlusskurs.

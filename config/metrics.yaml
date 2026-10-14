@@ -9,7 +9,7 @@
 # Bewertungskennzahlen mit Börsenkurs (`kurs: true`, core/marktkennzahlen.py) seit Bauschritt 4.
 # `historie_perzentil: true`: Einordnung gegen die eigenen letzten 10 Jahre (SPEC 3.3).
 
-methodology_version: "1.1"
+methodology_version: "1.2"
 
 # Kurse für Bewertungskennzahlen (Bauschritt 4, ADR 0005)
 kurse:

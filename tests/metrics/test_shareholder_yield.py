@@ -15,6 +15,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from tests.metrics.apple import APPLE, T24, T25, mit, ohne, q, rechne, schritt  # noqa: F401
+from tests.metrics.helpers import ohne_dividende_mit_yahoo
 
 
 def test_shareholder_yield_hand_calculation() -> None:
@@ -28,3 +29,12 @@ def test_shareholder_yield_hand_calculation() -> None:
 def test_shareholder_yield_needs_prior_year() -> None:
     erg = rechne("shareholder_yield", ohne("cash", T24))
     assert erg.unknown and erg.ungereimtheit is None
+
+
+def test_shareholder_yield_without_dividend() -> None:
+    """Ohne Dividende laut Bericht und Yahoo: (0 + 90.711 - 3.792) Mio. / 3.833.099.996.359,54
+    = 0,022676."""
+    erg = rechne("shareholder_yield", ohne_dividende_mit_yahoo(0))
+    assert erg.wert is not None, erg.grund
+    assert schritt(erg, "an_kapitalgeber") == Decimal("86919000000")
+    assert q(erg.wert) == Decimal("0.022676")
