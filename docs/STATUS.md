@@ -24,7 +24,7 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 | Spezifikation 4.2 | Vier Abteilungen, Quellenkarte, Auftragsform, Rechenweg nach Schritt 2 vorgezogen (ADR 0003) | LucaNiklas/Stock-Agent#6 |
 | 2 Abschlussdaten USA | ISIN zu CIK über OpenFIGI (ADR 0002), SIC und Adresse der SEC, Company Facts mit Zeitpunktbezug, Rechenweg `core/calc.py`, Datenqualität DQ-01 bis DQ-08, CLI als Paket | LucaNiklas/Stock-Agent#7 |
 | Spezifikation 4.3 | Dashboard als Bedienzentrale, Indexstufe Tier 1 bis 4, Suche in eigenen Worten (ADR 0004) | LucaNiklas/Stock-Agent#8 |
-| 3 Kennzahlen | 33 Kennzahlen und Scores ohne Börsenkurs mit Rechenweg und Prüfpunkten, Trends, vertikale Analyse, Speicherung, Hinweise an die Agenten, Befehl `metrics`, Architekturtest HR-06 | Branch `schritt-03-kennzahlen` |
+| 3 Kennzahlen | 33 Kennzahlen und Scores ohne Börsenkurs mit Rechenweg und Prüfpunkten, Trends, vertikale Analyse, Speicherung, Hinweise an die Agenten, Befehl `metrics`, Architekturtest HR-06 | LucaNiklas/Stock-Agent#9 |
 
 ## Stand der Daten (lokal, nicht im Repository)
 
