@@ -5,6 +5,7 @@ Recherche- und Bewertungssystem für Einzelaktien, die bei Trade Republic handel
 Spezifikation in docs/spec/ (Inhaltsverzeichnis docs/SPEC.md). Bei Widersprüchen gilt die Spezifikation.
 Aktueller Projektstand, offene Punkte und nächster Schritt: docs/STATUS.md. Zu Beginn jeder Sitzung lesen.
 Alle Bauschritte und was in jede spätere Datei gehört: docs/BAUPLAN.md.
+Obsidian Vault: Zu Beginn jedes neuen Chats zuerst den Ordner StockAgent im Vault lesen (/Users/lucabasevi/Documents/Obsidian/General_Memory/StockAgent/, Einstieg StockAgent.md). Dort stehen die Erkenntnisse aus allen bisherigen Chats nach Themen geordnet, jeweils im letzten gültigen Stand. Der Vault wird täglich automatisch fortgeschrieben, nicht von Hand ändern.
 
 ## Unverhandelbare Regeln
 Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abschnitt 0.1. Lies sie zu Beginn jeder Sitzung.
