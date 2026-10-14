@@ -74,3 +74,19 @@ def test_every_rule_names_agent_and_department() -> None:
     agenten = {"A1", "A3", "A4", "F1"}
     for r in REGELN["regeln"]:
         assert r["an"] in agenten and r["abteilung"] in ("Recherche", "Auswertung", "Prüfung")
+
+
+def test_mapping_gap_goes_to_research() -> None:
+    """H-10: Bericht ohne Dividende, Yahoo zeigt eine. Nur der Jahreswert zählt, nicht `aktuell`."""
+    grund = (
+        "Eingabe fehlt: dividends_paid: Bericht meldet keine Dividende, Yahoo zeigt 4 im "
+        "Geschäftsjahr (Yahoo JNJ ...), Zuordnung prüfen (2025-12-28)"
+    )
+    werte = [
+        _w("dividend_yield", None, grund=grund),
+        _w("dividend_yield", None, "aktuell", grund=grund),
+        _w("pe", None, grund="Eingabe fehlt: eps_diluted (2025-12-28)"),
+    ]
+    assert _regeln(werte) == ["H-10"]
+    (h,) = hinweise.ableiten(werte, [], T, REGELN, METRICS)
+    assert h.an == "A1" and h.metric_id == "dividend_yield"

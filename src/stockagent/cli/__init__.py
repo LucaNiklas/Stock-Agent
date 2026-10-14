@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from stockagent.cli import agents, later, metrics, prices, sec, tr, universe
+from stockagent.cli import agents, fx, later, metrics, prices, sec, tr, universe
 from stockagent.cli.common import app
 
 __all__ = ["app"]
 
 # Die Module registrieren ihre Befehle beim Import an `app`.
-_ = (agents, later, metrics, prices, sec, tr, universe)
+_ = (agents, fx, later, metrics, prices, sec, tr, universe)

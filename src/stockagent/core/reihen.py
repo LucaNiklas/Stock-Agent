@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from stockagent.core.calc import Eingabe, EingabeFehlt
 
@@ -31,6 +32,10 @@ class Reihen:
     stichtage: tuple[date, ...]  # Geschäftsjahresenden, neuestes zuerst
     werte: Mapping[str, Mapping[date, Eingabe]]
     splits: tuple[Split, ...] = field(default=())
+    # Grund je Eingabe, die ganz fehlt (etwa: kein Kurs, weil Hinterlegungsschein)
+    luecken: Mapping[str, str] = field(default_factory=dict)
+    # Feste Angaben aus config/, die Kennzahlen brauchen (etwa Unterwährungen)
+    parameter: Mapping[str, Any] = field(default_factory=dict)
 
     def hat(self, name: str, stichtag: date) -> bool:
         return stichtag in self.werte.get(name, {})
@@ -39,7 +44,8 @@ class Reihen:
         try:
             return self.werte[name][stichtag]
         except KeyError:
-            raise EingabeFehlt(name, stichtag.isoformat()) from None
+            grund = f"{name}: {self.luecken[name]}" if name in self.luecken else name
+            raise EingabeFehlt(grund, stichtag.isoformat()) from None
 
     def vorjahr(self, stichtag: date, jahre: int = 1) -> date:
         """Stichtag `jahre` Geschäftsjahre früher. Fehlt er, fehlt die Eingabe."""

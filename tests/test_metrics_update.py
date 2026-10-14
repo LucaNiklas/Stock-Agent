@@ -8,7 +8,7 @@ Kennzahl. Stimmen beide überein, ist die Zuordnung der XBRL-Konzepte richtig.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -18,13 +18,53 @@ from typer.testing import CliRunner
 from stockagent import metrics_update, sec_update
 from stockagent.cli import app
 from stockagent.core import registry
-from stockagent.data import store
+from stockagent.data import inputs, store
 from stockagent.paths import Paths
 from tests.metrics.apple import T25, q, rechne
 from tests.sec_fixtures import AGENT, NOW, FakeWeb, no_sleep, project
 
 APPLE_ISIN = "US0378331005"
 ISSUER = "sec:0000320193"
+# Echte Schlusskurse von Yahoo (AAPL, USD, um Splits bereinigt), Rohdateien 6d1ecdd2bee4e25c...
+# (Erstabruf) und a10ea11623e7f14b... (13.10.2026): letzter Handelstag vor jedem
+# Geschäftsjahresende und der letzte Kurs vor NOW.
+KURSE = {
+    date(2019, 9, 27): "54.70500183105469",
+    date(2020, 9, 25): "112.27999877929688",
+    date(2021, 9, 24): "146.9199981689453",
+    date(2022, 9, 23): "150.42999267578125",
+    date(2023, 9, 29): "171.2100067138672",
+    date(2024, 9, 27): "227.7899932861328",
+    date(2025, 9, 26): "255.4600067138672",
+    date(2026, 10, 13): "341.2699890136719",
+}
+
+
+def kurse_laden(paths: Paths) -> None:
+    conn = store.connect(paths.db)
+    store.save_price_symbol(
+        conn,
+        store.PriceSymbol(
+            APPLE_ISIN,
+            "AAPL",
+            "US",
+            "openfigi",
+            "zugeordnet",
+            "Test",
+            "Apple Inc.",
+            "USD",
+            "NasdaqGS",
+            (),
+            NOW,
+            NOW,
+        ),
+    )
+    rows = [
+        store.PriceRow(APPLE_ISIN, d, Decimal(k), None, None, "USD", "AAPL", "yahoo")
+        for d, k in KURSE.items()
+    ]
+    store.save_prices(conn, rows, [], "0" * 64, NOW)
+    conn.close()
 
 
 @pytest.fixture(scope="module")
@@ -33,6 +73,7 @@ def geladen(tmp_path_factory: pytest.TempPathFactory) -> Paths:
     mp.setenv("SEC_USER_AGENT", AGENT)
     paths = project(tmp_path_factory.mktemp("projekt"))
     sec_update.update(paths, isins=[APPLE_ISIN], fetcher=FakeWeb(), sleep=no_sleep, now=NOW)
+    kurse_laden(paths)
     metrics_update.update(paths, isins=[APPLE_ISIN], now=NOW)
     mp.undo()
     return paths
@@ -95,7 +136,7 @@ def test_hinweise_saved(geladen: Paths) -> None:
     h = store.load_hinweise(conn, ISSUER)
     run = store.load_metric_run(conn, ISSUER)
     conn.close()
-    assert run is not None and run[3] == "1.0"
+    assert run is not None and run[3] == "1.2"
     # Apple 2025: Piotroski 8, Altman Z'' 2,31, Beneish -2,23, Sloan 0,1 %: keine Schwellenregel
     assert not [x for x in h if x.regel in ("H-01", "H-02", "H-03", "H-04")]
     assert all(x.status == "offen" and x.an_agent for x in h)
@@ -162,3 +203,57 @@ def test_trend_trace_recomputed_on_demand(geladen: Paths, monkeypatch: pytest.Mo
     )
     assert out.exit_code == 0, out.output
     assert f"= {gespeichert.value}" in out.output.replace("\n", " ")
+
+
+def test_current_valuation_uses_latest_close(geladen: Paths) -> None:
+    """KGV aktuell: 341,2699890136719 / 7,46 = 45,7466 (Kurs 13.10.2026, Gewinn je Aktie 2025)."""
+    aktuell = _werte(geladen, "aktuell")
+    cfg = metrics_update.Konfiguration.laden(geladen.config)
+    assert set(aktuell) == {d["id"] for d in cfg.metrics["metrics"] if d.get("kurs")}
+    assert q(aktuell["pe"].value, 4) == Decimal("45.7466")
+    trace = json.loads(aktuell["pe"].calc_trace_json)
+    assert "2026-10-13" in json.dumps(trace)
+
+
+def test_percentile_against_own_history(geladen: Paths) -> None:
+    """KGV je Geschäftsjahr 2020 bis 2025 aus den Kursen oben und dem Gewinn je Aktie; das
+    aktuelle KGV 45,7 liegt über allen: Anteil der Jahre mit höchstens so hohem KGV = 1."""
+    p = _werte(geladen, "perzentil_historie")
+    assert p["pe"].value == 1
+    assert set(p) == {"pe", "ev_ebit", "ev_sales", "fcf_yield", "pb", "dividend_yield"}
+
+
+def test_cli_shows_valuation(geladen: Paths, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("STOCKAGENT_HOME", str(geladen.root))
+    out = CliRunner().invoke(app, ["metrics", "show", APPLE_ISIN])
+    assert out.exit_code == 0, out.output
+    assert "Bewertung mit Börsenkurs" in out.output and "13.10.2026" in out.output
+    out = CliRunner().invoke(app, ["metrics", "show", APPLE_ISIN, "-r", "pe", "--aktuell"])
+    assert out.exit_code == 0, out.output
+    assert "Yahoo AAPL Schlusskurs 2026-10-13" in out.output
+
+
+def test_dividend_events_per_fiscal_year(geladen: Paths) -> None:
+    """Echte Dividenden von Apple bei Yahoo im Geschäftsjahr 2025 (29.09.2024 bis 27.09.2025):
+    08.11.2024, 10.02.2025, 12.05.2025, 11.08.2025 (Rohdatei 6d1ecdd2bee4e25c...)."""
+    conn = store.connect(geladen.db)
+    events = [
+        store.PriceEvent(APPLE_ISIN, d, "dividende", Decimal(v), None, None, "USD", "AAPL", "yahoo")
+        for d, v in [
+            (date(2024, 11, 8), "0.25"),
+            (date(2025, 2, 10), "0.25"),
+            (date(2025, 5, 12), "0.26"),
+            (date(2025, 8, 11), "0.26"),
+            (date(2025, 11, 10), "0.26"),  # schon Geschäftsjahr 2026
+        ]
+    ]
+    store.save_prices(conn, [], events, "0" * 64, NOW)
+    stichtage = [T25, date(2024, 9, 28), date(2023, 9, 30), date(2018, 9, 29)]
+    je_jahr = inputs.dividenden_yahoo(conn, APPLE_ISIN, stichtage)
+    conn.close()
+    assert je_jahr[T25].wert == 4 and "2025-08-11" in je_jahr[T25].quelle
+    # 2024: Kurse decken das Jahr ab, Dividenden davor nicht gespeichert -> 0
+    assert je_jahr[date(2024, 9, 28)].wert == 0
+    # Der Zeitraum bis 30.09.2023 beginnt vor dem ersten gespeicherten Kurs (27.09.2019): keine
+    # Aussage, also auch keine 0
+    assert date(2023, 9, 30) not in je_jahr

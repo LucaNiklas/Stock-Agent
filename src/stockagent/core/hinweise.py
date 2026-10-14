@@ -110,6 +110,14 @@ def _treffer(
             for w in werte
             if w.ergebnis.ungereimtheit == regel["ungereimtheit"]
         ]
+    if "grund_enthaelt" in regel:
+        return [
+            (w.metric_id, w.period_end, str(w.ergebnis.grund))
+            for w in werte
+            if w.statistik == "wert"
+            and w.period_end == stichtag
+            and regel["grund_enthaelt"] in str(w.ergebnis.grund or "")
+        ]
     if "dq_stufe" in regel:
         return [
             (None, f.period_end, f"{f.check_id} {f.concept or ''}: {f.detail}")

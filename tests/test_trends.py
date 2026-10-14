@@ -118,3 +118,51 @@ def test_series_over_years() -> None:
     jahre = trends.jahresreihe(definition("gross_margin"), APPLE, 10)
     assert q(jahre[T25].wert) == Decimal("0.469052")
     assert jahre[T22].unknown  # Umsatzkosten 2022 nicht in den Testwerten
+
+
+def _jetzt(wert: str | None) -> Ergebnis:
+    return Ergebnis(
+        "pe", Decimal(wert) if wert else None, "Kurs fehlt" if not wert else None, None, (), {}
+    )
+
+
+def test_percentile_against_own_history() -> None:
+    """Umsatzreihe als Beispiel: höchstens 383.285 sind 274.515, 365.817 und 383.285, also 3 von
+    6 Jahren = 0,5."""
+    erg = trends.perzentil_historie(
+        definition("pe"), "sec:test", _jahre(UMSATZ), _jetzt("383285"), T25, CFG
+    )
+    assert erg.wert == Decimal("0.5")
+    assert [s["ergebnis"] for s in erg.rechenweg["schritte"]][:6] == ["1", "1", "0", "1", "0", "0"]
+    hoch = trends.perzentil_historie(
+        definition("pe"), "sec:test", _jahre(UMSATZ), _jetzt("999999"), T25, CFG
+    )
+    assert hoch.wert == 1
+
+
+def test_percentile_needs_minimum_years_and_current_value() -> None:
+    kurz = {t: w for t, w in UMSATZ.items() if t >= T23}
+    erg = trends.perzentil_historie(
+        definition("pe"), "sec:test", _jahre(kurz), _jetzt("1"), T25, CFG
+    )
+    assert erg.unknown and erg.ungereimtheit is None and "mindestens 5" in str(erg.grund)
+    ohne = trends.perzentil_historie(
+        definition("pe"), "sec:test", _jahre(UMSATZ), _jetzt(None), T25, CFG
+    )
+    assert ohne.unknown and ohne.ungereimtheit is None
+
+
+def test_no_outlier_check_for_market_prices() -> None:
+    """Ein Börsenwert, der sich verdoppelt, ist eine Marktbewegung, kein Datenfehler (CP-05)."""
+    sprung = {**UMSATZ, T25: "900000"}
+    assert "plausibilitaet" in _trend(sprung, "fcf")
+    assert "plausibilitaet" not in _trend(sprung, "market_cap")
+
+
+def test_percentile_not_defined_for_constant_series() -> None:
+    """Keine Dividende in 6 Jahren und heute: Rang wäre 100 %, sagt aber nichts."""
+    null = {t: "0" for t in UMSATZ}
+    erg = trends.perzentil_historie(
+        definition("pe"), "sec:test", _jahre(null), _jetzt("0"), T25, CFG
+    )
+    assert erg.unknown and erg.ungereimtheit is None and "gleich" in str(erg.grund)

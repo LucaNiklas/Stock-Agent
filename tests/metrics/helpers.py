@@ -26,3 +26,14 @@ def mit_zinsen(betrag: Decimal) -> Reihen:
         T25: Eingabe(betrag, "Testwert", "monetary", T25, "USD", ebit.periode_start)
     }
     return Reihen(APPLE.subjekt, APPLE.stichtage, w, APPLE.splits)
+
+
+def ohne_dividende_mit_yahoo(anzahl: int | None, t: date = T25) -> Reihen:
+    """Bericht ohne Dividendenzahlung, dazu die Zahl der Dividenden bei Yahoo im Geschäftsjahr
+    (None: Yahoo deckt das Jahr nicht ab)."""
+    w = {k: dict(v) for k, v in APPLE.werte.items() if k != "dividends_paid"}
+    if anzahl is not None:
+        w["dividenden_yahoo"] = {
+            t: Eingabe(Decimal(anzahl), "Yahoo AAPL Dividendenereignisse (Test)", "anzahl", t)
+        }
+    return replace(APPLE, werte=w)
