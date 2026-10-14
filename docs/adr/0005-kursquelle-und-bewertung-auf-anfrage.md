@@ -57,10 +57,24 @@ die er anfragt (Gespräch vom 14.10.2026).
    Schlusskurs, Volumen, Währung wie geliefert (auch GBp), Splits als Zähler und Nenner,
    Dividenden. Umrechnungen rechnet `core/fx.py` über den Rechenweg (HR-06).
 
+## Erster echter Test (14.10.2026)
+
+- Yahoo nimmt Abrufe mit unserem eigenen User-Agent an (HTTP 200). Unbekannte Symbole
+  beantwortet Yahoo mit HTTP 404, dann versucht das System die nächste Notierung.
+- Stichprobe von 12 Titeln, alle an der Heimatbörse zugeordnet, Währung richtig, rund 10 Jahre
+  Geschichte: Apple (AAPL), Microsoft (MSFT), SAP (SAP.DE), Siemens (SIE.DE), BT (BT-A.L, GBp),
+  Shell (SHEL.L, GBp), Toyota (7203.T), Tencent (0700.HK), Shopify (SHOP.TO), BHP (BHP.AX),
+  ASML (ASML.AS), Nestlé (NESN.SW). Splits erkannt: Apple 4:1 (31.08.2020), Toyota 5:1
+  (29.09.2021), Shopify 10:1 (29.06.2022).
+- Während des Handels liefert Yahoo für den laufenden Tag einen laufenden Kurs. Er wird erst nach
+  dem regulären Handelsende gespeichert (`currentTradingPeriod.regular.end` der Antwort).
+- Yahoo liefert Gleitkommazahlen mit Rundungsrauschen (345.79998779296875). Gespeichert wird
+  der gelieferte Wert, gerundet erst bei Anzeige und Rechnung in `core/`.
+
 ## Folgen
 
 - Kein API-Schlüssel nötig, aber die Domains `query1.finance.yahoo.com` und
-  `query2.finance.yahoo.com` müssen in der Netzwerkfreigabe stehen.
+  `query2.finance.yahoo.com` müssen in der Netzwerkfreigabe stehen (seit 14.10.2026 frei).
 - Fällt Yahoo aus, fehlen Kurse. Titel ohne Kurs bekommen keine Bewertungskennzahlen, die
   übrigen Kennzahlen bleiben. Polygon ist als zweite Quelle für US-Kurse vorgesehen, falls sich
   Yahoo als unzuverlässig erweist (Gegenprobe, CP-04).

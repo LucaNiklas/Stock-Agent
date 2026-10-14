@@ -6,6 +6,11 @@ Browser aus und umgehen keinen Schutz. Lehnt Yahoo das ab, bricht der Abruf mit 
 Laut Yahoo nur für persönliche Zwecke, deshalb nur für angefragte Titel und ihre
 Vergleichsgruppe, langsam und mit Pause (`config/sources.yaml`, Abschnitt `yahoo`).
 
+Yahoo liefert Kurse als Gleitkommazahlen mit Rundungsrauschen (345.79998779296875 statt 345.80).
+Gespeichert wird der Wert wie geliefert, gerundet wird erst bei Anzeige und Rechnung in `core/`.
+Während des Handels enthält die Antwort für den laufenden Tag einen laufenden Kurs. Den
+erkennt `handelsende` (reguläres Handelsende laut Yahoo), `prices_update.py` speichert ihn nicht.
+
 Die Antwort enthält je Handelstag Schlusskurs (um Splits bereinigt), Schlusskurs bereinigt um
 Splits und Dividenden, Volumen, dazu Split- und Dividendenereignisse. Jede Antwort landet
 unverändert in `data/raw/`. Zahlen werden als Text übernommen, wie geliefert (`Decimal`), ohne
@@ -27,7 +32,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from stockagent.data import rawstore
-from stockagent.data.http import fetch
+from stockagent.data.http import NotFound, fetch
 from stockagent.data.sources.openfigi import Listing
 
 
@@ -66,6 +71,9 @@ class Chart:
     zeitzone: str
     kurse: list[Tageskurs]
     ereignisse: list[Ereignis] = field(default_factory=list)
+    # Ende des regulären Handels am laufenden oder letzten Handelstag (UTC). Bis dahin ist der
+    # Kurs des Tages ein laufender Kurs und noch kein Schlusskurs.
+    handelsende: datetime | None = None
 
 
 def symbol(listing: Listing, endungen: dict[str, str]) -> str | None:
@@ -154,6 +162,7 @@ def parse_chart(raw: bytes) -> Chart:
             Ereignis(_datum(int(d["date"]), zone), "dividende", wert=Decimal(d["amount"]))
         )
     name = meta.get("longName") or meta.get("shortName")
+    ende = ((meta.get("currentTradingPeriod") or {}).get("regular") or {}).get("end")
     return Chart(
         symbol=str(meta.get("symbol") or ""),
         waehrung=meta.get("currency"),
@@ -163,6 +172,7 @@ def parse_chart(raw: bytes) -> Chart:
         zeitzone=zeitzone,
         kurse=sorted(kurse, key=lambda k: k.datum),
         ereignisse=sorted(ereignisse, key=lambda e: (e.datum, e.art)),
+        handelsende=datetime.fromtimestamp(int(ende), UTC) if ende else None,
     )
 
 
@@ -208,6 +218,10 @@ class YahooClient:
             self.sleep(float(self.cfg["pause_s"]))
         self._gefragt = True
         url = self.url(sym, zeitraum)
-        raw = self.fetcher(url, self.agent)
+        try:
+            raw = self.fetcher(url, self.agent)
+        except NotFound as exc:
+            # Yahoo antwortet auf unbekannte Symbole mit 404 (geprüft am 14.10.2026)
+            raise YahooError(f"Yahoo kennt {sym} nicht") from exc
         ref = rawstore.save(self.raw_dir, raw, url, self.now())
         return Abruf(parse_chart(raw), ref)

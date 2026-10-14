@@ -1,5 +1,5 @@
 {
- "_quelle": "NACHGEBAUT im Format der Antwort von query2.finance.yahoo.com/v8/finance/chart (Stand Oktober 2026). Keine echten Kurse. Wird durch eine gek\u00fcrzte echte Antwort ersetzt, sobald die Domains freigegeben sind.",
+ "_quelle": "Abgerufen am 14.10.2026 von https://query2.finance.yahoo.com/v8/finance/chart/XXXQQQ.DE (absichtlich unbekanntes Symbol), unver\u00e4ndert.",
  "chart": {
   "result": null,
   "error": {

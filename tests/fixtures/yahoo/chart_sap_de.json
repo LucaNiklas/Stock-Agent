@@ -1,89 +1,137 @@
 {
- "_quelle": "NACHGEBAUT im Format der Antwort von query2.finance.yahoo.com/v8/finance/chart (Stand Oktober 2026). Keine echten Kurse. Wird durch eine gek\u00fcrzte echte Antwort ersetzt, sobald die Domains freigegeben sind.",
+ "_quelle": "Abgerufen am 14.10.2026 von https://query2.finance.yahoo.com/v8/finance/chart/SAP.DE?range=10y&interval=1d&events=div%2Csplit&includeAdjustedClose=true. Gek\u00fcrzt auf die letzten 5 Handelstage und die Ereignisse, sonst unver\u00e4ndert.",
  "chart": {
   "result": [
    {
     "meta": {
      "currency": "EUR",
      "symbol": "SAP.DE",
-     "exchangeName": "XETRA",
+     "exchangeName": "GER",
      "fullExchangeName": "XETRA",
      "instrumentType": "EQUITY",
+     "firstTradeDate": 892105200,
+     "regularMarketTime": 1791987240,
+     "hasPrePostMarketData": false,
+     "gmtoffset": 7200,
+     "timezone": "CEST",
      "exchangeTimezoneName": "Europe/Berlin",
+     "regularMarketPrice": 197.42,
+     "regularMarketChangePercent": 0.071,
+     "fulldayPrice": 197.42,
+     "fulldayChange": 0.14,
+     "fulldayChangePercent": 0.071,
+     "fiftyTwoWeekHigh": 244.3,
+     "fiftyTwoWeekLow": 127.5,
+     "regularMarketDayHigh": 199.36,
+     "regularMarketDayLow": 195.26,
+     "regularMarketVolume": 887238,
      "longName": "SAP SE",
-     "shortName": "SAP SE"
-    },
-    "timestamp": [
-     1791183600,
-     1791270000,
-     1791356400,
-     1791442800,
-     1791529200
-    ],
-    "events": {
-     "splits": {
-      "1791270000": {
-       "date": 1791270000,
-       "numerator": 2,
-       "denominator": 1,
-       "splitRatio": "2:1"
+     "shortName": "SAP SE                        I",
+     "chartPreviousClose": 78.96,
+     "priceHint": 2,
+     "currentTradingPeriod": {
+      "pre": {
+       "timezone": "CEST",
+       "start": 1791954000,
+       "end": 1791961200,
+       "gmtoffset": 7200
+      },
+      "regular": {
+       "timezone": "CEST",
+       "start": 1791961200,
+       "end": 1791991800,
+       "gmtoffset": 7200
+      },
+      "post": {
+       "timezone": "CEST",
+       "start": 1791991800,
+       "end": 1792002600,
+       "gmtoffset": 7200
       }
      },
+     "dataGranularity": "1d",
+     "range": "10y",
+     "validRanges": [
+      "1d",
+      "5d",
+      "1mo",
+      "3mo",
+      "6mo",
+      "1y",
+      "2y",
+      "5y",
+      "10y",
+      "ytd",
+      "max"
+     ]
+    },
+    "timestamp": [
+     1791442800,
+     1791529200,
+     1791788400,
+     1791874800,
+     1791961200
+    ],
+    "events": {
      "dividends": {
-      "1791356400": {
+      "1747206000": {
        "amount": 2.35,
-       "date": 1791356400
+       "date": 1747206000
+      },
+      "1778050800": {
+       "amount": 2.5,
+       "date": 1778050800
       }
      }
     },
     "indicators": {
      "quote": [
       {
-       "open": [
-        201.5,
-        null,
-        203.25,
-        202.0,
-        204.75
-       ],
        "high": [
-        201.5,
-        null,
-        203.25,
-        202.0,
-        204.75
-       ],
-       "low": [
-        201.5,
-        null,
-        203.25,
-        202.0,
-        204.75
-       ],
-       "close": [
-        201.5,
-        null,
-        203.25,
-        202.0,
-        204.75
+        189.82000732421875,
+        192.5800018310547,
+        197.8800048828125,
+        198.17999267578125,
+        199.36000061035156
        ],
        "volume": [
-        1000,
-        null,
-        3000,
-        4000,
-        5000
+        1543500,
+        2369793,
+        1894384,
+        1961267,
+        887238
+       ],
+       "open": [
+        187.0399932861328,
+        188.97999572753906,
+        190.5800018310547,
+        196.0,
+        196.60000610351562
+       ],
+       "close": [
+        184.6199951171875,
+        191.4600067138672,
+        194.4600067138672,
+        197.27999877929688,
+        197.4199981689453
+       ],
+       "low": [
+        183.75999450683594,
+        188.86000061035156,
+        189.77999877929688,
+        194.02000427246094,
+        195.25999450683594
        ]
       }
      ],
      "adjclose": [
       {
        "adjclose": [
-        197.47,
-        null,
-        199.185,
-        197.96,
-        200.655
+        184.6199951171875,
+        191.4600067138672,
+        194.4600067138672,
+        197.27999877929688,
+        197.4199981689453
        ]
       }
      ]

@@ -24,6 +24,7 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 | Spezifikation 4.2 | Vier Abteilungen, Quellenkarte, Auftragsform, Rechenweg nach Schritt 2 vorgezogen (ADR 0003) | LucaNiklas/Stock-Agent#6 |
 | 2 Abschlussdaten USA | ISIN zu CIK über OpenFIGI (ADR 0002), SIC und Adresse der SEC, Company Facts mit Zeitpunktbezug, Rechenweg `core/calc.py`, Datenqualität DQ-01 bis DQ-08, CLI als Paket | LucaNiklas/Stock-Agent#7 |
 | Spezifikation 4.3 | Dashboard als Bedienzentrale, Indexstufe Tier 1 bis 4, Suche in eigenen Worten (ADR 0004) | LucaNiklas/Stock-Agent#8 |
+| 4 Kurse (Teil 1) | Kursquelle Yahoo für alle Länder auf Anfrage, Zuordnung über OpenFIGI, Befehl `prices`, Plan: Bewertung auf Anfrage, Vergleichsgruppe 15 bis 50 (ADR 0005) | Branch `schritt-04-kursquelle` |
 | 3 Kennzahlen | 33 Kennzahlen und Scores ohne Börsenkurs mit Rechenweg und Prüfpunkten, Trends, vertikale Analyse, Speicherung, Hinweise an die Agenten, Befehl `metrics`, Architekturtest HR-06 | LucaNiklas/Stock-Agent#9 |
 
 ## Stand der Daten (lokal, nicht im Repository)
@@ -85,7 +86,7 @@ uv run pytest && uv run ruff check . && uv run mypy
 - **DQ-06 in `dq_flags`** stammt noch aus dem Lauf von Schritt 2 mit der alten Ausreißerprüfung. Beim nächsten `sec update --isin` wird sie mit der neuen Prüfung ersetzt.
 - **Banken:** Bruttomarge, Free Cashflow, Current Ratio und Finanzschulden passen nicht auf Banken (JPMorgan: 20 Kennzahlen `unknown` mit Grund). Eigene Scorecard in Schritt 8.
 - **Zweite unabhängige Quelle:** Für Abschlusszahlen ist der zweite Weg das XBRL des Originalberichts. Für Kurse gibt es keine Gegenprobe, nur Plausibilitätsprüfungen (ADR 0005).
-- **Yahoo noch nicht live getestet:** Die Domains waren beim Bau gesperrt. Die Testdaten in `tests/fixtures/yahoo/` sind im Format der Antwort nachgebaut und als solche gekennzeichnet. Unklar ist noch, ob Yahoo Abrufe mit unserem eigenen User-Agent annimmt. Lehnt Yahoo ab, wird das gemeldet und nicht umgangen.
+- **Kurse von Yahoo:** live getestet am 14.10.2026 mit 12 Titeln aus USA, Deutschland, UK, Japan, Hongkong, Kanada, Australien, Niederlande und Schweiz (ADR 0005). Inoffizielle Quelle, kann ausfallen. Kurse liegen lokal für diese 12 Titel vor.
 - **Vorzugsaktien und Anleihen im Universum:** Die Deutsche Börse führt einige Vorzugsaktien und nachrangige Anleihen als `CS` (etwa „HANCOCK WHITNEY SU.NTS 25“). Sie werden dem richtigen Emittenten zugeordnet, sind aber keine Stammaktie. Bereinigung des Universums offen.
 - **Gelöschte Handzuordnung:** Entfernt Luca einen Eintrag aus `state/cik_overrides.yaml`, gilt die alte Zuordnung bis zur nächsten Neuprüfung (90 Tage). Sofort wirkt `sec map <ISIN> <CIK>`.
 - Das Feld „Primary Market MIC Code“ der Deutschen Börse ist kein verlässlicher Primärmarkt und darf nicht als Kursquelle dienen.
@@ -107,4 +108,4 @@ Das Dashboard wird die Bedienzentrale: suchen in eigenen Worten, filtern nach Ti
 
 ## Nächster Schritt
 
-Bauschritt 4 weiter (Branch `schritt-04-kursquelle`, erster Teil gebaut): Sobald Luca die Domains `query1.finance.yahoo.com`, `query2.finance.yahoo.com` und `data-api.ecb.europa.eu` freigegeben hat, echte Abrufe testen, die nachgebauten Testdaten in `tests/fixtures/yahoo/` durch gekürzte echte Antworten ersetzen und die Stichprobe von 10 Titeln aus USA, Deutschland, UK, Japan und Hongkong prüfen. Danach Wechselkurse, Zinsen und die Kennzahlen mit Börsenkurs.
+Bauschritt 4 weiter: Wechselkurse der EZB (`data/sources/fx.py`, Domain frei), Umrechnung und Unterwährungen in `core/fx.py`, Zinsen, dann die Kennzahlen mit Börsenkurs (Börsenwert, Unternehmenswert, KGV, EV/EBIT, FCF-Rendite) über den Rechenweg und die Bewertung (Reverse-DCF, Multiples).

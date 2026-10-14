@@ -1,5 +1,5 @@
 {
- "_quelle": "NACHGEBAUT im Format der Antwort von query2.finance.yahoo.com/v8/finance/chart (Stand Oktober 2026). Keine echten Kurse. Wird durch eine gek\u00fcrzte echte Antwort ersetzt, sobald die Domains freigegeben sind.",
+ "_quelle": "Abgerufen am 14.10.2026 von https://query2.finance.yahoo.com/v8/finance/chart/BT-A.L?range=10y&interval=1d&events=div%2Csplit&includeAdjustedClose=true. Gek\u00fcrzt auf die letzten 5 Handelstage und die Ereignisse, sonst unver\u00e4ndert.",
  "chart": {
   "result": [
    {
@@ -9,66 +9,129 @@
      "exchangeName": "LSE",
      "fullExchangeName": "LSE",
      "instrumentType": "EQUITY",
+     "firstTradeDate": 583743600,
+     "regularMarketTime": 1791987330,
+     "hasPrePostMarketData": false,
+     "gmtoffset": 3600,
+     "timezone": "BST",
      "exchangeTimezoneName": "Europe/London",
+     "regularMarketPrice": 197.75,
+     "regularMarketChangePercent": -0.503,
+     "fulldayPrice": 197.75,
+     "fulldayChange": -1.0,
+     "fulldayChangePercent": -0.503,
+     "fiftyTwoWeekHigh": 242.09,
+     "fiftyTwoWeekLow": 173.0,
+     "regularMarketDayHigh": 199.6,
+     "regularMarketDayLow": 197.0,
+     "regularMarketVolume": 5275146,
      "longName": "BT Group plc",
-     "shortName": "BT Group plc"
+     "shortName": "BT GROUP PLC ORD 5P",
+     "chartPreviousClose": 375.3,
+     "priceHint": 2,
+     "currentTradingPeriod": {
+      "pre": {
+       "timezone": "BST",
+       "start": 1791958500,
+       "end": 1791961200,
+       "gmtoffset": 3600
+      },
+      "regular": {
+       "timezone": "BST",
+       "start": 1791961200,
+       "end": 1791991800,
+       "gmtoffset": 3600
+      },
+      "post": {
+       "timezone": "BST",
+       "start": 1791991800,
+       "end": 1791994500,
+       "gmtoffset": 3600
+      }
+     },
+     "dataGranularity": "1d",
+     "range": "10y",
+     "validRanges": [
+      "1d",
+      "5d",
+      "1mo",
+      "3mo",
+      "6mo",
+      "1y",
+      "2y",
+      "5y",
+      "10y",
+      "ytd",
+      "max"
+     ]
     },
     "timestamp": [
-     1791187200,
-     1791273600,
-     1791360000,
-     1791446400,
-     1791532800
+     1791442800,
+     1791529200,
+     1791788400,
+     1791874800,
+     1791961200
     ],
-    "events": {},
+    "events": {
+     "dividends": {
+      "1766995200": {
+       "amount": 2.45,
+       "date": 1766995200
+      },
+      "1785999600": {
+       "amount": 5.87,
+       "date": 1785999600
+      }
+     }
+    },
     "indicators": {
      "quote": [
       {
-       "open": [
-        150.1,
-        151.2,
-        152.3,
-        153.4,
-        154.5
-       ],
        "high": [
-        150.1,
-        151.2,
-        152.3,
-        153.4,
-        154.5
+        199.25,
+        196.35000610351562,
+        194.8000030517578,
+        198.85000610351562,
+        199.60000610351562
+       ],
+       "open": [
+        197.3000030517578,
+        196.35000610351562,
+        193.5,
+        196.0500030517578,
+        199.0
        ],
        "low": [
-        150.1,
-        151.2,
-        152.3,
-        153.4,
-        154.5
-       ],
-       "close": [
-        150.1,
-        151.2,
-        152.3,
-        153.4,
-        154.5
+        195.4499969482422,
+        190.64300537109375,
+        192.75,
+        195.64999389648438,
+        197.0
        ],
        "volume": [
-        1000,
-        2000,
-        3000,
-        4000,
-        5000
+        20293446,
+        21944818,
+        8200233,
+        14459442,
+        5275146
+       ],
+       "close": [
+        197.4499969482422,
+        192.75,
+        194.6999969482422,
+        198.75,
+        197.75
        ]
       }
      ],
      "adjclose": [
       {
        "adjclose": [
-        147.098,
-        148.176,
-        149.254,
-        150.332,
-        151.41
+        197.4499969482422,
+        192.75,
+        194.6999969482422,
+        198.75,
+        197.75
        ]
       }
      ]

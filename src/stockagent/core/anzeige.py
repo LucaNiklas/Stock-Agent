@@ -27,6 +27,13 @@ def formatiere(
     if anzeige == "betrag":
         mio = (wert / Decimal(1_000_000)).quantize(Decimal(1), ROUND_HALF_EVEN)
         return f"{_gruppiert(mio, 0)} Mio. {waehrung or ''}".rstrip()
+    if anzeige == "kurs":
+        # Kurse: höchstens `stellen` Nachkommastellen, mindestens zwei (345,80 statt
+        # 345,79998779296875 aus den Gleitkommazahlen von Yahoo)
+        q = wert.quantize(Decimal(1).scaleb(-stellen), ROUND_HALF_EVEN).normalize()
+        text = format(q, "f")
+        nachkomma = len(text.split(".")[1]) if "." in text else 0
+        return f"{_gruppiert(q, max(nachkomma, 2))} {waehrung or ''}".rstrip()
     if anzeige in ("faktor", "ganzzahl"):
         return _gruppiert(wert.quantize(Decimal(1).scaleb(-stellen), ROUND_HALF_EVEN), stellen)
     raise ValueError(f"Unbekannte Anzeige: {anzeige}")

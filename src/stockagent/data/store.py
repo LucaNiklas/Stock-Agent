@@ -1162,6 +1162,13 @@ def save_prices(
         raise
 
 
+def delete_prices_from(conn: duckdb.DuckDBPyConnection, isin: str, ab: date, source: str) -> None:
+    """Entfernt laufende Kurse ab einem Tag (gespeichert vor dem Handelsschluss)."""
+    conn.execute(
+        "DELETE FROM prices WHERE isin = ? AND date >= ? AND source = ?", [isin, ab, source]
+    )
+
+
 def _dec(v: str | None) -> Decimal | None:
     return None if v is None else Decimal(v)
 

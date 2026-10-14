@@ -9,6 +9,7 @@ import typer
 
 from stockagent import prices_update
 from stockagent.cli.common import app, connect
+from stockagent.core.anzeige import formatiere
 from stockagent.data import store
 from stockagent.data.http import FetchError
 from stockagent.paths import Paths
@@ -38,12 +39,17 @@ def update(
             typer.echo(f"{r.isin}: kein Kurs. {r.fehler}")
             continue
         letzter = (
-            f"{r.letzter.schluss} {r.waehrung or ''} am {r.letzter.datum:%d.%m.%Y}"
+            f"{formatiere(r.letzter.schluss, 'kurs', 4, r.waehrung)} am {r.letzter.datum:%d.%m.%Y}"
             if r.letzter
             else "kein Kurs"
         )
         art = "schon aktuell" if r.uebersprungen else f"{r.kurse_neu} Handelstage geladen"
-        typer.echo(f"{r.isin} {r.symbol}: {art}, letzter Kurs {letzter}")
+        typer.echo(f"{r.isin} {r.symbol}: {art}, letzter Schlusskurs {letzter}")
+        if r.laufend:
+            typer.echo(
+                f"  Handel läuft noch: {formatiere(r.laufend.schluss, 'kurs', 4, r.waehrung)}"
+                " (laufender Kurs, wird nach Handelsschluss gespeichert)"
+            )
         for w in r.warnungen:
             typer.echo(f"  Warnung: {w}")
 
@@ -70,10 +76,17 @@ def show(isin: str = typer.Argument(..., help="ISIN der Aktie.")) -> None:
             f"{len(kurse)} Handelstage vom {kurse[0].date:%d.%m.%Y} bis {kurse[-1].date:%d.%m.%Y}"
         )
         for k in kurse[-5:]:
-            typer.echo(f"  {k.date:%d.%m.%Y}  {k.close} {k.currency or ''}  Volumen {k.volume}")
+            typer.echo(
+                f"  {k.date:%d.%m.%Y}  {formatiere(k.close, 'kurs', 4, k.currency)}"
+                f"  Volumen {k.volume}"
+            )
     splits = [e for e in ereignisse if e.kind == "split"]
     for e in splits:
-        typer.echo(f"Split am {e.date:%d.%m.%Y}: {e.numerator}:{e.denominator}")
+        z, n = (
+            format(x.normalize(), "f") if x is not None else "?"
+            for x in (e.numerator, e.denominator)
+        )
+        typer.echo(f"Split am {e.date:%d.%m.%Y}: {z}:{n}")
     dividenden = [e for e in ereignisse if e.kind == "dividende"]
     typer.echo(f"Dividenden: {len(dividenden)}")
     for w in sym.warnungen:

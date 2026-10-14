@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import yaml
 
@@ -68,6 +69,14 @@ def record_override(path: Path, isin: str, symbol: str | None, on: date) -> None
 # ------------------------------------------------------------------ Prüfung
 
 
+def abgeschlossen(chart: yahoo.Chart, jetzt: datetime) -> list[yahoo.Tageskurs]:
+    """Nur Tage mit Schlusskurs: Der laufende Handelstag fehlt bis zum Handelsende."""
+    if chart.handelsende is None or jetzt >= chart.handelsende:
+        return chart.kurse
+    laufend = chart.handelsende.astimezone(ZoneInfo(chart.zeitzone)).date()
+    return [k for k in chart.kurse if k.datum < laufend]
+
+
 def pruefe(chart: yahoo.Chart, heute: date, veraltet_tage: int) -> list[str]:
     warnungen = []
     if not chart.kurse:
@@ -109,6 +118,7 @@ class KursErgebnis:
     warnungen: list[str] = field(default_factory=list)
     fehler: str | None = None
     uebersprungen: bool = False
+    laufend: yahoo.Tageskurs | None = None  # Kurs des laufenden Handelstags, nicht gespeichert
 
 
 class _Lauf:
@@ -272,6 +282,7 @@ class _Lauf:
                 return ergebnis
         chart = abruf.chart
         warnungen = pruefe(chart, self.now.date(), int(self.cfg["veraltet_tage"]))
+        tage = abgeschlossen(chart, self.now)
         zeilen = [
             store.PriceRow(
                 isin,
@@ -283,7 +294,7 @@ class _Lauf:
                 zuordnung.symbol,
                 QUELLE,
             )
-            for k in chart.kurse
+            for k in tage
             if k.schluss > 0
         ]
         ereignisse = [
@@ -301,6 +312,8 @@ class _Lauf:
             for e in chart.ereignisse
         ]
         store.save_prices(conn, zeilen, ereignisse, abruf.raw.sha256, self.now)
+        if len(tage) < len(chart.kurse):
+            store.delete_prices_from(conn, isin, chart.kurse[-1].datum, QUELLE)
         store.save_price_symbol(
             conn,
             store.PriceSymbol(
@@ -319,7 +332,9 @@ class _Lauf:
             ),
         )
         ergebnis.kurse_neu = len(zeilen)
-        ergebnis.letzter = chart.kurse[-1] if chart.kurse else None
+        ergebnis.letzter = tage[-1] if tage else None
+        if len(tage) < len(chart.kurse):
+            ergebnis.laufend = chart.kurse[-1]
         ergebnis.waehrung = chart.waehrung
         ergebnis.warnungen = warnungen
         return ergebnis
