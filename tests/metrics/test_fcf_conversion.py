@@ -1,0 +1,40 @@
+"""fcf_conversion: Handrechnung aus Apples 10-K.
+
+Quellen und Seiten in tests/metrics/apple.py.
+
+98.767 / 112.010 = 0,881769 (S. 29, 33).
+"""
+
+from __future__ import annotations
+
+from decimal import Decimal
+
+from tests.metrics.apple import APPLE, T20, T21, T22, T24, T25, mit, ohne, q, rechne, schritt  # noqa: F401
+from tests.metrics.helpers import mit_zinsen, verschiedene_waehrung  # noqa: F401
+
+
+def test_fcf_conversion_hand_calculation() -> None:
+    erg = rechne("fcf_conversion")
+    assert erg.wert is not None, erg.grund
+    assert q(erg.wert) == Decimal("0.881769")
+    assert all(p["bestanden"] for p in erg.rechenweg["pruefungen"])
+
+
+def test_fcf_conversion_failed_checkpoint_stops() -> None:
+    erg = rechne("fcf_conversion", verschiedene_waehrung("net_income"))
+    assert erg.unknown and erg.ungereimtheit == "INC-15"
+    assert erg.grund is not None and erg.grund.startswith("CP-01")
+
+
+def test_fcf_conversion_not_meaningful_is_unknown_without_inconsistency() -> None:
+    """Wirtschaftlich möglicher Fall (Verlust, negatives Eigenkapital, kein Umsatz):
+    nicht aussagekräftig, kein Datenfehler."""
+    erg = rechne("fcf_conversion", mit("net_income", T25, Decimal(-1)))
+    assert erg.unknown and erg.ungereimtheit is None
+    assert erg.grund is not None and erg.grund.startswith("Nicht definiert")
+
+
+def test_fcf_conversion_missing_input_is_unknown() -> None:
+    erg = rechne("fcf_conversion", ohne("net_income"))
+    assert erg.unknown and erg.ungereimtheit is None
+    assert erg.grund is not None and "net_income" in erg.grund

@@ -1,0 +1,60 @@
+# Hinweise der Abteilung Berechnung an die Agenten (SPEC 8.5, Bauschritt 3).
+# Die Berechnung rechnet nur. Was sie auffällig findet, schreibt sie als Hinweis in die Tabelle
+# `hinweise`. Ab Bauschritt 6 macht der Zustandsautomat daraus Aufträge an den genannten Agenten.
+# Schwellen der Scores stehen in config/metrics.yaml unter `schwellen` der jeweiligen Kennzahl.
+version: "1.0"
+
+regeln:
+  - id: H-01
+    an: F1
+    abteilung: Prüfung
+    anlass: "Beneish M-Score über der Schwelle: Hinweis auf mögliche Ergebnissteuerung, im Anhang bestätigen oder entkräften (SPEC 3.5)"
+    kennzahl: beneish_m_score
+    vergleich: ueber
+    schwelle: eskalation_ueber
+  - id: H-02
+    an: A3
+    abteilung: Auswertung
+    anlass: "Altman Z'' in der Gefahrenzone: Finanzierung und Liquidität einordnen"
+    kennzahl: altman_z_double_prime
+    vergleich: unter
+    schwelle: gefahr_unter
+  - id: H-03
+    an: A3
+    abteilung: Auswertung
+    anlass: "Piotroski F-Score unter der Schwelle für solide: schwache Punkte einordnen"
+    kennzahl: piotroski_f_score
+    vergleich: unter
+    schwelle: solide_ab
+  - id: H-04
+    an: F1
+    abteilung: Prüfung
+    anlass: "Hohe Periodenabgrenzungen (Sloan): Gewinn deutlich über dem Mittelzufluss, Ursache im Anhang suchen"
+    kennzahl: sloan_accruals
+    vergleich: ueber
+    schwelle: auffaellig_ueber
+  - id: H-05
+    an: A4
+    abteilung: Auswertung
+    anlass: "Kennzahl springt gegen die eigene Historie (CP-05): Begründung im Bericht suchen, etwa Übernahme oder Sondereffekt"
+    trend_warnung: plausibilitaet
+  - id: H-06
+    an: A1
+    abteilung: Recherche
+    anlass: "Prüfpunkt hat die Rechnung gestoppt (INC-15): Originaldokument für die betroffenen Werte beschaffen"
+    ungereimtheit: INC-15
+  - id: H-07
+    an: A1
+    abteilung: Recherche
+    anlass: "Datenqualität: Stopp in der Prüfung der Abschlusswerte, Originaldokument beschaffen"
+    dq_stufe: stopp
+  - id: H-08
+    an: A4
+    abteilung: Auswertung
+    anlass: "Ausreißer in den Abschlusswerten (DQ-06): Begründung im Bericht suchen"
+    dq_pruefung: DQ-06
+  - id: H-09
+    an: A4
+    abteilung: Auswertung
+    anlass: "Vorjahreswerte nachträglich geändert (DQ-07): Grund der Änderung im Bericht suchen"
+    dq_pruefung: DQ-07

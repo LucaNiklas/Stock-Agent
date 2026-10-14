@@ -2,12 +2,14 @@
 
 Schritt 1: Universum und Abrufprotokoll. Schritt 2: Zuordnung ISIN zu CIK, Emittenten,
 Dokumente, Abschlusswerte (`facts`) und Datenqualitäts-Flags. Abschlusswerte werden nur über
-`pit_query(as_of=...)` gelesen (HR-07).
+`pit_query(as_of=...)` gelesen (HR-07). Schritt 3: Kennzahlen mit Rechenweg (`metrics`), Läufe
+(`metric_runs`) und Hinweise an die Agenten (`hinweise`).
 """
 
 from __future__ import annotations
 
 import csv
+import json
 import tempfile
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -19,8 +21,9 @@ from typing import Any, Literal
 import duckdb
 
 from stockagent.core import pit
+from stockagent.core.hinweise import Hinweis, Kennzahlwert
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);
@@ -150,8 +153,52 @@ CREATE TABLE IF NOT EXISTS dq_flags (
 );
 """
 
+SCHEMA_V5 = """
+CREATE TABLE IF NOT EXISTS metric_runs (
+    run_id               VARCHAR PRIMARY KEY,  -- metrics:<issuer_id>:<as_of>
+    issuer_id            VARCHAR NOT NULL,
+    as_of                TIMESTAMP NOT NULL,   -- Datenstand (naives UTC), HR-07
+    stichtag             DATE,                 -- letztes Geschäftsjahresende im Datenstand
+    methodology_version  VARCHAR NOT NULL,
+    computed_at          TIMESTAMP NOT NULL
+);
+CREATE TABLE IF NOT EXISTS metrics (
+    run_id           VARCHAR NOT NULL,
+    issuer_id        VARCHAR NOT NULL,
+    metric_id        VARCHAR NOT NULL,
+    metric_version   VARCHAR NOT NULL,
+    statistik        VARCHAR NOT NULL,     -- wert (je Geschäftsjahr) oder Trend nach SPEC 3.4
+    period_end       DATE NOT NULL,
+    value            VARCHAR,              -- Decimal als Text, ungerundet. NULL = unknown
+    grund            VARCHAR,              -- Grund bei unknown
+    ungereimtheit    VARCHAR,              -- INC-15, wenn ein Prüfpunkt stoppte
+    warnungen_json   VARCHAR NOT NULL,
+    vermerke_json    VARCHAR NOT NULL,     -- Herkunftshinweise, etwa abgeleitetes EBIT
+    -- Vollständiger Rechenweg mit allen Eingaben und Quellen (SPEC 12.7, HR-12), nur für die
+    -- Jahreswerte des letzten Geschäftsjahres. Vorjahre und Trends speichern nur den Wert. Ihr
+    -- Rechenweg ergibt sich zum selben Datenstand jederzeit gleich neu (`metrics show --jahr`,
+    -- `--trend`)
+    calc_trace_json  VARCHAR,
+    computed_at      TIMESTAMP NOT NULL
+);
+CREATE INDEX IF NOT EXISTS metrics_issuer ON metrics (issuer_id, metric_id);
+CREATE TABLE IF NOT EXISTS hinweise (
+    run_id       VARCHAR NOT NULL,
+    issuer_id    VARCHAR NOT NULL,
+    regel        VARCHAR NOT NULL,     -- H-01 bis H-09 aus config/hinweise.yaml
+    an_agent     VARCHAR NOT NULL,
+    abteilung    VARCHAR NOT NULL,
+    anlass       VARCHAR NOT NULL,
+    metric_id    VARCHAR,
+    period_end   DATE,
+    detail       VARCHAR NOT NULL,
+    status       VARCHAR NOT NULL,     -- offen, ab Schritt 6 auch beauftragt, erledigt
+    erstellt_at  TIMESTAMP NOT NULL
+);
+"""
+
 # Schemaversionen, aus denen ohne Datenverlust aufgerüstet wird.
-_MIGRATABLE = {3}
+_MIGRATABLE = {3, 4}
 
 _COLUMNS = (
     "isin, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, lei_name, "
@@ -214,8 +261,23 @@ def connect(path: Path) -> duckdb.DuckDBPyConnection:
             )
     conn.execute(SCHEMA)
     conn.execute(SCHEMA_V4)
+    _verwerfe_vorfassung_metrics(conn)
+    conn.execute(SCHEMA_V5)
     conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", [str(SCHEMA_VERSION)])
     return conn
+
+
+def _verwerfe_vorfassung_metrics(conn: duckdb.DuckDBPyConnection) -> None:
+    """Die Tabelle `metrics` aus der Entwicklungsfassung von Schema 5 (mit `inputs_json`) wird
+    verworfen. Sie enthält nur Rechenergebnisse, `metrics update` erzeugt sie neu."""
+    spalten = {
+        r[0]
+        for r in conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'metrics'"
+        ).fetchall()
+    }
+    if "inputs_json" in spalten:
+        conn.execute("DROP TABLE metrics")
 
 
 def last_stock_count(conn: duckdb.DuckDBPyConnection) -> int | None:
@@ -746,3 +808,173 @@ def restatements(
     ).fetchall()
     n = len(_STORED_COLS.split(", "))
     return [(_stored(r[:n]), _stored(r[n:])) for r in rows]
+
+
+# ------------------------------------------------------------------ Kennzahlen (Bauschritt 3)
+
+
+@dataclass(frozen=True)
+class MetricRow:
+    issuer_id: str
+    metric_id: str
+    metric_version: str
+    statistik: str
+    period_end: date
+    value: Decimal | None
+    grund: str | None
+    ungereimtheit: str | None
+    warnungen: tuple[str, ...]
+    vermerke: tuple[str, ...]
+    calc_trace_json: str | None
+
+
+@dataclass(frozen=True)
+class HinweisRow:
+    issuer_id: str
+    regel: str
+    an_agent: str
+    abteilung: str
+    anlass: str
+    metric_id: str | None
+    period_end: date | None
+    detail: str
+    status: str
+
+
+def replace_metrics(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    issuer_id: str,
+    as_of: datetime,
+    stichtag: date | None,
+    methodology_version: str,
+    werte: list[Kennzahlwert],
+    hinweise: list[Hinweis],
+    now: datetime,
+) -> str:
+    """Ersetzt Kennzahlen und offene Hinweise einer Firma. Gespeichert wird nur der letzte Lauf,
+    die Laufliste `metric_runs` bleibt erhalten. Rechenwege nur für die Jahreswerte des
+    Stichtags."""
+    run_id = f"metrics:{issuer_id}:{_utc_naive(as_of).isoformat()}"
+    jetzt = _utc_naive(now)
+    conn.execute("BEGIN")
+    try:
+        conn.execute("DELETE FROM metrics WHERE issuer_id = ?", [issuer_id])
+        conn.execute("DELETE FROM hinweise WHERE issuer_id = ? AND status = 'offen'", [issuer_id])
+        conn.execute("DELETE FROM metric_runs WHERE run_id = ?", [run_id])
+        conn.execute(
+            "INSERT INTO metric_runs VALUES (?, ?, ?, ?, ?, ?)",
+            [run_id, issuer_id, _utc_naive(as_of), stichtag, methodology_version, jetzt],
+        )
+        if werte:
+            conn.executemany(
+                "INSERT INTO metrics VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    [
+                        run_id,
+                        issuer_id,
+                        w.metric_id,
+                        w.metric_version,
+                        w.statistik,
+                        w.period_end,
+                        None if w.ergebnis.wert is None else str(w.ergebnis.wert),
+                        w.ergebnis.grund,
+                        w.ergebnis.ungereimtheit,
+                        json.dumps(list(w.ergebnis.warnungen), ensure_ascii=False),
+                        json.dumps(list(w.ergebnis.vermerke), ensure_ascii=False),
+                        w.ergebnis.rechenweg_json()
+                        if w.period_end == stichtag and w.statistik == "wert"
+                        else None,
+                        jetzt,
+                    ]
+                    for w in werte
+                ],
+            )
+        if hinweise:
+            conn.executemany(
+                "INSERT INTO hinweise VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'offen', ?)",
+                [
+                    [
+                        run_id,
+                        issuer_id,
+                        h.regel,
+                        h.an,
+                        h.abteilung,
+                        h.anlass,
+                        h.metric_id,
+                        h.period_end,
+                        h.detail,
+                        jetzt,
+                    ]
+                    for h in hinweise
+                ],
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    return run_id
+
+
+def load_metrics(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    metric_id: str | None = None,
+    statistik: str | None = None,
+) -> list[MetricRow]:
+    sql = (
+        "SELECT issuer_id, metric_id, metric_version, statistik, period_end, value, grund, "
+        "ungereimtheit, warnungen_json, vermerke_json, calc_trace_json FROM metrics "
+        "WHERE issuer_id = ?"
+    )
+    params: list[Any] = [issuer_id]
+    if metric_id:
+        sql += " AND metric_id = ?"
+        params.append(metric_id)
+    if statistik:
+        sql += " AND statistik = ?"
+        params.append(statistik)
+    rows = conn.execute(sql + " ORDER BY metric_id, statistik, period_end DESC", params).fetchall()
+    return [
+        MetricRow(
+            r[0],
+            r[1],
+            r[2],
+            r[3],
+            r[4],
+            None if r[5] is None else Decimal(r[5]),
+            r[6],
+            r[7],
+            tuple(json.loads(r[8])),
+            tuple(json.loads(r[9])),
+            r[10],
+        )
+        for r in rows
+    ]
+
+
+def load_metric_run(
+    conn: duckdb.DuckDBPyConnection, issuer_id: str
+) -> tuple[str, datetime, date | None, str] | None:
+    """Letzter Lauf: run_id, as_of, Stichtag, Methodikversion."""
+    row = conn.execute(
+        "SELECT run_id, as_of, stichtag, methodology_version FROM metric_runs "
+        "WHERE issuer_id = ? ORDER BY computed_at DESC LIMIT 1",
+        [issuer_id],
+    ).fetchone()
+    return None if row is None else (row[0], row[1], row[2], row[3])
+
+
+def load_hinweise(
+    conn: duckdb.DuckDBPyConnection, issuer_id: str | None = None, status: str = "offen"
+) -> list[HinweisRow]:
+    sql = (
+        "SELECT issuer_id, regel, an_agent, abteilung, anlass, metric_id, period_end, detail, "
+        "status FROM hinweise WHERE status = ?"
+    )
+    params: list[Any] = [status]
+    if issuer_id:
+        sql += " AND issuer_id = ?"
+        params.append(issuer_id)
+    rows = conn.execute(sql + " ORDER BY issuer_id, regel, metric_id, period_end", params)
+    return [HinweisRow(*r) for r in rows.fetchall()]

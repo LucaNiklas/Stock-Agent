@@ -24,6 +24,18 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Rechenweg `core/calc.py` in Bauschritt 2 vorgezogen, Datenqualität rechnet über Prüfpunkte (SPEC 12.7).
 - Goldstandard startet mit mindestens 20 Fällen (SPEC 11.6).
 
+## 4.4 (13.10.2026, Bauschritt 3, `methodology_version` der Kennzahlen 1.0)
+
+- Erste Fassung der 33 Kennzahlen und Scores ohne Börsenkurs in `config/metrics.yaml`. Kennzahlen mit Börsenkurs, Altman Z für Produzenten und `ev_ebit_normalized` folgen in Schritt 4, der Qualitätskomposit in Schritt 5.
+- `unknown` ohne Ungereimtheit, wenn eine Größe nicht aussagekräftig ist (Verlust, negatives Eigenkapital, negativer Anfangswert einer Wachstumsrate). INC-15 nur bei Datenfehlern (SPEC 12.7).
+- Finanzschulden aus Teilen: Weg A `LongTermDebt` plus kurzfristige Kredite und Commercial Paper, Weg B langfristiger plus kurzfristiger Teil plus kurzfristige Kredite. Liegen beide vor, Gegenrechnung (CP-04, 0,5 Prozent).
+- ROIC: Steuersatz aus Steueraufwand durch Vorsteuerergebnis, begrenzt auf 0 bis 35 Prozent, bei Verlust 0. Investiertes Kapital gleich Eigenkapital plus Finanzschulden plus Leasing minus Kasse, Durchschnitt aus Anfang und Ende.
+- Piotroski mit der Bilanzsumme zu Jahresbeginn (Piotroski 2000). Altman Z'' mit Buchwert des Eigenkapitals. Beneish mit den 8 veröffentlichten Koeffizienten.
+- Trends je Kennzahl (SPEC 3.4): Veränderung zum Vorjahr bei Beträgen relativ, bei Quoten in Prozentpunkten. Theil-Sen-Steigung je Geschäftsjahr, Geschäftsjahre gezählt relativ zum Stichtag (52/53-Wochen-Jahre). Streuung und Steigung erst ab 5 Jahren. CP-05 über den robusten z-Wert gegen die Vorjahre.
+- Hinweisregeln H-01 bis H-09 (`config/hinweise.yaml`), Schwelle Sloan-Accruals 10 Prozent als Richtwert bis zum Branchendezil in Schritt 5.
+- EBIT abgeleitet, wenn kein operatives Ergebnis gemeldet ist: Vorsteuerergebnis plus Zinsaufwand, ersatzweise minus nicht operatives Zinsergebnis netto. Mit Vermerk am Wert und an den Trends (Lucas Entscheidung 14.10.2026). Betrifft Johnson & Johnson und Nike.
+- Ausreißerprüfung DQ-06 und CP-05 gegen Niveau und Trend der Vorjahre, Ausreißer nur, wenn beide auffallen (Lucas Entscheidung 14.10.2026). Bei den 10 Abnahmefirmen sinkt die Zahl der Sprung-Hinweise von 22 auf 9.
+
 ## 4.3 (13.10.2026)
 
 - Indexstufe Tier 1 bis 4 als Filter, bezogen auf den Heimatmarkt, ohne Einfluss auf die Note (SPEC 7.9, ADR 0004).

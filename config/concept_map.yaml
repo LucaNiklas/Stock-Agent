@@ -6,13 +6,13 @@
 # deshalb nicht.
 #
 # Geprüft am 13.10.2026 gegen die Company Facts von Apple, Microsoft, Coca-Cola, Caterpillar,
-# Walmart, Nike, JPMorgan und PagerDuty, Procter & Gamble und Johnson & Johnson. Fehlt ein Konzept (Nike meldet kein
-# OperatingIncomeLoss, JPMorgan keine Investitionen in Sachanlagen), bleibt die Größe leer und
+# Walmart, Nike, JPMorgan, PagerDuty, Procter & Gamble und Johnson & Johnson. Fehlt ein Konzept
+# (Nike meldet kein OperatingIncomeLoss, JPMorgan keine Investitionen in Sachanlagen), bleibt die Größe leer und
 # wird in Schritt 3 als unknown mit Grund behandelt (HR-05). Geraten wird nie.
 #
 # In Schritt 7 kommen die ESEF/IFRS-Konzepte (ifrs-full) dazu.
 
-version: "1.0"
+version: "1.1"
 
 us-gaap:
   revenue:
@@ -40,20 +40,11 @@ us-gaap:
     - us-gaap:StockholdersEquity
     - us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest
   financial_debt:
-    # Ein Gesamtkonzept ist selten. Die Summe aus kurz- und langfristigen Teilen bildet erst
-    # die Kennzahl in Schritt 3 über den Rechenweg. Hier nur der Abgleich je Konzept.
+    # Nur für den Abgleich zweier Wege (DQ-05). Die Kennzahlen nutzen die Summe der Teile unten.
     - us-gaap:LongTermDebt
     - us-gaap:LongTermDebtNoncurrent
     - us-gaap:LongTermDebtAndCapitalLeaseObligations   # Coca-Cola seit 2024, mit Finanzierungsleasing
     - us-gaap:DebtLongtermAndShorttermCombinedAmount
-  financial_debt_teile:
-    - us-gaap:LongTermDebtNoncurrent
-    - us-gaap:LongTermDebtCurrent
-    - us-gaap:LongTermDebtAndCapitalLeaseObligations
-    - us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent
-    - us-gaap:ShortTermBorrowings
-    - us-gaap:OtherShortTermBorrowings
-    - us-gaap:CommercialPaper
   lease_liabilities:
     - us-gaap:OperatingLeaseLiability
     - us-gaap:FinanceLeaseLiability
@@ -65,6 +56,120 @@ us-gaap:
   shares_outstanding:
     - dei:EntityCommonStockSharesOutstanding
     - us-gaap:CommonStockSharesOutstanding
+
+  # ---------------------------------------------------------------- ab Bauschritt 3
+  # Eingangsgrößen der Kennzahlen (SPEC 3.3 bis 3.5). Geprüft am 13.10.2026 gegen dieselben
+  # zehn Firmen. Wo eine Größe fehlt, rechnet core/registry.py einen dokumentierten zweiten Weg
+  # (Bruttoergebnis = Umsatz - Umsatzkosten, Schulden = Passiva - Eigenkapital, Vertriebs- und
+  # Verwaltungskosten = Summe der Teile) oder die Kennzahl bleibt unknown mit Grund.
+  gross_profit:
+    - us-gaap:GrossProfit
+  cost_of_revenue:
+    - us-gaap:CostOfRevenue
+    - us-gaap:CostOfGoodsAndServicesSold
+  income_tax:
+    - us-gaap:IncomeTaxExpenseBenefit
+  pretax_income:
+    - us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest
+    - us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments
+  interest_expense:
+    # Apple weist seit 2023 keinen Zinsaufwand mehr gesondert aus: Zinsdeckung unknown
+    - us-gaap:InterestExpense
+    - us-gaap:InterestExpenseNonoperating
+    - us-gaap:InterestExpenseDebt
+  interest_net:
+    # Zinsergebnis netto, positiv = Zinsertrag (Saldo laut Taxonomie im Haben). Nike meldet nur
+    # diesen Saldo. Nur für das abgeleitete EBIT, wenn kein Zinsaufwand gemeldet ist
+    # Nur das nicht operative Zinsergebnis. InterestIncomeExpenseNet ist bei Banken der
+    # Zinsüberschuss, also das Kerngeschäft, und darf nicht abgezogen werden (JPMorgan)
+    - us-gaap:InterestIncomeExpenseNonoperatingNet
+  sbc:
+    - us-gaap:ShareBasedCompensation
+    - us-gaap:AllocatedShareBasedCompensationExpense
+  depreciation:
+    - us-gaap:DepreciationDepletionAndAmortization
+    - us-gaap:DepreciationAmortizationAndAccretionNet
+    - us-gaap:DepreciationAndAmortization
+    - us-gaap:Depreciation
+  current_assets:
+    - us-gaap:AssetsCurrent
+  current_liabilities:
+    - us-gaap:LiabilitiesCurrent
+  inventory:
+    - us-gaap:InventoryNet
+    - us-gaap:InventoryFinishedGoodsNetOfReserves
+    - us-gaap:InventoryFinishedGoods
+  receivables:
+    - us-gaap:AccountsReceivableNetCurrent
+    - us-gaap:ReceivablesNetCurrent
+  retained_earnings:
+    - us-gaap:RetainedEarningsAccumulatedDeficit
+  total_liabilities:
+    # fehlt bei Coca-Cola, Walmart, Nike: dann Passiva minus Eigenkapital einschließlich Minderheiten
+    - us-gaap:Liabilities
+  liabilities_and_equity:
+    - us-gaap:LiabilitiesAndStockholdersEquity
+  equity_incl_nci:
+    - us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest
+    - us-gaap:StockholdersEquity
+  dividends_paid:
+    - us-gaap:PaymentsOfDividends
+    - us-gaap:PaymentsOfDividendsCommonStock
+  buybacks:
+    - us-gaap:PaymentsForRepurchaseOfCommonStock
+  acquisitions:
+    - us-gaap:PaymentsToAcquireBusinessesNetOfCashAcquired
+  st_investments:
+    - us-gaap:MarketableSecuritiesCurrent
+    - us-gaap:ShortTermInvestments
+    - us-gaap:AvailableForSaleSecuritiesDebtSecuritiesCurrent
+  lt_securities:
+    - us-gaap:MarketableSecuritiesNoncurrent
+    - us-gaap:LongTermInvestments
+  capex_intangibles:
+    - us-gaap:PaymentsToAcquireIntangibleAssets
+  eps_diluted:
+    - us-gaap:EarningsPerShareDiluted
+  ppe_net:
+    - us-gaap:PropertyPlantAndEquipmentNet
+  sga:
+    - us-gaap:SellingGeneralAndAdministrativeExpense
+  selling_marketing:
+    - us-gaap:SellingAndMarketingExpense
+  general_admin:
+    - us-gaap:GeneralAndAdministrativeExpense
+  credit_lines:
+    - us-gaap:LineOfCreditFacilityRemainingBorrowingCapacity
+  pension_funded_status:
+    - us-gaap:DefinedBenefitPlanFundedStatusOfPlan
+  # Finanzschulden in Teilen. Summe in core/registry.py, zwei Wege mit Gegenrechnung (CP-04):
+  # A = debt_long_total + short_term_borrowings + commercial_paper
+  # B = debt_noncurrent + debt_current + short_term_borrowings + commercial_paper
+  debt_long_total:
+    - us-gaap:LongTermDebt
+  debt_noncurrent:
+    - us-gaap:LongTermDebtNoncurrent
+    - us-gaap:LongTermDebtAndCapitalLeaseObligations
+  debt_current:
+    - us-gaap:LongTermDebtCurrent
+    - us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent
+  short_term_borrowings:
+    - us-gaap:ShortTermBorrowings
+    - us-gaap:OtherShortTermBorrowings
+  commercial_paper:
+    - us-gaap:CommercialPaper
+  lease_operating:
+    - us-gaap:OperatingLeaseLiability
+  lease_operating_current:
+    - us-gaap:OperatingLeaseLiabilityCurrent
+  lease_operating_noncurrent:
+    - us-gaap:OperatingLeaseLiabilityNoncurrent
+  lease_finance:
+    - us-gaap:FinanceLeaseLiability
+  lease_finance_current:
+    - us-gaap:FinanceLeaseLiabilityCurrent
+  lease_finance_noncurrent:
+    - us-gaap:FinanceLeaseLiabilityNoncurrent
 
 # Kernwerte für den Abgleich zweier Wege (SPEC 3.2 Nr. 5)
 kernwerte:

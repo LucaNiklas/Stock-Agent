@@ -1,4 +1,4 @@
-"""Bauschritt 2: Schema 4, Migration, Abschlusswerte und pit_query (HR-07)."""
+"""Bauschritt 2 und 3: Schema, Migration, Abschlusswerte und pit_query (HR-07)."""
 
 from __future__ import annotations
 
@@ -138,6 +138,23 @@ def test_migration_from_schema_3_keeps_listings(tmp_path: Path) -> None:
     rows = conn.execute("SELECT table_name FROM information_schema.tables").fetchall()
     tables = {r[0] for r in rows}
     assert {"isin_cik", "issuers", "documents", "facts", "dq_flags"} <= tables
+    assert {"metrics", "metric_runs", "hinweise"} <= tables
+
+
+def test_migration_from_schema_4_adds_metric_tables(tmp_path: Path) -> None:
+    db = tmp_path / "alt.duckdb"
+    c = store.connect(db)  # Datenbank im Stand von Schema 4 nachbauen
+    c.execute("DROP TABLE metrics; DROP TABLE metric_runs; DROP TABLE hinweise")
+    c.execute("UPDATE meta SET value = '4' WHERE key = 'schema_version'")
+    c.execute(
+        "INSERT INTO isin_cik (isin, status, method, detail, checked_at) "
+        "VALUES ('X', 'keine', 'keine', '', now())"
+    )
+    c.close()
+    conn = store.connect(db)
+    assert conn.execute("SELECT isin FROM isin_cik").fetchall() == [("X",)]
+    assert conn.execute("SELECT count(*) FROM metrics").fetchone() == (0,)
+    assert conn.execute("SELECT count(*) FROM hinweise").fetchone() == (0,)
 
 
 def test_unknown_old_schema_still_refused(tmp_path: Path) -> None:

@@ -33,3 +33,13 @@ Vorlage in `agents_src/` (daraus erzeugt `stockagent render-agents` die Datei in
 ### 18.5 Versionierung
 
 Jede Ausgabe trägt `methodology_version`, `agent_version`, `prompt_hash` und `model`. Ergebnisse unterschiedlicher Methodik-Versionen werden im Dashboard nie ohne Hinweis verglichen.
+
+### 18.6 Teilen und Unabhängigkeit von Claude
+
+Lucas Ziel (14.10.2026): Die Plattform dient zuerst ihm, später jedem, der sie nutzen will. Dass dafür vorerst Claude nötig ist, ist in Ordnung. Am Ende soll sie aber alle Funktionen auch ohne Claude bieten. Beides kommt nach Schritt 12 (BAUPLAN, Bausteine F und G). Damit der Weg dorthin offen bleibt, gelten ab sofort fünf Regeln.
+
+1. Alles Deterministische bleibt in Python ohne Sprachmodell: Datenabruf mit fester Adresse, Datenqualität, Kennzahlen, Trends, Scores, Bewertung, Note und die Hinweise an die Agenten. Das läuft schon heute bei jedem, der das Repository klont.
+2. Agenten werden nur über eine Schnittstelle aufgerufen, nie direkt über ein bestimmtes Werkzeug. Auftrag und Antwort sind Schemas (8.4, 8.10). Hinter der Schnittstelle kann Claude Code über ein Abo, die Claude-API, ein anderes Modell oder ein lokales Modell stehen.
+3. Persönliches liegt nur in `state/` und in Umgebungsvariablen (SEC-User-Agent, Schlüssel), nie im Code oder in `config/`.
+4. Nur frei zugängliche Datenquellen sind Pflicht. Kostenpflichtige Anbieter (SPEC 19 Nr. 1) bleiben optional.
+5. Jede Agentenaufgabe hat Fälle im Goldstandard (11.6). So lässt sich messen, ob ein Ersatzmodell gut genug ist, bevor es Claude ablöst.

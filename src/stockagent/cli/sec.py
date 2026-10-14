@@ -6,12 +6,12 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Annotated
 
-import duckdb
 import typer
 from rich.table import Table
 
-from stockagent import sec_update
-from stockagent.cli.common import app, console
+from stockagent import metrics_update, sec_update
+from stockagent.cli import metrics as metrics_cli
+from stockagent.cli.common import app, connect, console
 from stockagent.core import dq
 from stockagent.data import concepts, quality, store
 from stockagent.data.http import FetchError
@@ -20,17 +20,6 @@ from stockagent.paths import Paths
 
 sec_app = typer.Typer(help="Abschlussdaten der SEC (USA) laden und anzeigen.", no_args_is_help=True)
 app.add_typer(sec_app, name="sec")
-
-
-def _connect(paths: Paths) -> duckdb.DuckDBPyConnection:
-    if not paths.db.exists():
-        typer.echo("Noch keine Liste geladen. Zuerst: stockagent universe update")
-        raise typer.Exit(code=1)
-    try:
-        return store.connect(paths.db)
-    except store.SchemaOutdated as exc:
-        typer.echo(str(exc))
-        raise typer.Exit(code=1) from exc
 
 
 @sec_app.command("update")
@@ -46,7 +35,7 @@ def update(
 ) -> None:
     """ISIN -> CIK zuordnen, Stammdaten laden, für die Auswahl Werte und Prüfungen."""
     paths = Paths.default()
-    _connect(paths).close()
+    connect(paths).close()
     try:
         res = sec_update.update(
             paths, isins=isin or None, limit=limit, refresh=refresh, progress=typer.echo
@@ -72,6 +61,10 @@ def update(
         else:
             flags = ", ".join(f"{k} {v}" for k, v in sorted(r.flags.items()))
             typer.echo(f"{r.isin} {r.name}: {r.facts} Werte, Prüfungen: {flags}")
+    # Abteilung Berechnung: Kennzahlen für alle Firmen mit neu geladenen Werten
+    neu = [r.isin for r in res.loaded if not r.error]
+    if neu:
+        metrics_cli.ausgabe_lauf(metrics_update.update(paths, isins=neu))
 
 
 @sec_app.command("map")
@@ -104,7 +97,7 @@ def _betrag(v: Decimal, unit: str, currency: str | None) -> str:
 def show(isin: str = typer.Argument(..., help="ISIN der Aktie.")) -> None:
     """Stammdaten, Kernwerte des letzten Geschäftsjahres und Prüfergebnisse anzeigen."""
     paths = Paths.default()
-    conn = _connect(paths)
+    conn = connect(paths)
     try:
         mapping = store.load_isin_cik(conn).get(isin.upper())
         if mapping is None:

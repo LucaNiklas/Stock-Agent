@@ -41,7 +41,7 @@ Die Ergebnisse landen als `dq_flags` am Unternehmen und bestimmen den Konfidenzg
 3. Einheiten und Skalierung (Tausend, Millionen) eindeutig, Währung je Wert gesetzt.
 4. Periodenlogik stimmt (Geschäftsjahr mit abweichendem Stichtag korrekt zugeordnet, Quartale ergeben TTM ohne Doppelzählung).
 5. Abgleich zweier unabhängiger Quellen für die Kernwerte Umsatz, operatives Ergebnis, Jahresüberschuss, operativer Cashflow, Investitionen, Bilanzsumme, Eigenkapital, Finanzschulden, Aktienanzahl. Abweichung über 1 Prozent erzeugt eine Warnung, über 5 Prozent einen Stopp.
-6. Ausreißerprüfung gegen die eigene Historie (robuste z-Werte über Median und MAD, Schwelle 4). Ein Ausreißer ist kein Fehler, braucht aber eine Begründung aus dem Bericht, etwa eine Übernahme.
+6. Ausreißerprüfung gegen die eigene Historie auf zwei Wegen: robuster z-Wert gegen den Median der Vorjahre (Niveau) und gegen die Fortschreibung ihres Theil-Sen-Trends (Trend), Streuung jeweils über MAD mit Untergrenze, Schwelle 4. Ausreißer nur, wenn beide Wege auffallen. Ein gleichmäßiger Anstieg ist so kein Ausreißer, ein Sprung schon. Ein Ausreißer ist kein Fehler, braucht aber eine Begründung aus dem Bericht, etwa eine Übernahme.
 7. Restatements erkennen. Wenn ein späterer Bericht Vorjahreswerte ändert, werden beide Fassungen gespeichert und die Änderung markiert.
 8. Aktienanzahl um Splits und Aktiendividenden bereinigt.
 

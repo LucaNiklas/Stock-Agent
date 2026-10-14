@@ -121,9 +121,10 @@ return r.ergebnis(roic)
 
 - `schritt` speichert Name, Formeltext, Eingaben mit Quelle, Währung, Einheit und Periode (HR-12) sowie das Ergebnis.
 - `pruefe` wertet einen Prüfpunkt aus. Bei Stufe `stopp` wirft ein verletzter Prüfpunkt `PruefpunktVerletzt`, die Kennzahl wird `unknown` mit Grund (HR-05) und INC-15. Bei Stufe `warnung` läuft die Rechnung weiter, der Hinweis steht im Rechenweg und im Bericht.
+- Nicht jedes `unknown` ist ein Fehler. Fehlt eine Eingabe (`EingabeFehlt`) oder ist eine Größe für diese Daten nicht aussagekräftig (`NichtDefiniert`: Wachstumsrate bei negativem Anfangswert, Quote mit Verlust oder negativem Eigenkapital im Nenner, kein Zinsaufwand), wird die Kennzahl `unknown` mit Grund, aber ohne INC-15. INC-15 bleibt den Datenfehlern vorbehalten, etwa einer Bilanzsumme von null, einem negativen Umsatz oder zwei Währungen in einer Rechnung. Eine Rechnung mischt nie zwei Währungen: Der Rechenweg prüft das bei jedem Schritt (CP-01).
 - `ergebnis` ist nur erreichbar, wenn alle Prüfpunkte der Kennzahl aus `metrics.yaml` (`pruefpunkte`) tatsächlich ausgewertet wurden. Fehlt einer, schlägt der Test fehl.
 - Gerundet wird erst bei der Anzeige. Zwischenschritte rechnen mit `Decimal` für Geldbeträge und `float64` für Verhältnisse (12.3).
-- Der vollständige Rechenweg wird als JSON gespeichert (`metrics.calc_trace_json`). Er ist die Grundlage für den Audit-Trail (13.1), für J1 und für die Erklärung jeder Zahl im Bericht.
+- Der vollständige Rechenweg wird als JSON gespeichert (`metrics.calc_trace_json`), für die Jahreswerte des letzten Geschäftsjahres. Vorjahre und Trends speichern nur den Wert. Ihr Rechenweg ergibt sich zum selben Datenstand jederzeit bitgleich neu (12.5, `metrics show --jahr`, `--trend`). Er ist die Grundlage für den Audit-Trail (13.1), für J1 und für die Erklärung jeder Zahl im Bericht.
 
 **Katalog der Prüfpunkte**
 
@@ -133,7 +134,7 @@ return r.ergebnis(roic)
 | CP-02 | Vorzeichen und Wertebereich des Zwischenergebnisses | Umsatz nicht negativ, Marge zwischen minus 100 und 100 Prozent, Steuersatz zwischen 0 und 1 | stopp |
 | CP-03 | Summenprobe: Teile ergeben das Ganze | Aktiva gleich Passiva (Toleranz 0,5 Prozent), Segmente plus Überleitung gleich Konzern, Unternehmenswert-Brücke | stopp |
 | CP-04 | Gegenrechnung auf einem zweiten, unabhängigen Weg, wo es einen gibt | ROE direkt gegen DuPont-Zerlegung, FCF aus Komponenten gegen ausgewiesene Summen | stopp bei Abweichung über 0,5 Prozent |
-| CP-05 | Plausibilität gegen die eigene Historie (robuster z-Wert über Median und MAD, Schwelle 4) | Marge springt ohne Sondereffekt um das Dreifache | warnung |
+| CP-05 | Plausibilität gegen die eigene Historie (robuster z-Wert gegen Niveau und Trend der Vorjahre, Ausreißer nur, wenn beide auffallen, Schwelle 4, 3.2 Nr. 6) | Marge springt ohne Sondereffekt um das Dreifache | warnung |
 | CP-06 | Rückrechnung: Das Ergebnis eingesetzt reproduziert den Ausgangswert | Reverse-DCF: Mit dem impliziten Wachstum ergibt der DCF wieder den aktuellen Unternehmenswert (Toleranz 0,1 Prozent) | stopp |
 | CP-07 | Strukturregeln einer Bewertung | Gewichte der Säulen summieren sich zu 1, Perzentile zwischen 0 und 100, Note passt zum Wertebereich aus 6.2 | stopp |
 | CP-08 | Wiederholbarkeit: zweimal gerechnet ergibt bitgleich dasselbe (12.5) | Testlauf auf gespeichertem Datenstand | stopp, nur im Test |

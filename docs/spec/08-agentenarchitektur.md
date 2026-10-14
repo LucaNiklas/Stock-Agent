@@ -192,6 +192,8 @@ J4 Endkontrolle des Berichts
 Dashboard aktualisieren, Benachrichtigung
 ```
 
+**Hinweise der Berechnung.** Die Abteilung Berechnung rechnet nur, sie urteilt nicht. Was ihr auffällt, schreibt sie nach festen Regeln aus `config/hinweise.yaml` in die Tabelle `hinweise`, je Hinweis mit Regel, Ziel-Agent, Anlass und Detail (seit Bauschritt 3). Beispiele: Beneish M-Score über der Schwelle an F1, Altman Z'' in der Gefahrenzone an A3, ein Sprung gegen die eigene Historie (CP-05) an A4 mit dem Auftrag, im Bericht eine Begründung zu suchen, ein gestoppter Prüfpunkt (INC-15) oder ein Stopp der Datenqualität an A1 mit dem Auftrag, das Originaldokument zu beschaffen. Der Zustandsautomat macht daraus ab Bauschritt 6 Aufträge nach 8.10. So entsteht Arbeit für die Agenten nur dort, wo die Zahlen einen Anlass geben.
+
 **Nachforderung.** Stellt A3, A4 oder A5 fest, dass eine Information fehlt (etwa der Vergütungsbericht), schreibt sie eine Nachforderung mit Dokumenttyp und Grund in ihre Ausgabe. Der Zustandsautomat macht daraus einen A1-Auftrag nach der Quellenkarte. Die Auswertung sucht nie selbst.
 
 Dateilayout je Lauf.
