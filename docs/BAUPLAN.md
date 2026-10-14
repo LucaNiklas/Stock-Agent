@@ -100,6 +100,15 @@ Bewusst verschoben (Lucas Entscheidung 13.10.2026): Kennzahlen mit Börsenkurs n
 - **Braucht von Luca:** Entscheidung, ob ein API-Schlüssel mit Kosten pro Token genutzt werden soll (SPEC 19 Nr. 4).
 - **Abnahme:** Drei Läufe hintereinander ohne manuellen Eingriff.
 
+### Nach Schritt 12: Teilen und Unabhängigkeit von Claude (Lucas Ziel, 14.10.2026)
+
+Erst nur für Luca, später für alle, die es nutzen wollen. Zwei Stufen nach dem bisherigen Plan, Einzelheiten in SPEC 18.6:
+
+- **Baustein F, Teilen:** Andere installieren die Plattform bei sich und nutzen sie mit ihrem eigenen Claude-Abo. Dazu gehören eine Installationsanleitung, Einrichtung per Befehl (`stockagent init`: Ordner, eigener SEC-User-Agent, Konfiguration), Trennung von Lucas persönlichen Daten (`state/`) und dem geteilten Code, Lizenz, Tests auf macOS, Windows und Linux.
+- **Baustein G, autonom:** Dieselben Funktionen ohne Claude. Die Agenten laufen über eine austauschbare Schnittstelle, hinter der wahlweise Claude, ein anderes Sprachmodell oder ein lokales Modell steht. Die Prüfagenten und der Goldstandard (Schritt 10) zeigen, ob ein Ersatz gut genug ist.
+
+Was schon jetzt dafür gilt: Rechnen, Prüfen und Speichern laufen vollständig in Python ohne Sprachmodell, alle Datenquellen sind frei zugänglich, keine festen Pfade oder persönlichen Angaben im Code, Geheimnisse nur über Umgebungsvariablen.
+
 ## Fahrplan Oberfläche
 
 Ziel ist ein Dashboard als Bedienzentrale: Luca tippt nichts in Claude Code oder ins Terminal (SPEC 13.5). Claude Code läuft im Hintergrund, gestartet vom Dashboard über Lucas Abo. Jeder Schritt erweitert dieselbe Seite.

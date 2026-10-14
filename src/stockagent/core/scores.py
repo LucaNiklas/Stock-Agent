@@ -24,6 +24,7 @@ from stockagent.core.kennzahlen import (
     _cp01,
     _opt,
     bruttoergebnis,
+    ebit_wert,
     schulden_gesamt,
     split_bereinigt,
     vertrieb_und_verwaltung,
@@ -108,7 +109,7 @@ def piotroski_f_score(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 def altman_z_double_prime(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     bs = d.hole("total_assets", t)
     ua, kv = d.hole("current_assets", t), d.hole("current_liabilities", t)
-    _cp01(r, t, bs, ua, kv, d.hole("retained_earnings", t), d.hole("ebit", t), d.hole("equity", t))
+    _cp01(r, t, bs, ua, kv, d.hole("retained_earnings", t), d.hole("equity", t))
     r.pruefe("CP-02", "Bilanzsumme positiv", bs.wert > 0)
     schulden = schulden_gesamt(r, d, t)
     r.pruefe("CP-02", "Verbindlichkeiten positiv", schulden > 0)
@@ -116,7 +117,7 @@ def altman_z_double_prime(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     x2 = r.schritt(
         "x2", "gewinnruecklagen / bs", gewinnruecklagen=d.hole("retained_earnings", t), bs=bs
     )
-    x3 = r.schritt("x3", "ebit / bs", ebit=d.hole("ebit", t), bs=bs)
+    x3 = r.schritt("x3", "ebit / bs", ebit=ebit_wert(r, d, t), bs=bs)
     x4 = r.schritt("x4", "ek / schulden", ek=d.hole("equity", t), schulden=schulden)
     return r.schritt(
         "z_double_prime",

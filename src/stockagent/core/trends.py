@@ -15,7 +15,7 @@ Rechenweg, damit eine nicht berechenbare Statistik die anderen nicht mitnimmt:
 - `steigung`: Theil-Sen-Schätzer, der Median aller paarweisen Steigungen je Geschäftsjahr,
   unempfindlich gegen einzelne Ausreißer. Geschäftsjahre zählen relativ zum Stichtag
   (`geschaeftsjahr`), nicht nach Kalenderjahr.
-- `plausibilitaet`: CP-05, robuster z-Wert des Stichtagswerts gegen die Vorjahre
+- `plausibilitaet`: CP-05, robuster z-Wert des Stichtagswerts gegen den Trend der Vorjahre
   (`dq.ausreisser`, Schwelle aus `config/quality.yaml`). Ein Ausreißer ist eine Warnung.
 
 Dazu die vertikale Analyse (SPEC 3.4 Nr. 6): jeder Strom in Prozent vom Umsatz, jeder Stand in
@@ -25,7 +25,7 @@ Prozent der Bilanzsumme, für die Detailansicht.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 from itertools import combinations
@@ -33,6 +33,7 @@ from typing import Any
 
 from stockagent.core import dq, registry
 from stockagent.core.calc import Eingabe, EingabeFehlt, Ergebnis, NichtDefiniert, Rechenweg, rechne
+from stockagent.core.dq import geschaeftsjahr
 from stockagent.core.reihen import Reihen
 
 VERSION = "1.0"
@@ -87,15 +88,6 @@ def _rechenweg(metric_id: str, statistik: str, subjekt: str, stichtag: date) -> 
         stichtag.isoformat(),
         pflicht=("CP-01", "CP-02"),
     )
-
-
-def geschaeftsjahr(stichtag: date, periode_ende: date) -> int:
-    """Geschäftsjahr relativ zum Stichtag: 0 im Stichtagsjahr, -1 im Vorjahr usw.
-
-    Gezählt über den Abstand in Tagen, nicht über das Kalenderjahr. Bei 52/53-Wochen-Jahren
-    liegen sonst zwei Jahresenden im selben Kalenderjahr (Johnson & Johnson: 1.1.2023 und
-    31.12.2023)."""
-    return int((Decimal((periode_ende - stichtag).days) / Decimal("365.25")).to_integral_value())
 
 
 def _gj(r: Rechenweg, w: Eingabe) -> int:
@@ -195,12 +187,22 @@ def steigung(r: Rechenweg, werte: Sequence[Eingabe], mindest: int) -> Decimal:
 
 
 def plausibilitaet(
-    subjekt: str, metric_id: str, werte: Sequence[Eingabe], schwelle: Decimal, mindest: int
+    subjekt: str,
+    metric_id: str,
+    werte: Sequence[Eingabe],
+    ausreisser: Mapping[str, Any],
 ) -> Ergebnis | None:
-    """CP-05 für den Stichtagswert gegen die Vorjahre. None bei zu kurzer Historie."""
-    if len(werte) - 1 < mindest:
+    """CP-05 für den Stichtagswert gegen den Trend der Vorjahre. None bei zu kurzer Historie."""
+    if len(werte) - 1 < int(ausreisser["mindest_historie"]):
         return None
-    return dq.ausreisser(subjekt, metric_id, list(werte[:-1]), werte[-1], schwelle)
+    return dq.ausreisser(
+        subjekt,
+        metric_id,
+        list(werte[:-1]),
+        werte[-1],
+        Decimal(str(ausreisser["schwelle"])),
+        Decimal(str(ausreisser["streuung_untergrenze"])),
+    )
 
 
 def _keine_werte(metric_id: str) -> Callable[[Rechenweg], Decimal]:
@@ -239,15 +241,13 @@ def trend(
         "steigung": einzeln("steigung", lambda r: steigung(r, werte, mindest)),
     }
     if werte and werte[-1].periode_ende == stichtag:
-        z = plausibilitaet(
-            subjekt,
-            metric_id,
-            werte,
-            Decimal(str(ausreisser["schwelle"])),
-            int(ausreisser["mindest_historie"]),
-        )
+        z = plausibilitaet(subjekt, metric_id, werte, ausreisser)
         if z is not None:
             out["plausibilitaet"] = z
+    # Herkunftshinweise der Jahreswerte (etwa abgeleitetes EBIT) gelten auch für den Trend
+    vermerke = tuple(dict.fromkeys(v for e in jahre.values() for v in e.vermerke))
+    if vermerke:
+        out = {k: replace(e, vermerke=vermerke) for k, e in out.items()}
     return out
 
 

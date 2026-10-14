@@ -8,8 +8,12 @@ Ablauf je Firma:
 4. Hinweise an die Agenten aus `config/hinweise.yaml` (`core/hinweise.py`).
 5. Speichern: `metrics` mit Rechenweg, `hinweise`, `metric_runs`.
 
-Kein Sprachmodell, kein Netz. Die vertikale Analyse wird nicht gespeichert, sondern bei der
-Anzeige gerechnet (`core/trends.vertikal`).
+Kein Sprachmodell, kein Netz. Gespeichert wird je Firma nur der letzte Lauf: Werte aller
+Geschäftsjahre (für Trends und Verläufe) und die Trends, der vollständige Rechenweg aber nur
+für die Jahreswerte des letzten Geschäftsjahres. Rechenwege von Vorjahren und Trends rechnen
+`nachrechnen` und `nachrechnen_trend` bei Bedarf gleich nach. Die vertikale Analyse wird
+nicht gespeichert, sondern bei der Anzeige gerechnet
+(`core/trends.vertikal`).
 """
 
 from __future__ import annotations
@@ -24,8 +28,10 @@ from typing import Any
 import duckdb
 import yaml
 
-from stockagent.core import hinweise, trends
+from stockagent.core import hinweise, registry, trends
+from stockagent.core.calc import Ergebnis as CalcErgebnis
 from stockagent.core.hinweise import Hinweis, Kennzahlwert
+from stockagent.core.reihen import Reihen
 from stockagent.data import concepts, inputs, store
 from stockagent.data.sources import sec
 from stockagent.paths import Paths
@@ -85,9 +91,7 @@ def berechne(
         return Rechnung(issuer_id, None, fehler="Kein Jahresbericht mit Abschlusswerten")
     stichtag = reihen.stichtage[0]
     tcfg = cfg.metrics["trends"]
-    waehrung = next(
-        (w.waehrung for w in reihen.werte.get("revenue", {}).values() if w.waehrung), None
-    )
+    waehrung = _waehrung(reihen)
     werte: list[Kennzahlwert] = []
     for d in cfg.metrics["metrics"]:
         jahre = trends.jahresreihe(d, reihen, int(tcfg["max_jahre"]))
@@ -99,6 +103,51 @@ def berechne(
     flags = store.load_dq_flags(conn, issuer_id)
     h = hinweise.ableiten(werte, flags, stichtag, cfg.hinweise, cfg.metrics)
     return Rechnung(issuer_id, stichtag, werte, h)
+
+
+def nachrechnen(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    as_of: datetime,
+    metric_id: str,
+    jahr: int,
+    cfg: Konfiguration,
+) -> CalcErgebnis | None:
+    """Rechenweg einer Kennzahl für ein Vorjahr zum selben Datenstand wie der gespeicherte Lauf.
+
+    Vorjahre speichern nur den Wert. Weil `pit_query` zum selben `as_of` dieselben Daten liefert,
+    ergibt das Nachrechnen denselben Wert mit vollständigem Rechenweg (SPEC 12.5). None, wenn es
+    das Geschäftsjahr im Datenstand nicht gibt."""
+    reihen = inputs.reihen(conn, issuer_id, as_of, cfg.cmap, cfg.quality)
+    treffer = [t for t in reihen.stichtage if t.year == jahr]
+    definition = next(d for d in cfg.metrics["metrics"] if d["id"] == metric_id)
+    return registry.berechne(definition, reihen, treffer[0]) if treffer else None
+
+
+def nachrechnen_trend(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    as_of: datetime,
+    metric_id: str,
+    statistik: str,
+    cfg: Konfiguration,
+) -> CalcErgebnis | None:
+    """Rechenweg einer Trendstatistik zum selben Datenstand wie der gespeicherte Lauf."""
+    reihen = inputs.reihen(conn, issuer_id, as_of, cfg.cmap, cfg.quality)
+    if not reihen.stichtage:
+        return None
+    tcfg = cfg.metrics["trends"]
+    d = next(m for m in cfg.metrics["metrics"] if m["id"] == metric_id)
+    jahre = trends.jahresreihe(d, reihen, int(tcfg["max_jahre"]))
+    geld = _waehrung(reihen) if d["einheit"] == "monetary" else None
+    tr = trends.trend(
+        d, issuer_id, jahre, reihen.stichtage[0], geld, tcfg, cfg.quality["ausreisser"]
+    )
+    return tr.get(statistik)
+
+
+def _waehrung(reihen: Reihen) -> str | None:
+    return next((w.waehrung for w in reihen.werte.get("revenue", {}).values() if w.waehrung), None)
 
 
 def speichere(

@@ -9,5 +9,7 @@
 | 5 | Eskalationen auch als GitHub-Issues? | ja | Schritt 10 |
 | 6 | Markierungen nach eigenen Werten (Branchen, Länder), ohne Einfluss auf die Note | keine | jederzeit |
 | 7 | Sollen die zurückgestellten Module aus Anhang A später gebaut werden? | nein | jederzeit |
+| 8 | Teilen (18.6): Lizenz, und läuft die Plattform bei jedem Nutzer selbst oder zentral? | jeder installiert sie bei sich | Baustein F |
+| 9 | Autonomer Betrieb (18.6): welches Sprachmodell ersetzt Claude (andere API, lokales Modell)? | offen, Entscheidung nach Goldstandard-Vergleich | Baustein G |
 
 Kostenlose Kursdaten in Dauerqualität sind knapp. `yfinance` ist inoffiziell und nur für die Entwicklung zugelassen. Spätestens in Schritt 4 klärt Claude Code mit Luca, ob eine offizielle kostenlose Quelle reicht oder Entscheidung 1 nötig wird.

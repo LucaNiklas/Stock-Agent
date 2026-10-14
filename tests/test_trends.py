@@ -52,8 +52,11 @@ def test_trend_hand_calculation() -> None:
     assert any(
         s["name"] == "steigung_2023-09-30_2025-09-27" for s in tr["steigung"].rechenweg["schritte"]
     )
-    # Vorjahre 274515 .. 391035: Median 383285, MAD 11043, z = 0,6745 * 32876 / 11043
-    assert q(tr["plausibilitaet"].wert) == Decimal("2.008047")
+    # Niveau: Median 383.285, MAD 11.043, z = 0,6745 * 32.876 / 11.043 = 2,008.
+    # Trend der Vorjahre 2020 bis 2024: Theil-Sen-Steigung 18.622,5, Gerade im Stichtagsjahr
+    # bei 420.530, MAD der Abweichungen 19.777, z = 0,6745 * (416.161 - 420.530) / 19.777.
+    # Wert ist der kleinere Betrag: -0,149006
+    assert q(tr["plausibilitaet"].wert) == Decimal("-0.149006")
     assert not tr["plausibilitaet"].warnungen
 
 

@@ -115,3 +115,50 @@ def test_unknown_isin(tmp_path: Path) -> None:
     paths = project(tmp_path)
     (res,) = metrics_update.update(paths, isins=["US0000000000"], now=NOW)
     assert res.fehler == "keinem SEC-Melder zugeordnet"
+
+
+def test_prior_years_store_value_without_trace(geladen: Paths) -> None:
+    conn = store.connect(geladen.db)
+    rows = store.load_metrics(conn, ISSUER, metric_id="gross_margin", statistik="wert")
+    conn.close()
+    vorjahre = [r for r in rows if r.period_end != T25]
+    assert vorjahre and all(r.calc_trace_json is None for r in vorjahre)
+    assert any(r.value is not None for r in vorjahre)
+
+
+def test_prior_year_trace_recomputed_on_demand(
+    geladen: Paths, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conn = store.connect(geladen.db)
+    (gespeichert,) = [
+        r
+        for r in store.load_metrics(conn, ISSUER, metric_id="gross_margin", statistik="wert")
+        if r.period_end.year == 2024
+    ]
+    run = store.load_metric_run(conn, ISSUER)
+    assert run is not None
+    cfg = metrics_update.Konfiguration.laden(geladen.config)
+    erg = metrics_update.nachrechnen(
+        conn, ISSUER, run[1].replace(tzinfo=UTC), "gross_margin", 2024, cfg
+    )
+    conn.close()
+    assert erg is not None and erg.wert == gespeichert.value  # bitgleich (CP-08)
+    monkeypatch.setenv("STOCKAGENT_HOME", str(geladen.root))
+    out = CliRunner().invoke(
+        app, ["metrics", "show", APPLE_ISIN, "--rechenweg", "gross_margin", "--jahr", "2024"]
+    )
+    assert out.exit_code == 0, out.output
+    assert "Nachgerechnet" in out.output and "2024-09-28" in out.output
+
+
+def test_trend_trace_recomputed_on_demand(geladen: Paths, monkeypatch: pytest.MonkeyPatch) -> None:
+    conn = store.connect(geladen.db)
+    (gespeichert,) = store.load_metrics(conn, ISSUER, metric_id="fcf", statistik="steigung")
+    conn.close()
+    assert gespeichert.calc_trace_json is None and gespeichert.value is not None
+    monkeypatch.setenv("STOCKAGENT_HOME", str(geladen.root))
+    out = CliRunner().invoke(
+        app, ["metrics", "show", APPLE_ISIN, "--rechenweg", "fcf", "--trend", "steigung"]
+    )
+    assert out.exit_code == 0, out.output
+    assert f"= {gespeichert.value}" in out.output.replace("\n", " ")

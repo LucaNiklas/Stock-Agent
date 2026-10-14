@@ -32,7 +32,7 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 - Zuordnung zur SEC (Lauf vom 13.10.2026): von 4.021 US-ISINs sind 3.117 einer CIK zugeordnet (3.052 verschiedene Firmen), 9 unsicher, 895 ohne SEC-Melder (davon 845 Hinterlegungsscheine, meist nicht gesponserte ADRs, 69 davon nur ADR-Registrierungen der Depotbank). Stammdaten liegen für alle 3.052 vor. Die SEC selbst führt bei 115 keinen SIC-Code (überwiegend geschlossene Fonds) und bei 2 keine Geschäftsadresse. 2.697 haben eine US-Geschäftsadresse.
 - Die 9 unsicheren Zuordnungen zeigt `stockagent sec show <ISIN>` mit Grund (meist Umbenennungen wie Hypera/Hypermarcas oder Verwechslungen bei OpenFIGI wie Helix Energy mit dem Ticker von Hornbeck Offshore). Festlegen mit `stockagent sec map <ISIN> <CIK>|keine`.
 - Abschlusswerte und Prüfungen bisher für die 10 Abnahmefirmen: Apple, Microsoft, Coca-Cola, Johnson & Johnson, Caterpillar, Procter & Gamble, Nike, Walmart, JPMorgan, PagerDuty. Alle erfüllen die Bilanzgleichung für zehn Jahre, alle verfügbaren Kernwerte stimmen auf dem zweiten Weg mit dem Originalbericht überein.
-- Kennzahlen (Lauf vom 13.10.2026) für die 10 Abnahmefirmen: zusammen 297 von 330 Jahreswerten im letzten Geschäftsjahr berechnet, kein Prüfpunkt gestoppt. Die fehlenden: JPMorgan 20 (Bank, eigene Scorecard in Schritt 8), Johnson & Johnson und Nike je 5 (kein operatives Ergebnis gemeldet, siehe unten), Apple und Caterpillar je 1 (kein Zinsaufwand gemeldet), PagerDuty 1 (EPS vor 5 Jahren negativ, Wachstumsrate nicht definiert). Die Werte aus der Datenbank stimmen für Apple bei allen 33 Kennzahlen mit der Handrechnung aus den 10-K überein.
+- Kennzahlen (Lauf vom 13.10.2026) für die 10 Abnahmefirmen: zusammen 306 von 330 Jahreswerten im letzten Geschäftsjahr berechnet, kein Prüfpunkt gestoppt. Die fehlenden: JPMorgan 20 (Bank, eigene Scorecard in Schritt 8), Apple, Caterpillar und Nike je 1 (kein Zinsaufwand gemeldet, Zinsdeckung unbekannt), PagerDuty 1 (Gewinn je Aktie vor 5 Jahren negativ, Wachstumsrate in Prozent nicht berechenbar). Bei Johnson & Johnson und Nike ist das EBIT abgeleitet und markiert. Speicher je Firma rund 100 KB. Die Werte aus der Datenbank stimmen für Apple bei allen 33 Kennzahlen mit der Handrechnung aus den 10-K überein.
 - `data/raw/`: Rohdateien mit SHA-256, auch jede SEC- und OpenFIGI-Antwort.
 - `state/tr_checks.yaml`: Lucas Prüfungen in der Trade-Republic-App. Noch leer.
 - `state/cik_overrides.yaml`: Lucas Zuordnungen zur SEC (`stockagent sec map`). Noch leer.
@@ -77,10 +77,9 @@ uv run pytest && uv run ruff check . && uv run mypy
 - **Länder ausländischer SEC-Melder:** Die SEC nennt ihr Land nur als eigenen Code (etwa `2M` für Deutschland). Gespeichert sind Code und Name. Eine Abbildung auf ISO-Codes fehlt noch.
 - **Länder ohne LEI (6.368 Aktien):** nur das ISIN-Land, unsicher. Für zugeordnete SEC-Melder liegt jetzt die Geschäftsadresse vor.
 - **Unsicherheit bei Umbenennungen:** Führt die GLEIF noch den alten Namen, fällt das Land auf das ISIN-Land zurück (232 Fälle).
-- **Operatives Ergebnis fehlt bei manchen Firmen.** Johnson & Johnson und Nike weisen kein operatives Ergebnis (`OperatingIncomeLoss`) aus. EBIT-Marge, ROIC, Zinsdeckung, Nettoverschuldung zu EBITDA und Altman Z'' bleiben dort `unknown`. Ein Ersatz (Vorsteuerergebnis plus Zinsaufwand) wäre eine Methodikentscheidung, offen für Luca.
-- **CP-05 bei stetigem Trend.** Der robuste z-Wert vergleicht mit dem Median der Vorjahre. Steigt eine Kennzahl über Jahre gleichmäßig (Apples Bruttomarge), meldet er einen Sprung, obwohl keiner vorliegt. Das erzeugt Hinweise an A4, die sich leicht begründen lassen. Verbesserung (Vergleich gegen den Trend) wäre eine Änderung von SPEC 3.2 Nr. 6.
+- **Abgeleitetes EBIT enthält übrige nicht operative Posten** (Kursgewinne, Beteiligungserträge). Bei Johnson & Johnson springt die EBIT-Marge 2025 dadurch auf 35,6 Prozent, und die Ausreißerprüfung meldet das an A4. Die um Sondereffekte bereinigte Reihe aus Schritt 6 wird das erklären.
+- **DQ-06 in `dq_flags`** stammt noch aus dem Lauf von Schritt 2 mit der alten Ausreißerprüfung. Beim nächsten `sec update --isin` wird sie mit der neuen Prüfung ersetzt.
 - **Banken:** Bruttomarge, Free Cashflow, Current Ratio und Finanzschulden passen nicht auf Banken (JPMorgan: 20 Kennzahlen `unknown` mit Grund). Eigene Scorecard in Schritt 8.
-- **Speicherbedarf:** Je Firma bis etwa 2,3 MB Rechenweg als Text (vor Komprimierung). Für alle rund 3.000 US-Firmen in Schritt 5 prüfen, ob die vollständigen Rechenwege der Vorjahre nötig sind oder nur die des letzten Jahres.
 - **Zweite unabhängige Quelle:** Der zweite Weg ist das XBRL des Originalberichts. Ein kommerzieller Anbieter fehlt (SPEC 19 Nr. 1), spätestens für Kurse in Schritt 4 nötig.
 - **Vorzugsaktien und Anleihen im Universum:** Die Deutsche Börse führt einige Vorzugsaktien und nachrangige Anleihen als `CS` (etwa „HANCOCK WHITNEY SU.NTS 25“). Sie werden dem richtigen Emittenten zugeordnet, sind aber keine Stammaktie. Bereinigung des Universums offen.
 - **Gelöschte Handzuordnung:** Entfernt Luca einen Eintrag aus `state/cik_overrides.yaml`, gilt die alte Zuordnung bis zur nächsten Neuprüfung (90 Tage). Sofort wirkt `sec map <ISIN> <CIK>`.
@@ -92,6 +91,10 @@ uv run pytest && uv run ruff check . && uv run mypy
 - Drei Arten von `unknown`: Eingabe fehlt, nicht aussagekräftig (etwa Verlust im Nenner) und Prüfpunkt verletzt (INC-15). Nur die dritte ist ein Datenfehler.
 - Hinweise an die Agenten (`config/hinweise.yaml`, H-01 bis H-09): die Übergabe von der Berechnung an Auswertung, Prüfung und Recherche. Ab Schritt 6 macht der Zustandsautomat daraus Aufträge.
 - Handrechnung je Kennzahl in `tests/metrics/` mit Seitenangaben aus drei Apple-10-K. Architekturtest HR-06 in `tests/test_architektur.py`.
+
+## Ziel Teilen und Autonomie (14.10.2026)
+
+Erst für Luca, später für alle. Nach Schritt 12 kommen Baustein F (andere installieren die Plattform mit eigenem Claude-Abo) und Baustein G (alle Funktionen ohne Claude, Agenten über eine austauschbare Schnittstelle). Die Regeln, die schon jetzt gelten, stehen in SPEC 18.6.
 
 ## Oberfläche (Version 4.3)
 

@@ -59,10 +59,17 @@ def test_reconciliation_thresholds() -> None:
 
 def test_outlier_robust_z() -> None:
     hist = [usd(v, ende=date(2020 + i, 9, 30)) for i, v in enumerate(["10", "11", "12", "13"])]
-    # Median 11,5, Abstände 1,5 0,5 0,5 1,5, MAD 1. z = 0,6745 * (20 - 11,5) / 1 = 5,73325
-    erg = dq.ausreisser("s", "umsatz", hist, usd("20", ende=date(2025, 9, 30)), Decimal(4))
-    assert erg is not None and erg.wert == Decimal("5.73325") and erg.warnungen
-    assert dq.ausreisser("s", "umsatz", hist[:3], usd("20"), Decimal(4)) is None
+    g = Decimal("0.01")
+    # Niveau: Median 11,5, Abstände 1,5 0,5 0,5 1,5, MAD 1, z = 0,6745 * (20 - 11,5) / 1 = 5,73325.
+    # Trend: Vorjahre 2020 bis 2023 bei Stichtag 2025, x = -5 bis -2, alle 6 Paarsteigungen 1,
+    # Gerade durch 15 im Stichtagsjahr, MAD 0, Untergrenze 1 % von 11,5 = 0,115,
+    # z = 0,6745 * (20 - 15) / 0,115 = 29,33. Beide über 4: Ausreißer, Wert ist der kleinere.
+    erg = dq.ausreisser("s", "umsatz", hist, usd("20", ende=date(2025, 9, 30)), Decimal(4), g)
+    assert erg is not None and erg.warnungen and erg.wert == Decimal("5.73325")
+    # Der Trend geht genau weiter (15): Niveau z = 2,36, Trend z = 0, kein Ausreißer
+    erg = dq.ausreisser("s", "umsatz", hist, usd("15", ende=date(2025, 9, 30)), Decimal(4), g)
+    assert erg is not None and erg.wert == 0 and not erg.warnungen
+    assert dq.ausreisser("s", "umsatz", hist[:3], usd("20"), Decimal(4), g) is None
 
 
 def test_split_detection() -> None:

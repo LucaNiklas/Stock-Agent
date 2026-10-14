@@ -16,9 +16,10 @@ abgleich_zweiter_weg:         # SPEC 3.2 Nr. 5
   stopp: "0.05"               # über 5 Prozent
   jahre: 1                    # wie viele der letzten Geschäftsjahre gegen den Originalbericht
 
-ausreisser:                   # SPEC 3.2 Nr. 6
+ausreisser:                   # SPEC 3.2 Nr. 6, gegen den Trend der Vorjahre (core/dq.py)
   schwelle: "4"
   mindest_historie: 4
+  streuung_untergrenze: "0.01" # mindestens 1 % des mittleren Betrags der Vorjahre
 
 split:                        # SPEC 3.2 Nr. 8
   toleranz: "0.02"            # Abstand des Verhältnisses zur nächsten ganzen Zahl

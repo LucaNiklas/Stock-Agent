@@ -33,6 +33,8 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Piotroski mit der Bilanzsumme zu Jahresbeginn (Piotroski 2000). Altman Z'' mit Buchwert des Eigenkapitals. Beneish mit den 8 veröffentlichten Koeffizienten.
 - Trends je Kennzahl (SPEC 3.4): Veränderung zum Vorjahr bei Beträgen relativ, bei Quoten in Prozentpunkten. Theil-Sen-Steigung je Geschäftsjahr, Geschäftsjahre gezählt relativ zum Stichtag (52/53-Wochen-Jahre). Streuung und Steigung erst ab 5 Jahren. CP-05 über den robusten z-Wert gegen die Vorjahre.
 - Hinweisregeln H-01 bis H-09 (`config/hinweise.yaml`), Schwelle Sloan-Accruals 10 Prozent als Richtwert bis zum Branchendezil in Schritt 5.
+- EBIT abgeleitet, wenn kein operatives Ergebnis gemeldet ist: Vorsteuerergebnis plus Zinsaufwand, ersatzweise minus nicht operatives Zinsergebnis netto. Mit Vermerk am Wert und an den Trends (Lucas Entscheidung 14.10.2026). Betrifft Johnson & Johnson und Nike.
+- Ausreißerprüfung DQ-06 und CP-05 gegen Niveau und Trend der Vorjahre, Ausreißer nur, wenn beide auffallen (Lucas Entscheidung 14.10.2026). Bei den 10 Abnahmefirmen sinkt die Zahl der Sprung-Hinweise von 22 auf 9.
 
 ## 4.3 (13.10.2026)
 

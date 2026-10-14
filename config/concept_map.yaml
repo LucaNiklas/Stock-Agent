@@ -77,6 +77,12 @@ us-gaap:
     - us-gaap:InterestExpense
     - us-gaap:InterestExpenseNonoperating
     - us-gaap:InterestExpenseDebt
+  interest_net:
+    # Zinsergebnis netto, positiv = Zinsertrag (Saldo laut Taxonomie im Haben). Nike meldet nur
+    # diesen Saldo. Nur für das abgeleitete EBIT, wenn kein Zinsaufwand gemeldet ist
+    # Nur das nicht operative Zinsergebnis. InterestIncomeExpenseNet ist bei Banken der
+    # Zinsüberschuss, also das Kerngeschäft, und darf nicht abgezogen werden (JPMorgan)
+    - us-gaap:InterestIncomeExpenseNonoperatingNet
   sbc:
     - us-gaap:ShareBasedCompensation
     - us-gaap:AllocatedShareBasedCompensationExpense

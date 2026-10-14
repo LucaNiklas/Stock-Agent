@@ -59,8 +59,7 @@ def _definitionen(paths: Paths) -> dict[str, dict[str, Any]]:
     return {m["id"]: m for m in cfg["metrics"]}
 
 
-def _rechenweg(row: store.MetricRow) -> None:
-    trace = json.loads(row.calc_trace_json)
+def _rechenweg(trace: dict[str, Any], grund: str | None, vermerke: tuple[str, ...]) -> None:
     typer.echo(
         f"Rechenweg {trace['name']} {trace['version']}, {trace['subjekt']} {trace['periode']}"
     )
@@ -77,13 +76,17 @@ def _rechenweg(row: store.MetricRow) -> None:
         typer.echo(
             f"  {p['cp_id']} {'ok' if p['bestanden'] else 'VERLETZT'} ({p['stufe']}): {p['text']}"
         )
-    if row.grund:
-        typer.echo(f"Ergebnis unbekannt: {row.grund}")
+    for v in vermerke:
+        typer.echo(f"  Vermerk: {v}")
+    if grund:
+        typer.echo(f"Ergebnis unbekannt: {grund}")
 
 
 def _waehrung(rows: list[store.MetricRow]) -> str | None:
     """Berichtswährung aus den Eingaben eines Rechenwegs (alle Eingaben haben dieselbe, CP-01)."""
     for r in rows:
+        if r.calc_trace_json is None:
+            continue
         for s in json.loads(r.calc_trace_json)["schritte"]:
             for v in s["eingaben"].values():
                 if isinstance(v, dict) and v.get("waehrung"):
@@ -97,6 +100,16 @@ def show(
     rechenweg: Annotated[
         str | None,
         typer.Option("--rechenweg", "-r", help="Rechenweg dieser Kennzahl zeigen (etwa roic)."),
+    ] = None,
+    jahr: Annotated[
+        int | None,
+        typer.Option("--jahr", "-j", help="Mit --rechenweg: Geschäftsjahr (Jahr des Endes)."),
+    ] = None,
+    trend: Annotated[
+        str | None,
+        typer.Option(
+            "--trend", "-t", help="Mit --rechenweg: Trend zeigen (etwa steigung, plausibilitaet)."
+        ),
     ] = None,
 ) -> None:
     """Kennzahlen des letzten Geschäftsjahres mit Trend und Hinweisen anzeigen."""
@@ -118,7 +131,40 @@ def show(
         if (rechenweg, "wert") not in je:
             typer.echo(f"Kennzahl {rechenweg} unbekannt.")
             raise typer.Exit(code=1)
-        _rechenweg(je[(rechenweg, "wert")])
+        if trend:
+            conn = connect(paths)
+            try:
+                cfg = metrics_update.Konfiguration.laden(paths.config)
+                erg = metrics_update.nachrechnen_trend(
+                    conn, issuer, as_of.replace(tzinfo=UTC), rechenweg, trend, cfg
+                )
+            finally:
+                conn.close()
+            if erg is None:
+                typer.echo(f"Trend {trend} für {rechenweg} nicht vorhanden.")
+                raise typer.Exit(code=1)
+            typer.echo(f"Nachgerechnet zum Datenstand {as_of:%d.%m.%Y}")
+            _rechenweg(erg.rechenweg, erg.grund, erg.vermerke)
+            return
+        if jahr is None or stichtag is None or jahr == stichtag.year:
+            row = je[(rechenweg, "wert")]
+            trace = json.loads(row.calc_trace_json) if row.calc_trace_json else {}
+            _rechenweg(trace, row.grund, row.vermerke)
+            return
+        conn = connect(paths)
+        try:
+            cfg = metrics_update.Konfiguration.laden(paths.config)
+            stand = as_of.replace(tzinfo=UTC)
+            erg = metrics_update.nachrechnen(conn, issuer, stand, rechenweg, jahr, cfg)
+        finally:
+            conn.close()
+        if erg is None:
+            typer.echo(f"Geschäftsjahr {jahr} nicht im Datenstand.")
+            raise typer.Exit(code=1)
+        typer.echo(
+            f"Nachgerechnet zum Datenstand {as_of:%d.%m.%Y} (Vorjahre speichern nur den Wert)"
+        )
+        _rechenweg(erg.rechenweg, erg.grund, erg.vermerke)
         return
     defs = _definitionen(paths)
     geld = _waehrung(rows)
@@ -149,6 +195,8 @@ def show(
         notiz = ""
         if wert is not None and wert.grund:
             notiz = wert.grund
+        elif wert is not None and wert.vermerke:
+            notiz = "abgeleitet: " + wert.vermerke[0].split(": ", 1)[-1]
         plaus = je.get((metric_id, "plausibilitaet"))
         if plaus is not None and plaus.warnungen:
             notiz = "Sprung gegen die eigene Historie (CP-05)"

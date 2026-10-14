@@ -128,14 +128,35 @@ def abgleich(
     return rechne(r, rechnung)
 
 
-def ausreisser(
-    subjekt: str, name: str, historie: Sequence[Eingabe], wert: Eingabe, schwelle: Decimal
-) -> Ergebnis | None:
-    """SPEC 3.2 Nr. 6: robuster z-Wert über Median und MAD gegen die eigene Historie.
+def geschaeftsjahr(stichtag: date, periode_ende: date) -> int:
+    """Geschäftsjahr relativ zum Stichtag: 0 im Stichtagsjahr, -1 im Vorjahr usw.
 
-    None, wenn die Historie zu kurz ist (unter 4 Werten). Hat die Historie keine Streuung
-    (MAD null), ist der z-Wert nicht definiert: Ergebnis 0 mit Vermerk im Rechenweg.
-    Wert ist der z-Wert. Ein Ausreißer ist eine Warnung, kein Fehler.
+    Gezählt über den Abstand in Tagen, nicht über das Kalenderjahr. Bei 52/53-Wochen-Jahren
+    liegen sonst zwei Jahresenden im selben Kalenderjahr (Johnson & Johnson: 1.1.2023 und
+    31.12.2023)."""
+    return int((Decimal((periode_ende - stichtag).days) / Decimal("365.25")).to_integral_value())
+
+
+def ausreisser(
+    subjekt: str,
+    name: str,
+    historie: Sequence[Eingabe],
+    wert: Eingabe,
+    schwelle: Decimal,
+    untergrenze: Decimal,
+) -> Ergebnis | None:
+    """SPEC 3.2 Nr. 6: robuster z-Wert gegen die eigene Historie, auf zwei Wegen.
+
+    Niveau: Abstand zum Median der Vorjahre, gestreut um den Median (MAD). Trend: Abstand zur
+    Fortschreibung der Theil-Sen-Geraden durch die Vorjahre, gestreut um diese Gerade. Ein
+    Ausreißer liegt nur vor, wenn der Wert auf beiden Wegen auffällt. So ist ein gleichmäßiger
+    Anstieg kein Ausreißer (Niveau auffällig, Trend nicht), eine Rückkehr zum gewohnten Niveau
+    nach einem Ausschlag auch nicht (Trend auffällig, Niveau nicht), ein echter Sprung schon.
+    Wert ist der z-Wert mit dem kleineren Betrag.
+
+    Beide Streuungen haben eine Untergrenze (`untergrenze` mal Median der Beträge der Vorjahre),
+    damit eine Historie ohne Schwankung nicht jeden kleinen Unterschied meldet. None, wenn die
+    Historie kürzer als 4 Werte ist. Ein Ausreißer ist eine Warnung, kein Fehler.
     """
     if len(historie) < 4:
         return None
@@ -146,17 +167,86 @@ def ausreisser(
         wert.periode_ende.isoformat(),
         pflicht=("CP-01", "CP-05"),
     )
+    jahr = {h.periode_ende: geschaeftsjahr(wert.periode_ende, h.periode_ende) for h in historie}
 
     def rechnung(r: Rechenweg) -> Decimal:
         r.pruefe_eingaben(wert, *historie, gleiche_periode=False)
-        med = r.median("median", historie)
-        abst = [r.schritt(f"abstand_{i}", "abs(x - m)", x=h, m=med) for i, h in enumerate(historie)]
-        mad = r.median("mad", abst)
-        if mad == 0:
-            r.pruefe("CP-05", "Historie ohne Streuung, z-Wert nicht definiert", True)
+        r.pruefe(
+            "CP-01",
+            "jedes Vorjahr nur einmal und vor dem Stichtag",
+            len(set(jahr.values())) == len(historie) and max(jahr.values()) < 0,
+        )
+        steigungen = [
+            r.schritt(
+                f"steigung_{a.periode_ende}_{b.periode_ende}",
+                "(b - a) / (jahr_b - jahr_a)",
+                a=a.wert,
+                b=b.wert,
+                jahr_a=jahr[a.periode_ende],
+                jahr_b=jahr[b.periode_ende],
+            )
+            for i, a in enumerate(historie)
+            for b in historie[i + 1 :]
+        ]
+        steigung = r.median("trend_steigung", steigungen)
+        achse = r.median(
+            "trend_stichtag",
+            [
+                r.schritt(
+                    f"fortschreibung_{h.periode_ende}",
+                    "y - s * x",
+                    y=h.wert,
+                    s=steigung,
+                    x=jahr[h.periode_ende],
+                )
+                for h in historie
+            ],
+        )
+        abweichungen = [
+            r.schritt(
+                f"abweichung_{h.periode_ende}",
+                "abs(y - (a + s * x))",
+                y=h.wert,
+                a=achse,
+                s=steigung,
+                x=jahr[h.periode_ende],
+            )
+            for h in historie
+        ]
+        niveau = r.median("niveau", [abs(h.wert) for h in historie])
+        median_ = r.median("median", historie)
+        mad_niveau = r.median(
+            "mad_niveau",
+            [
+                r.schritt(f"abstand_{h.periode_ende}", "abs(y - m)", y=h, m=median_)
+                for h in historie
+            ],
+        )
+        mad_trend = r.median("mad_trend", abweichungen)
+        streuung_niveau = r.schritt(
+            "streuung_niveau", "max(mad, g * n)", mad=mad_niveau, g=untergrenze, n=niveau
+        )
+        streuung_trend = r.schritt(
+            "streuung_trend", "max(mad, g * n)", mad=mad_trend, g=untergrenze, n=niveau
+        )
+        if streuung_niveau == 0 or streuung_trend == 0:
+            r.pruefe(
+                "CP-05", "Historie ohne Streuung und ohne Niveau, z-Wert nicht definiert", True
+            )
             return Decimal(0)
-        z = r.schritt("z_wert", "0.6745 * (x - median) / mad", x=wert, median=med, mad=mad)
-        r.pruefe("CP-05", f"|z| höchstens {schwelle}", abs(z) <= schwelle)
+        z_niveau = r.schritt(
+            "z_niveau", "0.6745 * (x - m) / s", x=wert, m=median_, s=streuung_niveau
+        )
+        z_trend = r.schritt("z_trend", "0.6745 * (x - e) / s", x=wert, e=achse, s=streuung_trend)
+        # Ergebnis ist der z-Wert mit dem kleineren Betrag (beide stehen im Rechenweg)
+        z = r.schritt(
+            "z_wert_kleinerer_betrag", "z", z=z_niveau if abs(z_niveau) <= abs(z_trend) else z_trend
+        )
+        r.pruefe(
+            "CP-05",
+            f"|z| höchstens {schwelle} gegen Niveau oder Trend",
+            abs(z_niveau) <= schwelle or abs(z_trend) <= schwelle,
+        )
         return z
 
     return rechne(r, rechnung)

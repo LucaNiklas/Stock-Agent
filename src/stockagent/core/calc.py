@@ -139,6 +139,8 @@ class Ergebnis:
     ungereimtheit: str | None
     warnungen: tuple[str, ...]
     rechenweg: dict[str, Any]
+    # Hinweise zur Herkunft, etwa ein abgeleitetes statt gemeldetes EBIT. Kein Fehler.
+    vermerke: tuple[str, ...] = ()
 
     @property
     def unknown(self) -> bool:
@@ -226,6 +228,7 @@ class Rechenweg:
     # Währungen aller bisher verwendeten Eingaben. Eine Rechnung mischt nie zwei Währungen
     # (CP-01). Umrechnungen erzeugen ab Schritt 4 neue Eingaben in der Zielwährung.
     waehrungen: set[str] = field(default_factory=set)
+    vermerke: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         unbekannt = set(self.pflicht) - set(KATALOG)
@@ -301,6 +304,11 @@ class Rechenweg:
         )
         return ergebnis
 
+    def vermerk(self, text: str) -> None:
+        """Hinweis zur Herkunft, der mit dem Ergebnis gespeichert und angezeigt wird."""
+        if text not in self.vermerke:
+            self.vermerke.append(text)
+
     def pruefe(self, cp_id: str, text: str, bestanden: bool, stufe: Stufe | None = None) -> None:
         """Prüfpunkt auswerten. `stufe` überschreibt die Stufe aus dem Katalog, wenn die
         Spezifikation für diesen Bereich eigene Schwellen nennt (etwa SPEC 3.2 Nr. 5)."""
@@ -328,6 +336,7 @@ class Rechenweg:
             "subjekt": self.subjekt,
             "periode": self.periode,
             "schritte": [s.__dict__ for s in self.schritte],
+            "vermerke": list(self.vermerke),
             "pruefungen": [
                 {"cp_id": p.cp_id, "text": p.text, "bestanden": p.bestanden, "stufe": p.stufe}
                 for p in self.pruefungen
@@ -347,7 +356,15 @@ class Rechenweg:
             raise RuntimeError(
                 f"{self.name}: Pflicht-Prüfpunkte nicht ausgewertet: {sorted(fehlend)}"
             )
-        return Ergebnis(self.name, wert, None, None, self._warnungen(), self._protokoll())
+        return Ergebnis(
+            self.name,
+            wert,
+            None,
+            None,
+            self._warnungen(),
+            self._protokoll(),
+            tuple(self.vermerke),
+        )
 
     def abbruch(self, exc: PruefpunktVerletzt) -> Ergebnis:
         return Ergebnis(

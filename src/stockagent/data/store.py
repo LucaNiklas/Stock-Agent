@@ -173,8 +173,12 @@ CREATE TABLE IF NOT EXISTS metrics (
     grund            VARCHAR,              -- Grund bei unknown
     ungereimtheit    VARCHAR,              -- INC-15, wenn ein Prüfpunkt stoppte
     warnungen_json   VARCHAR NOT NULL,
-    inputs_json      VARCHAR NOT NULL,     -- Eingaben mit Quelle (HR-12)
-    calc_trace_json  VARCHAR NOT NULL,     -- vollständiger Rechenweg (SPEC 12.7)
+    vermerke_json    VARCHAR NOT NULL,     -- Herkunftshinweise, etwa abgeleitetes EBIT
+    -- Vollständiger Rechenweg mit allen Eingaben und Quellen (SPEC 12.7, HR-12), nur für die
+    -- Jahreswerte des letzten Geschäftsjahres. Vorjahre und Trends speichern nur den Wert. Ihr
+    -- Rechenweg ergibt sich zum selben Datenstand jederzeit gleich neu (`metrics show --jahr`,
+    -- `--trend`)
+    calc_trace_json  VARCHAR,
     computed_at      TIMESTAMP NOT NULL
 );
 CREATE INDEX IF NOT EXISTS metrics_issuer ON metrics (issuer_id, metric_id);
@@ -257,9 +261,23 @@ def connect(path: Path) -> duckdb.DuckDBPyConnection:
             )
     conn.execute(SCHEMA)
     conn.execute(SCHEMA_V4)
+    _verwerfe_vorfassung_metrics(conn)
     conn.execute(SCHEMA_V5)
     conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", [str(SCHEMA_VERSION)])
     return conn
+
+
+def _verwerfe_vorfassung_metrics(conn: duckdb.DuckDBPyConnection) -> None:
+    """Die Tabelle `metrics` aus der Entwicklungsfassung von Schema 5 (mit `inputs_json`) wird
+    verworfen. Sie enthält nur Rechenergebnisse, `metrics update` erzeugt sie neu."""
+    spalten = {
+        r[0]
+        for r in conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'metrics'"
+        ).fetchall()
+    }
+    if "inputs_json" in spalten:
+        conn.execute("DROP TABLE metrics")
 
 
 def last_stock_count(conn: duckdb.DuckDBPyConnection) -> int | None:
@@ -806,7 +824,8 @@ class MetricRow:
     grund: str | None
     ungereimtheit: str | None
     warnungen: tuple[str, ...]
-    calc_trace_json: str
+    vermerke: tuple[str, ...]
+    calc_trace_json: str | None
 
 
 @dataclass(frozen=True)
@@ -822,16 +841,6 @@ class HinweisRow:
     status: str
 
 
-def _eingaben(trace: dict[str, Any]) -> list[dict[str, Any]]:
-    """Alle Eingaben mit Quelle aus einem Rechenweg, ohne Wiederholungen."""
-    out: list[dict[str, Any]] = []
-    for schritt in trace.get("schritte", []):
-        for v in schritt["eingaben"].values():
-            if isinstance(v, dict) and "quelle" in v and v not in out:
-                out.append(v)
-    return out
-
-
 def replace_metrics(
     conn: duckdb.DuckDBPyConnection,
     *,
@@ -843,7 +852,9 @@ def replace_metrics(
     hinweise: list[Hinweis],
     now: datetime,
 ) -> str:
-    """Ersetzt Kennzahlen und offene Hinweise einer Firma. Die Laufliste bleibt erhalten."""
+    """Ersetzt Kennzahlen und offene Hinweise einer Firma. Gespeichert wird nur der letzte Lauf,
+    die Laufliste `metric_runs` bleibt erhalten. Rechenwege nur für die Jahreswerte des
+    Stichtags."""
     run_id = f"metrics:{issuer_id}:{_utc_naive(as_of).isoformat()}"
     jetzt = _utc_naive(now)
     conn.execute("BEGIN")
@@ -870,8 +881,10 @@ def replace_metrics(
                         w.ergebnis.grund,
                         w.ergebnis.ungereimtheit,
                         json.dumps(list(w.ergebnis.warnungen), ensure_ascii=False),
-                        json.dumps(_eingaben(w.ergebnis.rechenweg), ensure_ascii=False),
-                        w.ergebnis.rechenweg_json(),
+                        json.dumps(list(w.ergebnis.vermerke), ensure_ascii=False),
+                        w.ergebnis.rechenweg_json()
+                        if w.period_end == stichtag and w.statistik == "wert"
+                        else None,
                         jetzt,
                     ]
                     for w in werte
@@ -911,7 +924,8 @@ def load_metrics(
 ) -> list[MetricRow]:
     sql = (
         "SELECT issuer_id, metric_id, metric_version, statistik, period_end, value, grund, "
-        "ungereimtheit, warnungen_json, calc_trace_json FROM metrics WHERE issuer_id = ?"
+        "ungereimtheit, warnungen_json, vermerke_json, calc_trace_json FROM metrics "
+        "WHERE issuer_id = ?"
     )
     params: list[Any] = [issuer_id]
     if metric_id:
@@ -932,7 +946,8 @@ def load_metrics(
             r[6],
             r[7],
             tuple(json.loads(r[8])),
-            r[9],
+            tuple(json.loads(r[9])),
+            r[10],
         )
         for r in rows
     ]

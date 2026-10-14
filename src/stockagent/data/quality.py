@@ -449,7 +449,12 @@ def ausreisser(
             continue
         *historie, letzter = werte[-11:]
         erg = dq.ausreisser(
-            ctx.issuer_id, metric, [_eingabe(h) for h in historie], _eingabe(letzter), schwelle
+            ctx.issuer_id,
+            metric,
+            [_eingabe(h) for h in historie],
+            _eingabe(letzter),
+            schwelle,
+            Decimal(str(cfg["ausreisser"]["streuung_untergrenze"])),
         )
         if erg is None:
             continue

@@ -109,9 +109,11 @@ dq_flags(issuer_id, check_id[DQ-01..DQ-08], severity[ok|info|warnung|stopp], per
 prices(isin, date, close, volume, currency, source)
 metric_runs(run_id PK, issuer_id, as_of, stichtag, methodology_version, computed_at)   # ab Schritt 3
 metrics(run_id, issuer_id, metric_id, metric_version, statistik[wert|niveau|veraenderung_vj|cagr_3j|cagr_5j|stdabw|
-        steigung|plausibilitaet], period_end, value, grund, ungereimtheit, warnungen_json, inputs_json,
+        steigung|plausibilitaet], period_end, value, grund, ungereimtheit, warnungen_json, vermerke_json,
         calc_trace_json, computed_at)
-        # value als Text (Decimal ungerundet), NULL = unknown mit grund. Je Firma der letzte Lauf
+        # value als Text (Decimal ungerundet), NULL = unknown mit grund. Je Firma nur der letzte Lauf.
+        # calc_trace_json (mit Eingaben und Quellen) nur für Jahreswerte des letzten Geschäftsjahres,
+        # Vorjahre und Trends werden bei Bedarf nachgerechnet. vermerke_json: etwa abgeleitetes EBIT
 hinweise(run_id, issuer_id, regel[H-01..], an_agent, abteilung, anlass, metric_id, period_end, detail,
          status[offen|beauftragt|erledigt], erstellt_at)   # 8.5, Regeln in config/hinweise.yaml
 insider_tx(tx_id PK, lei, person_name, role, relation[self|spouse|child|household|controlled_entity],

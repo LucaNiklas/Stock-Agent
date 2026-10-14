@@ -177,11 +177,44 @@ def fcf_wert(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     )
 
 
+EBIT_ABGELEITET = (
+    "EBIT abgeleitet: Vorsteuerergebnis plus Zinsaufwand (kein operatives Ergebnis gemeldet)"
+)
+EBIT_ABGELEITET_NETTO = (
+    "EBIT abgeleitet: Vorsteuerergebnis minus Zinsergebnis netto (kein operatives Ergebnis "
+    "und kein Zinsaufwand gemeldet)"
+)
+
+
+def ebit_wert(r: Rechenweg, d: Reihen, t: date) -> Wert:
+    """Operatives Ergebnis wie gemeldet. Fehlt es (Johnson & Johnson, Nike), abgeleitet aus dem
+    Vorsteuerergebnis plus Zinsaufwand, ersatzweise minus Zinsergebnis netto, mit Vermerk.
+    Die Ableitung enthält auch übrige nicht operative Posten (Lucas Entscheidung 14.10.2026)."""
+    if d.hat("ebit", t):
+        return d.hole("ebit", t)
+    vorsteuer = d.hole("pretax_income", t)
+    if d.hat("interest_expense", t):
+        zinsen = d.hole("interest_expense", t)
+        _cp01(r, t, vorsteuer, zinsen)
+        r.vermerk(EBIT_ABGELEITET)
+        return r.schritt(
+            "ebit_abgeleitet", "vorsteuer + zinsaufwand", vorsteuer=vorsteuer, zinsaufwand=zinsen
+        )
+    if d.hat("interest_net", t):
+        netto = d.hole("interest_net", t)
+        _cp01(r, t, vorsteuer, netto)
+        r.vermerk(EBIT_ABGELEITET_NETTO)
+        return r.schritt(
+            "ebit_abgeleitet", "vorsteuer - zinsergebnis", vorsteuer=vorsteuer, zinsergebnis=netto
+        )
+    raise EingabeFehlt("ebit (oder Vorsteuerergebnis und Zinsen)", t.isoformat())
+
+
 def ebitda(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     return r.schritt(
         "ebitda",
         "ebit + abschreibungen",
-        ebit=d.hole("ebit", t),
+        ebit=ebit_wert(r, d, t),
         abschreibungen=d.hole("depreciation", t),
     )
 
@@ -223,7 +256,9 @@ def _w(v: Wert) -> Decimal:
 def _cagr(r: Rechenweg, anfang: Wert, ende: Wert, jahre: int) -> Decimal:
     if not (_w(anfang) > 0 and _w(ende) > 0):
         raise NichtDefiniert(
-            f"Wachstumsrate nur bei positivem Anfangs- und Endwert ({_w(anfang)}, {_w(ende)})"
+            f"Vorzeichenwechsel oder Verlust am Anfang oder Ende ({_w(anfang)}, {_w(ende)}). "
+            "Eine Wachstumsrate in Prozent gibt es dafür nicht, die Veränderung je Jahr zeigt "
+            "der Trend der Kennzahl"
         )
     r.pruefe("CP-02", "Anfangs- und Endwert positiv", True)
     faktor = r.schritt("faktor", "ende / anfang", ende=ende, anfang=anfang)
@@ -254,7 +289,7 @@ def gross_margin(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 
 @metric("ebit_margin")
 def ebit_margin(r: Rechenweg, d: Reihen, t: date) -> Decimal:
-    return _marge(r, d, t, d.hole("ebit", t))
+    return _marge(r, d, t, ebit_wert(r, d, t))
 
 
 @metric("fcf_margin")
@@ -323,8 +358,9 @@ def _investiertes_kapital(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 
 @metric("roic")
 def roic(r: Rechenweg, d: Reihen, t: date) -> Decimal:
-    ebit, steuer, vorsteuer = d.hole("ebit", t), d.hole("income_tax", t), d.hole("pretax_income", t)
-    _cp01(r, t, ebit, steuer, vorsteuer, d.hole("equity", t), d.hole("cash", t))
+    steuer, vorsteuer = d.hole("income_tax", t), d.hole("pretax_income", t)
+    _cp01(r, t, steuer, vorsteuer, d.hole("equity", t), d.hole("cash", t))
+    ebit = ebit_wert(r, d, t)
     if vorsteuer.wert > 0:
         roh = r.schritt("steuersatz_roh", "steuer / vorsteuer", steuer=steuer, vorsteuer=vorsteuer)
     else:
@@ -486,7 +522,7 @@ def net_debt_incl_pensions(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 
 @metric("net_debt_to_ebitda")
 def net_debt_to_ebitda(r: Rechenweg, d: Reihen, t: date) -> Decimal:
-    _cp01(r, t, d.hole("ebit", t), d.hole("depreciation", t))
+    _cp01(r, t, d.hole("depreciation", t))
     return _quote(
         r,
         "net_debt_to_ebitda",
@@ -499,8 +535,9 @@ def net_debt_to_ebitda(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 
 @metric("interest_coverage")
 def interest_coverage(r: Rechenweg, d: Reihen, t: date) -> Decimal:
-    ebit, zinsen = d.hole("ebit", t), d.hole("interest_expense", t)
-    _cp01(r, t, ebit, zinsen)
+    zinsen = d.hole("interest_expense", t)
+    _cp01(r, t, zinsen)
+    ebit = ebit_wert(r, d, t)
     return _quote(r, "zinsdeckung", ebit, zinsen, "Zinsaufwand", wirtschaftlich=True)
 
 
