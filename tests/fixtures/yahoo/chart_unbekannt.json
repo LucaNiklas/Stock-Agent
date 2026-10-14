@@ -1,0 +1,10 @@
+{
+ "_quelle": "Abgerufen am 14.10.2026 von https://query2.finance.yahoo.com/v8/finance/chart/XXXQQQ.DE (absichtlich unbekanntes Symbol), unver\u00e4ndert.",
+ "chart": {
+  "result": null,
+  "error": {
+   "code": "Not Found",
+   "description": "No data found, symbol may be delisted"
+  }
+ }
+}

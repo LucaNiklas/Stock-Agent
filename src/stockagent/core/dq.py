@@ -341,3 +341,13 @@ def rundungstoleranz(decimals: Sequence[int | None]) -> Decimal:
     Unbekannte Genauigkeit zählt als exakt.
     """
     return sum((Decimal(1).scaleb(-d) for d in decimals if d is not None), Decimal(0))
+
+
+def juenger_als(tag: date, heute: date, tage: int) -> bool:
+    """Liegt `tag` weniger als `tage` Kalendertage zurück (0 heißt: heute)?"""
+    return (heute - tag).days < tage
+
+
+def kurs_veraltet(letzter_handelstag: date, heute: date, tage: int) -> bool:
+    """Liegt der letzte Kurs mehr als `tage` Kalendertage zurück (Handel ausgesetzt, Delisting)?"""
+    return (heute - letzter_handelstag).days > tage

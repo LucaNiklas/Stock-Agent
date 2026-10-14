@@ -1,0 +1,80 @@
+{
+ "_quelle": "NACHGEBAUT im Format der Antwort von query2.finance.yahoo.com/v8/finance/chart (Stand Oktober 2026). Keine echten Kurse. Wird durch eine gek\u00fcrzte echte Antwort ersetzt, sobald die Domains freigegeben sind.",
+ "chart": {
+  "result": [
+   {
+    "meta": {
+     "currency": "USD",
+     "symbol": "SAP",
+     "exchangeName": "NYSE",
+     "fullExchangeName": "NYSE",
+     "instrumentType": "EQUITY",
+     "exchangeTimezoneName": "America/New_York",
+     "longName": "Example Holdings Inc",
+     "shortName": "Example Holdings Inc"
+    },
+    "timestamp": [
+     1791205200,
+     1791291600,
+     1791378000,
+     1791464400,
+     1791550800
+    ],
+    "events": {},
+    "indicators": {
+     "quote": [
+      {
+       "open": [
+        10.0,
+        10.1,
+        10.2,
+        10.3,
+        10.4
+       ],
+       "high": [
+        10.0,
+        10.1,
+        10.2,
+        10.3,
+        10.4
+       ],
+       "low": [
+        10.0,
+        10.1,
+        10.2,
+        10.3,
+        10.4
+       ],
+       "close": [
+        10.0,
+        10.1,
+        10.2,
+        10.3,
+        10.4
+       ],
+       "volume": [
+        1000,
+        2000,
+        3000,
+        4000,
+        5000
+       ]
+      }
+     ],
+     "adjclose": [
+      {
+       "adjclose": [
+        9.8,
+        9.898,
+        9.996,
+        10.094,
+        10.192
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "error": null
+ }
+}

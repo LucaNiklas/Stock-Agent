@@ -8,7 +8,7 @@ Regeln für den Backtest. Keine Überlebensverzerrung (delistete Titel bleiben m
 
 ### 14.2 Notenkontrolle (vorwärts)
 
-Sobald die ersten quantitativen Noten vorliegen (Schritt 5 in 16.10), friert das System bei jedem Lauf die Noten aller Unternehmen mit Datum ein (`grade_snapshots`). Es misst danach, wie sich die Kurse je Notenstufe entwickeln, gegen einen breiten Vergleichsindex. Das ist eine reine Messung der Methodik, kein Depot und keine Allokation. Je früher sie startet, desto früher gibt es eine belastbare Aussage.
+Sobald die ersten quantitativen Noten vorliegen (Schritt 5 in 16.10), friert das System bei jedem Lauf die Noten aller bisher bewerteten Unternehmen mit Datum ein (`grade_snapshots`, Bewertung auf Anfrage nach ADR 0005). Es misst danach, wie sich die Kurse je Notenstufe entwickeln, gegen einen breiten Vergleichsindex. Das ist eine reine Messung der Methodik, kein Depot und keine Allokation. Je früher sie startet, desto früher gibt es eine belastbare Aussage.
 
 ### 14.3 Erfolgsmaße
 

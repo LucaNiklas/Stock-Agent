@@ -65,6 +65,31 @@ def parse_mapping(isins: list[str], raw: bytes) -> list[FigiResult]:
     return results
 
 
+@dataclass(frozen=True)
+class Listing:
+    """Eine Notierung laut OpenFIGI: Bloomberg-Börsenkürzel, Ticker dort, Name."""
+
+    exch_code: str
+    ticker: str
+    name: str | None
+    security_type: str | None
+
+
+def parse_listings(isins: list[str], raw: bytes) -> dict[str, list[Listing]]:
+    """Alle Notierungen je ISIN (für die Kursquelle, ADR 0005). Fehlende ISINs: leere Liste."""
+    answers = json.loads(raw)
+    if not isinstance(answers, list) or len(answers) != len(isins):
+        raise FigiFormatError("Antwort passt nicht zur Anfrage (Anzahl der Einträge)")
+    out: dict[str, list[Listing]] = {}
+    for isin, answer in zip(isins, answers, strict=True):
+        out[isin] = [
+            Listing(str(d["exchCode"]), str(d["ticker"]), d.get("name"), d.get("securityType"))
+            for d in answer.get("data", [])
+            if d.get("exchCode") and d.get("ticker")
+        ]
+    return out
+
+
 def batches(items: list[str], size: int) -> Iterator[list[str]]:
     for i in range(0, len(items), size):
         yield items[i : i + size]
@@ -89,26 +114,34 @@ class OpenFigiClient:
         self.now = now
         self._gefragt = False  # Pause vor jeder Anfrage außer der allerersten, auch über Aufrufe
 
+    def _abfrage(self, batch: list[str]) -> bytes:
+        if self._gefragt:
+            self.sleep(60.0 / float(self.cfg["requests_per_minute"]))
+        self._gefragt = True
+        raw = self.fetcher(
+            self.cfg["mapping_url"],
+            self.agent,
+            data=request_body(batch),
+            headers={"Content-Type": "application/json"},
+        )
+        # Die Anfrage steht im Fragment, damit die Rohdatei nachvollziehbar bleibt
+        url = f"{self.cfg['mapping_url']}#{','.join(batch)}"
+        rawstore.save(self.raw_dir, raw, url, self.now())
+        return raw
+
     def map(
         self, isins: list[str], progress: Callable[[int, int], None] | None = None
     ) -> list[FigiResult]:
-        size = int(self.cfg["jobs_per_request"])
-        pause = 60.0 / float(self.cfg["requests_per_minute"])
         results: list[FigiResult] = []
-        for batch in batches(isins, size):
-            if self._gefragt:
-                self.sleep(pause)
-            self._gefragt = True
-            raw = self.fetcher(
-                self.cfg["mapping_url"],
-                self.agent,
-                data=request_body(batch),
-                headers={"Content-Type": "application/json"},
-            )
-            # Die Anfrage steht im Fragment, damit die Rohdatei nachvollziehbar bleibt
-            url = f"{self.cfg['mapping_url']}#{','.join(batch)}"
-            rawstore.save(self.raw_dir, raw, url, self.now())
-            results.extend(parse_mapping(batch, raw))
+        for batch in batches(isins, int(self.cfg["jobs_per_request"])):
+            results.extend(parse_mapping(batch, self._abfrage(batch)))
             if progress:
                 progress(len(results), len(isins))
         return results
+
+    def listings(self, isins: list[str]) -> dict[str, list[Listing]]:
+        """Alle Notierungen je ISIN, für die Zuordnung zum Kurssymbol."""
+        out: dict[str, list[Listing]] = {}
+        for batch in batches(isins, int(self.cfg["jobs_per_request"])):
+            out.update(parse_listings(batch, self._abfrage(batch)))
+        return out

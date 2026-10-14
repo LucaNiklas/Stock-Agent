@@ -61,10 +61,12 @@ informationen:
       - {name: Vorschlag A0 mit Lucas Bestätigung, zugriff: agent, domains: [], ab_schritt: 5}
 
   kurse:
-    beschreibung: Tägliche Schlusskurse und Volumen (SPEC 7.3, Entscheidung 19 Nr. 1 offen)
+    beschreibung: Tägliche Schlusskurse, Volumen, Splits und Dividenden, nur für angefragte Titel
+      und ihre Vergleichsgruppe (ADR 0005)
     region: alle
     quellen:
-      - {name: offen, zugriff: python, modul: prices, ab_schritt: 4}
+      - {name: OpenFIGI (ISIN -> Börsenkürzel), zugriff: python, modul: openfigi, ab_schritt: 4}
+      - {name: Yahoo Finance (inoffiziell, persönliche Nutzung), zugriff: python, modul: yahoo, ab_schritt: 4}
 
   wechselkurse:
     region: alle

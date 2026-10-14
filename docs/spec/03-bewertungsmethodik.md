@@ -118,7 +118,7 @@ Durchschnittswerte für Bestandsgrößen sind (Anfang plus Ende) durch 2. TTM be
 | pb | Kurs / Buchwert je Aktie | |
 | dividend_yield | Dividende je Aktie / Kurs | |
 
-Jede Bewertungskennzahl wird dreifach eingeordnet. Gegen die eigene Historie (Perzentil der letzten 10 Jahre), gegen die Vergleichsgruppe (Perzentil innerhalb der Branche, Branchenschlüssel aus SIC bei US-Werten und NACE bei EU-Werten, weil GICS lizenzpflichtig ist) und gegen den Gesamtmarkt.
+Jede Bewertungskennzahl wird dreifach eingeordnet. Gegen die eigene Historie (Perzentil der letzten 10 Jahre), gegen die Vergleichsgruppe (Perzentil innerhalb der Branche, 15 bis 50 Titel, Branchenschlüssel aus SIC bei US-Werten und NACE bei EU-Werten, weil GICS lizenzpflichtig ist) und gegen den Gesamtmarkt, sobald es einen Lauf über alle Titel gibt (ADR 0005: Bewertung auf Anfrage).
 
 ### 3.4 Trend- und Zeitreihenanalyse
 

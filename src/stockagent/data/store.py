@@ -23,7 +23,7 @@ import duckdb
 from stockagent.core import pit
 from stockagent.core.hinweise import Hinweis, Kennzahlwert
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);
@@ -197,8 +197,51 @@ CREATE TABLE IF NOT EXISTS hinweise (
 );
 """
 
+SCHEMA_V6 = """
+CREATE TABLE IF NOT EXISTS price_symbols (
+    isin           VARCHAR PRIMARY KEY,
+    symbol         VARCHAR,              -- Yahoo-Symbol, NULL wenn nicht sicher zugeordnet
+    exch_code      VARCHAR,              -- Bloomberg-Börsenkürzel laut OpenFIGI
+    method         VARCHAR NOT NULL,     -- openfigi, manuell, keine
+    status         VARCHAR NOT NULL,     -- zugeordnet, unsicher, keine
+    detail         VARCHAR NOT NULL,
+    quelle_name    VARCHAR,              -- Name laut Yahoo, für die Prüfung
+    waehrung       VARCHAR,              -- wie geliefert, etwa GBp für Pence
+    boerse         VARCHAR,
+    warnungen_json VARCHAR NOT NULL,     -- Prüfungen des letzten Abrufs
+    checked_at     TIMESTAMP NOT NULL,   -- naives UTC
+    retrieved_at   TIMESTAMP             -- letzter Kursabruf
+);
+CREATE TABLE IF NOT EXISTS prices (
+    isin              VARCHAR NOT NULL,
+    date              DATE NOT NULL,        -- Handelstag an der Börse
+    close             VARCHAR NOT NULL,     -- Decimal als Text, um Splits bereinigt
+    adj_close         VARCHAR,              -- um Splits und Dividenden bereinigt
+    volume            BIGINT,
+    currency          VARCHAR,
+    symbol            VARCHAR NOT NULL,
+    source            VARCHAR NOT NULL,     -- yahoo
+    raw_sha256        VARCHAR NOT NULL,
+    retrieved_at      TIMESTAMP NOT NULL,
+    PRIMARY KEY (isin, date, source)
+);
+CREATE TABLE IF NOT EXISTS price_events (
+    isin          VARCHAR NOT NULL,
+    date          DATE NOT NULL,
+    kind          VARCHAR NOT NULL,     -- split, dividende
+    value         VARCHAR,              -- Dividende je Aktie
+    numerator     VARCHAR,              -- Split 4:1: 4
+    denominator   VARCHAR,              -- Split 4:1: 1
+    currency      VARCHAR,
+    symbol        VARCHAR NOT NULL,
+    source        VARCHAR NOT NULL,
+    raw_sha256    VARCHAR NOT NULL,
+    PRIMARY KEY (isin, date, kind, source)
+);
+"""
+
 # Schemaversionen, aus denen ohne Datenverlust aufgerüstet wird.
-_MIGRATABLE = {3, 4}
+_MIGRATABLE = {3, 4, 5}
 
 _COLUMNS = (
     "isin, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, lei_name, "
@@ -263,6 +306,7 @@ def connect(path: Path) -> duckdb.DuckDBPyConnection:
     conn.execute(SCHEMA_V4)
     _verwerfe_vorfassung_metrics(conn)
     conn.execute(SCHEMA_V5)
+    conn.execute(SCHEMA_V6)
     conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", [str(SCHEMA_VERSION)])
     return conn
 
@@ -978,3 +1022,186 @@ def load_hinweise(
         params.append(issuer_id)
     rows = conn.execute(sql + " ORDER BY issuer_id, regel, metric_id, period_end", params)
     return [HinweisRow(*r) for r in rows.fetchall()]
+
+
+# ------------------------------------------------------------------ Kurse (Bauschritt 4)
+
+
+@dataclass(frozen=True)
+class PriceSymbol:
+    isin: str
+    symbol: str | None
+    exch_code: str | None
+    method: str
+    status: str
+    detail: str
+    quelle_name: str | None
+    waehrung: str | None
+    boerse: str | None
+    warnungen: tuple[str, ...]
+    checked_at: datetime
+    retrieved_at: datetime | None
+
+
+@dataclass(frozen=True)
+class PriceRow:
+    isin: str
+    date: date
+    close: Decimal
+    adj_close: Decimal | None
+    volume: int | None
+    currency: str | None
+    symbol: str
+    source: str
+
+
+@dataclass(frozen=True)
+class PriceEvent:
+    isin: str
+    date: date
+    kind: str
+    value: Decimal | None
+    numerator: Decimal | None
+    denominator: Decimal | None
+    currency: str | None
+    symbol: str
+    source: str
+
+
+def save_price_symbol(conn: duckdb.DuckDBPyConnection, p: PriceSymbol) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO price_symbols VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            p.isin,
+            p.symbol,
+            p.exch_code,
+            p.method,
+            p.status,
+            p.detail,
+            p.quelle_name,
+            p.waehrung,
+            p.boerse,
+            json.dumps(list(p.warnungen), ensure_ascii=False),
+            _utc_naive(p.checked_at),
+            _utc_naive(p.retrieved_at) if p.retrieved_at else None,
+        ],
+    )
+
+
+def load_price_symbol(conn: duckdb.DuckDBPyConnection, isin: str) -> PriceSymbol | None:
+    row = conn.execute("SELECT * FROM price_symbols WHERE isin = ?", [isin]).fetchone()
+    if row is None:
+        return None
+    return PriceSymbol(
+        row[0],
+        row[1],
+        row[2],
+        row[3],
+        row[4],
+        row[5],
+        row[6],
+        row[7],
+        row[8],
+        tuple(json.loads(row[9])),
+        row[10].replace(tzinfo=UTC),
+        row[11].replace(tzinfo=UTC) if row[11] else None,
+    )
+
+
+def save_prices(
+    conn: duckdb.DuckDBPyConnection,
+    rows: list[PriceRow],
+    events: list[PriceEvent],
+    raw_sha256: str,
+    retrieved_at: datetime,
+) -> None:
+    """Neuere Abrufe überschreiben ältere je Tag und Quelle (Yahoo korrigiert gelegentlich)."""
+    conn.execute("BEGIN")
+    try:
+        if rows:
+            conn.executemany(
+                "INSERT OR REPLACE INTO prices VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    [
+                        r.isin,
+                        r.date,
+                        str(r.close),
+                        None if r.adj_close is None else str(r.adj_close),
+                        r.volume,
+                        r.currency,
+                        r.symbol,
+                        r.source,
+                        raw_sha256,
+                        _utc_naive(retrieved_at),
+                    ]
+                    for r in rows
+                ],
+            )
+        if events:
+            conn.executemany(
+                "INSERT OR REPLACE INTO price_events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    [
+                        e.isin,
+                        e.date,
+                        e.kind,
+                        None if e.value is None else str(e.value),
+                        None if e.numerator is None else str(e.numerator),
+                        None if e.denominator is None else str(e.denominator),
+                        e.currency,
+                        e.symbol,
+                        e.source,
+                        raw_sha256,
+                    ]
+                    for e in events
+                ],
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def delete_prices_from(conn: duckdb.DuckDBPyConnection, isin: str, ab: date, source: str) -> None:
+    """Entfernt laufende Kurse ab einem Tag (gespeichert vor dem Handelsschluss)."""
+    conn.execute(
+        "DELETE FROM prices WHERE isin = ? AND date >= ? AND source = ?", [isin, ab, source]
+    )
+
+
+def _dec(v: str | None) -> Decimal | None:
+    return None if v is None else Decimal(v)
+
+
+def load_prices(
+    conn: duckdb.DuckDBPyConnection, isin: str, bis: date | None = None
+) -> list[PriceRow]:
+    """Kurse eines Titels, ältester zuerst. `bis` begrenzt auf Handelstage bis einschließlich."""
+    sql = (
+        "SELECT isin, date, close, adj_close, volume, currency, symbol, source FROM prices "
+        "WHERE isin = ?"
+    )
+    params: list[Any] = [isin]
+    if bis is not None:
+        sql += " AND date <= ?"
+        params.append(bis)
+    rows = conn.execute(sql + " ORDER BY date", params).fetchall()
+    return [PriceRow(r[0], r[1], Decimal(r[2]), _dec(r[3]), r[4], r[5], r[6], r[7]) for r in rows]
+
+
+def load_price_events(conn: duckdb.DuckDBPyConnection, isin: str) -> list[PriceEvent]:
+    rows = conn.execute(
+        "SELECT isin, date, kind, value, numerator, denominator, currency, symbol, source "
+        "FROM price_events WHERE isin = ? ORDER BY date, kind",
+        [isin],
+    ).fetchall()
+    return [
+        PriceEvent(r[0], r[1], r[2], _dec(r[3]), _dec(r[4]), _dec(r[5]), r[6], r[7], r[8])
+        for r in rows
+    ]
+
+
+def listing_info(conn: duckdb.DuckDBPyConnection, isin: str) -> tuple[str, str] | None:
+    """Börsenname und Land (Hauptsitz) eines gelisteten Titels."""
+    row = conn.execute("SELECT name, country FROM listings WHERE isin = ?", [isin]).fetchone()
+    return None if row is None else (row[0], row[1])

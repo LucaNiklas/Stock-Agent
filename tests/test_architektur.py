@@ -51,6 +51,7 @@ ERLAUBT: dict[tuple[str, str], str] = {
     ("metrics_update.py", "config / name"): "Pfad",
     ("sec_update.py", "header + yaml.safe_dump(data, sort_keys=True)"): "Text",
     ("tr_checks.py", "header + yaml.safe_dump(body, sort_keys=False)"): "Text",
+    ("prices_update.py", "header + yaml.safe_dump(data, sort_keys=True)"): "Text",
 }
 # Listen und Zähler, die mit += wachsen (keine Finanzwerte)
 ERLAUBT_ANHAENGEN = {"sql", "params", "flags", "detail"}

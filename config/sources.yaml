@@ -47,3 +47,103 @@ openfigi:
   requests_per_minute: 25
   # Neu zuordnen, wenn die letzte Prüfung älter ist
   recheck_days: 90
+
+yahoo:
+  # Kursquelle (ADR 0005, Lucas Entscheidung 14.10.2026). Inoffizielle Schnittstelle von Yahoo
+  # Finance, dieselbe, die die Bibliothek yfinance nutzt. Nur persönliche Nutzung, Abruf nur für
+  # angefragte Titel und ihre Vergleichsgruppe, langsam. Wir melden uns mit unserem eigenen
+  # User-Agent und geben uns nicht als Browser aus. Lehnt Yahoo das ab, wird das gemeldet.
+  enabled: true
+  chart_url: https://query2.finance.yahoo.com/v8/finance/chart/{symbol}
+  erstabruf: 10y          # Geschichte beim ersten Abruf eines Titels
+  nachabruf: 3mo          # danach nur das Neueste, überlappend
+  pause_s: 2.0            # Pause zwischen zwei Abrufen
+  aktuell_tage: 1         # Kurse jünger als das nicht neu abrufen
+  veraltet_tage: 10       # letzter Kurs älter als das: Warnung (Handel ausgesetzt, Delisting)
+  # Bloomberg-Börsenkürzel aus OpenFIGI (Ländersammelkürzel) -> Endung des Yahoo-Symbols
+  endungen:
+    US: ""
+    CN: ".TO"
+    CV: ".V"
+    GR: ".DE"
+    GY: ".DE"
+    GF: ".F"
+    LN: ".L"
+    FP: ".PA"
+    NA: ".AS"
+    IM: ".MI"
+    SM: ".MC"
+    SQ: ".MC"
+    SS: ".ST"
+    NO: ".OL"
+    DC: ".CO"
+    FH: ".HE"
+    SW: ".SW"
+    SE: ".SW"
+    AV: ".VI"
+    BB: ".BR"
+    PL: ".LS"
+    ID: ".IR"
+    PW: ".WA"
+    GA: ".AT"
+    HB: ".BD"
+    CP: ".PR"
+    JP: ".T"
+    JT: ".T"
+    HK: ".HK"
+    CG: ".SS"
+    CS: ".SZ"
+    KS: ".KS"
+    KQ: ".KQ"
+    TT: ".TW"
+    SP: ".SI"
+    AU: ".AX"
+    AT: ".AX"
+    NZ: ".NZ"
+    SJ: ".JO"
+    IJ: ".JK"
+    TB: ".BK"
+    MK: ".KL"
+    IT: ".TA"
+    IS: ".NS"
+    IB: ".BO"
+  # Heimatbörse je Land (Hauptsitz laut Universum), in dieser Reihenfolge versucht. Danach die
+  # USA (viele ausländische Firmen mit US-Notierung) und zuletzt Xetra und Frankfurt, wo jede
+  # Aktie des Universums gehandelt wird, aber bei kleinen Werten mit wenig Umsatz.
+  heimatboerse:
+    US: [US]
+    CA: [CN, CV]
+    DE: [GR, GY]
+    GB: [LN]
+    FR: [FP]
+    NL: [NA]
+    IT: [IM]
+    ES: [SM, SQ]
+    SE: [SS]
+    NO: [NO]
+    DK: [DC]
+    FI: [FH]
+    CH: [SW, SE]
+    AT: [AV]
+    BE: [BB]
+    PT: [PL]
+    IE: [ID, LN]
+    PL: [PW]
+    GR: [GA]
+    HU: [HB]
+    CZ: [CP]
+    JP: [JP, JT]
+    HK: [HK]
+    CN: [CG, CS, HK]
+    KR: [KS, KQ]
+    TW: [TT]
+    SG: [SP]
+    AU: [AU, AT]
+    NZ: [NZ]
+    ZA: [SJ]
+    ID: [IJ]
+    TH: [TB]
+    MY: [MK]
+    IL: [IT]
+    IN: [IS, IB]
+  rueckfall: [US, GR, GY, GF]
