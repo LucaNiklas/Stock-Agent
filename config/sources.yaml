@@ -147,3 +147,14 @@ yahoo:
     IL: [IT]
     IN: [IS, IB]
   rueckfall: [US, GR, GY, GF]
+
+ecb:
+  # Referenzkurse der EZB (SPEC 5.2 Nr. 1), Einheiten der Währung je 1 EUR, täglich gegen 16 Uhr.
+  # Ohne Schlüssel. Ein Abruf liefert alle Währungen ab `start`, danach nur das Neueste.
+  url: https://data-api.ecb.europa.eu/service/data/EXR/D.{waehrungen}.EUR.SP00.A?format=csvdata&detail=dataonly&startPeriod={start}
+  start: "2015-01-01"
+  aktuell_tage: 1
+  waehrungen: [USD, GBP, JPY, HKD, CAD, AUD, CHF, SEK, NOK, DKK, PLN, CZK, HUF, CNY, KRW, SGD,
+               ZAR, ILS, INR, IDR, THB, MYR, NZD, BRL, MXN, TRY, ISK, RON, PHP]
+  # Unterwährungen (SPEC 5.2 Nr. 10): Kurse in Pence, Cent oder Agorot, Faktor 100 zur Hauptwährung
+  unterwaehrungen: {GBp: GBP, GBX: GBP, ZAc: ZAR, ZAC: ZAR, ILA: ILS}

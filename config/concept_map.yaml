@@ -115,8 +115,15 @@ us-gaap:
   dividends_paid:
     - us-gaap:PaymentsOfDividends
     - us-gaap:PaymentsOfDividendsCommonStock
+    - us-gaap:PaymentsOfOrdinaryDividends  # etwa Johnson & Johnson
   buybacks:
     - us-gaap:PaymentsForRepurchaseOfCommonStock
+  stock_issuance:
+    # Ausgabe neuer Aktien gegen Geld, mindert den Netto-Rückkauf (buyback_yield)
+    - us-gaap:ProceedsFromIssuanceOfCommonStock
+  equity_investments:
+    # At-equity-Beteiligungen, nicht betriebsnotwendig, mindern den Unternehmenswert
+    - us-gaap:EquityMethodInvestments
   acquisitions:
     - us-gaap:PaymentsToAcquireBusinessesNetOfCashAcquired
   st_investments:

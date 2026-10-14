@@ -31,6 +31,18 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Kursquelle Yahoo Finance für alle Länder, Kurse wie geliefert gespeichert (SPEC 7.3).
 - Einordnung gegen den Gesamtmarkt nur, wenn es einen Lauf über alle Titel gibt (SPEC 3.3).
 
+## 4.6 (14.10.2026, Bauschritt 4 Teil 2, `methodology_version` der Kennzahlen 1.1)
+
+- Zehn Kennzahlen mit Börsenkurs (SPEC 3.3): `market_cap`, `enterprise_value`, `pe`, `ev_ebit`, `ev_sales`, `fcf_yield`, `pb`, `dividend_yield`, `buyback_yield`, `shareholder_yield`. Je Geschäftsjahr mit dem Schlusskurs am Geschäftsjahresende (oder am letzten Handelstag davor, höchstens 7 Tage, `config/metrics.yaml` `kurse`), zusätzlich als Statistik `aktuell` mit dem letzten Schlusskurs.
+- Aktienzahl: verwässerte durchschnittliche Aktienzahl des Geschäftsjahres, um Splits bereinigt wie der Kurs.
+- Unternehmenswert = Börsenwert + Nettoverschuldung mit Leasing + Pensionsdefizit + Minderheitsanteile − at-equity-Beteiligungen, Brücke zurück zum Börsenwert (CP-03). Nicht gemeldete Posten zählen 0 und stehen als eigener Schritt im Rechenweg.
+- KGV nur bei positivem Gewinn je Aktie, EV/EBIT, EV/Umsatz und Kurs-Buchwert nur bei positivem Nenner, sonst `unknown` ohne Ungereimtheit.
+- Rückkaufrendite netto: Rückkäufe minus Ausgabe neuer Aktien (`ProceedsFromIssuanceOfCommonStock`). Aktionärsrendite: Dividenden + Netto-Rückkauf + Abbau der Nettoverschuldung gegenüber dem Vorjahr.
+- Weicht die Kurswährung von der Berichtswährung ab, wird der Kurs zum EZB-Referenzkurs am Kurstag umgerechnet (`core/fx.py`, über den Euro, Unterwährungen wie GBp vorher durch 100). Hinterlegungsscheine (ADRs) bekommen keine Bewertungskennzahl, solange das Depotverhältnis fehlt (SPEC 5.2 Nr. 11).
+- Keine Ausreißerprüfung CP-05 für Kennzahlen mit Börsenkurs: Sprünge sind Marktbewegungen, kein Datenfehler (im ersten Lauf 13 falsche Hinweise).
+- Rang gegen die eigene Geschichte (Statistik `perzentil_historie`) für KGV, EV/EBIT, EV/Umsatz, FCF-Rendite, Kurs-Buchwert und Dividendenrendite: Anteil der bis zu 10 Geschäftsjahre, deren Wert höchstens so hoch war wie der aktuelle. Mindestens 5 Jahre.
+- Konzeptzuordnung: `dividends_paid` zusätzlich `PaymentsOfOrdinaryDividends` (Johnson & Johnson), neu `stock_issuance` und `equity_investments` (`EquityMethodInvestments`).
+
 ## 4.4 (13.10.2026, Bauschritt 3, `methodology_version` der Kennzahlen 1.0)
 
 - Erste Fassung der 33 Kennzahlen und Scores ohne Börsenkurs in `config/metrics.yaml`. Kennzahlen mit Börsenkurs, Altman Z für Produzenten und `ev_ebit_normalized` folgen in Schritt 4, der Qualitätskomposit in Schritt 5.

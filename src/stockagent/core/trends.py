@@ -17,6 +17,7 @@ Rechenweg, damit eine nicht berechenbare Statistik die anderen nicht mitnimmt:
   (`geschaeftsjahr`), nicht nach Kalenderjahr.
 - `plausibilitaet`: CP-05, robuster z-Wert des Stichtagswerts gegen den Trend der Vorjahre
   (`dq.ausreisser`, Schwelle aus `config/quality.yaml`). Ein Ausreißer ist eine Warnung.
+  Nicht für Kennzahlen mit Börsenkurs: Deren Sprünge sind Marktbewegungen.
 
 Dazu die vertikale Analyse (SPEC 3.4 Nr. 6): jeder Strom in Prozent vom Umsatz, jeder Stand in
 Prozent der Bilanzsumme, für die Detailansicht.
@@ -45,6 +46,8 @@ STATISTIKEN = (
     "stdabw",
     "steigung",
     "plausibilitaet",
+    "aktuell",
+    "perzentil_historie",
 )
 # Einheiten, bei denen die Vorjahresveränderung relativ gerechnet wird
 _RELATIV = {"monetary", "per_share", "shares"}
@@ -240,7 +243,9 @@ def trend(
         "stdabw": einzeln("stdabw", lambda r: stdabw(r, werte, mindest)),
         "steigung": einzeln("steigung", lambda r: steigung(r, werte, mindest)),
     }
-    if werte and werte[-1].periode_ende == stichtag:
+    # Kennzahlen mit Börsenkurs springen mit dem Markt, das ist kein Datenfehler. Kursfehler
+    # fangen die Prüfungen beim Kursabruf ab (prices_update.py)
+    if werte and werte[-1].periode_ende == stichtag and not definition.get("kurs"):
         z = plausibilitaet(subjekt, metric_id, werte, ausreisser)
         if z is not None:
             out["plausibilitaet"] = z
@@ -278,3 +283,53 @@ def vertikal(reihen: Reihen, stichtag: date) -> dict[str, Ergebnis]:
 
         out[name] = rechne(r, rechnung)
     return out
+
+
+# ------------------------------------------------------------------ Einordnung gegen die Historie
+
+
+def perzentil_historie(
+    definition: Mapping[str, Any],
+    subjekt: str,
+    jahre: Mapping[date, Ergebnis],
+    jetzt: Ergebnis,
+    stichtag: date,
+    cfg: Mapping[str, Any],
+) -> Ergebnis:
+    """Anteil der Geschäftsjahre der letzten 10 Jahre, deren Wert höchstens so hoch war wie der
+    jetzige (SPEC 3.3: Bewertung gegen die eigene Historie). 0 = so niedrig wie nie, 1 = so hoch
+    wie nie. `jetzt` ist der aktuelle Wert (mit heutigem Kurs) oder der Wert zum Stichtag."""
+    metric_id = str(definition["id"])
+    r = Rechenweg(
+        f"trend_{metric_id}_perzentil_historie",
+        VERSION,
+        subjekt,
+        stichtag.isoformat(),
+        pflicht=("CP-01", "CP-02"),
+    )
+
+    def rechnung(r: Rechenweg) -> Decimal:
+        if jetzt.wert is None:
+            raise NichtDefiniert(f"aktueller Wert unbekannt: {jetzt.grund}")
+        historie = [
+            (t, e.wert)
+            for t, e in sorted(jahre.items())[-int(cfg["max_jahre"]) :]
+            if e.wert is not None
+        ]
+        mindest = int(cfg["mindest_jahre"])
+        if len(historie) < mindest:
+            raise EingabeFehlt(
+                f"mindestens {mindest} Geschäftsjahre (vorhanden {len(historie)})", r.periode
+            )
+        r.pruefe("CP-01", "Historie und aktueller Wert aus derselben Kennzahl", True)
+        punkte = {
+            f"p_{t:%Y_%m_%d}": r.schritt(
+                f"hoechstens_jetzt_{t.isoformat()}", "1" if wert <= jetzt.wert else "0"
+            )
+            for t, wert in historie
+        }
+        anteil = r.schritt("perzentil", f"({' + '.join(punkte)}) / {len(punkte)}", **punkte)
+        r.pruefe("CP-02", "Perzentil zwischen 0 und 1", 0 <= anteil <= 1)
+        return anteil
+
+    return rechne(r, rechnung)

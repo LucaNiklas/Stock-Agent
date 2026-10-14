@@ -23,7 +23,7 @@ import duckdb
 from stockagent.core import pit
 from stockagent.core.hinweise import Hinweis, Kennzahlwert
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);
@@ -240,8 +240,20 @@ CREATE TABLE IF NOT EXISTS price_events (
 );
 """
 
+SCHEMA_V7 = """
+CREATE TABLE IF NOT EXISTS fx_rates (
+    date          DATE NOT NULL,
+    currency      VARCHAR NOT NULL,      -- ISO-Code, etwa USD
+    per_eur       VARCHAR NOT NULL,      -- Einheiten der Währung je 1 EUR, Decimal als Text
+    source        VARCHAR NOT NULL,      -- ecb
+    raw_sha256    VARCHAR NOT NULL,
+    retrieved_at  TIMESTAMP NOT NULL,
+    PRIMARY KEY (date, currency, source)
+);
+"""
+
 # Schemaversionen, aus denen ohne Datenverlust aufgerüstet wird.
-_MIGRATABLE = {3, 4, 5}
+_MIGRATABLE = {3, 4, 5, 6}
 
 _COLUMNS = (
     "isin, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, lei_name, "
@@ -307,6 +319,7 @@ def connect(path: Path) -> duckdb.DuckDBPyConnection:
     _verwerfe_vorfassung_metrics(conn)
     conn.execute(SCHEMA_V5)
     conn.execute(SCHEMA_V6)
+    conn.execute(SCHEMA_V7)
     conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", [str(SCHEMA_VERSION)])
     return conn
 
@@ -927,7 +940,7 @@ def replace_metrics(
                         json.dumps(list(w.ergebnis.warnungen), ensure_ascii=False),
                         json.dumps(list(w.ergebnis.vermerke), ensure_ascii=False),
                         w.ergebnis.rechenweg_json()
-                        if w.period_end == stichtag and w.statistik == "wert"
+                        if w.period_end == stichtag and w.statistik in ("wert", "aktuell")
                         else None,
                         jetzt,
                     ]
@@ -1205,3 +1218,92 @@ def listing_info(conn: duckdb.DuckDBPyConnection, isin: str) -> tuple[str, str] 
     """Börsenname und Land (Hauptsitz) eines gelisteten Titels."""
     row = conn.execute("SELECT name, country FROM listings WHERE isin = ?", [isin]).fetchone()
     return None if row is None else (row[0], row[1])
+
+
+# ------------------------------------------------------------------ Wechselkurse (Bauschritt 4)
+
+
+@dataclass(frozen=True)
+class FxRate:
+    date: date
+    currency: str
+    per_eur: Decimal
+    source: str
+    raw_sha256: str
+
+
+def _bulk_replace(
+    conn: duckdb.DuckDBPyConnection, table: str, types: dict[str, str], rows: list[list[Any]]
+) -> None:
+    """Viele Zeilen auf einmal über eine Zwischendatei (executemany ist zeilenweise langsam).
+    Läuft in der Transaktion des Aufrufers."""
+    if not rows:
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        csv_path = Path(tmp) / f"{table}.csv"
+        with csv_path.open("w", newline="", encoding="utf-8") as fh:
+            csv.writer(fh).writerows(rows)
+        spalten = ", ".join(f"'{k}': '{v}'" for k, v in types.items())
+        conn.execute(
+            f"INSERT OR REPLACE INTO {table} SELECT * FROM read_csv(?, header = false, "
+            f"columns = {{{spalten}}}, nullstr = '')",
+            [str(csv_path)],
+        )
+
+
+def save_fx(
+    conn: duckdb.DuckDBPyConnection,
+    rows: list[tuple[date, str, Decimal]],
+    raw_sha256: str,
+    retrieved_at: datetime,
+    source: str = "ecb",
+) -> None:
+    jetzt = _utc_naive(retrieved_at)
+    conn.execute("BEGIN")
+    try:
+        _bulk_replace(
+            conn,
+            "fx_rates",
+            {
+                "date": "DATE",
+                "currency": "VARCHAR",
+                "per_eur": "VARCHAR",
+                "source": "VARCHAR",
+                "raw_sha256": "VARCHAR",
+                "retrieved_at": "TIMESTAMP",
+            },
+            [[d, c, str(v), source, raw_sha256, jetzt] for d, c, v in rows],
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def last_fx(conn: duckdb.DuckDBPyConnection) -> tuple[date, datetime] | None:
+    """Letzter Kurstag und letzter Abruf."""
+    row = conn.execute("SELECT max(date), max(retrieved_at) FROM fx_rates").fetchone()
+    if row is None or row[0] is None:
+        return None
+    return row[0], row[1].replace(tzinfo=UTC)
+
+
+def fx_on_or_before(conn: duckdb.DuckDBPyConnection, currency: str, day: date) -> FxRate | None:
+    """Referenzkurs am Tag oder am letzten Kurstag davor (Wochenende, Feiertag)."""
+    row = conn.execute(
+        "SELECT date, currency, per_eur, source, raw_sha256 FROM fx_rates "
+        "WHERE currency = ? AND date <= ? ORDER BY date DESC LIMIT 1",
+        [currency, day],
+    ).fetchone()
+    return None if row is None else FxRate(row[0], row[1], Decimal(row[2]), row[3], row[4])
+
+
+def price_on_or_before(conn: duckdb.DuckDBPyConnection, isin: str, day: date) -> PriceRow | None:
+    """Schlusskurs am Tag oder am letzten Handelstag davor."""
+    rows = load_prices(conn, isin, bis=day)
+    return rows[-1] if rows else None
+
+
+def listing_is_receipt(conn: duckdb.DuckDBPyConnection, isin: str) -> bool:
+    row = conn.execute("SELECT is_receipt FROM listings WHERE isin = ?", [isin]).fetchone()
+    return bool(row and row[0])

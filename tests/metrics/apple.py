@@ -7,6 +7,8 @@ Quellen (SEC EDGAR, CIK 0000320193):
 - 10-K 2022, Accession 0000320193-22-000108: GuV Seite 29, Bilanz Seite 31, Kapitalfluss
   Seite 33 (Spalten 2022 bis 2020).
 Beträge in Mio. USD wie im Dokument, Aktien in Tausend Stück, EPS in USD je Aktie.
+Kurse: Yahoo-Chart AAPL, abgerufen 14.10.2026, Rohdatei SHA-256 6d1ecdd2bee4e25c...; Schlusskurs
+am letzten Handelstag vor dem Geschäftsjahresende, Gleitkommazahl wie geliefert.
 LongTermDebt (Laufzeitschulden gesamt) steht nicht als eigene Zeile in der Bilanz. Er kommt aus
 dem XBRL-Konzept us-gaap:LongTermDebt und entspricht der Summe der beiden Bilanzzeilen „Term
 debt“ (Seite 31).
@@ -114,6 +116,12 @@ AKTIEN = {
     T20: ("17528214", 29),
 }
 
+# Schlusskurs in USD je Aktie (nach dem Split 2020) und tatsächlicher Handelstag
+KURS = {
+    T25: ("255.4600067138672", date(2025, 9, 26)),
+    T24: ("227.7899932861328", date(2024, 9, 27)),
+}
+
 
 def _dokument(t: date) -> str:
     return "10-K 2025" if t >= T24 else ("10-K 2024" if t == T23 else "10-K 2022")
@@ -145,6 +153,10 @@ def werte() -> dict[str, dict[date, Eingabe]]:
     }
     out["shares_diluted"] = {
         t: _e("aktien", t, v, s, "shares", TSD, True) for t, (v, s) in AKTIEN.items()
+    }
+    out["kurs"] = {
+        t: Eingabe(Decimal(v), f"Yahoo AAPL Schlusskurs {tag.isoformat()}", "per_share", t, "USD")
+        for t, (v, tag) in KURS.items()
     }
     return out
 
