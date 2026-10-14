@@ -2,7 +2,7 @@
 
 | Nr. | Frage | Default im Code | Nötig ab |
 |---|---|---|---|
-| 1 | Kommerzieller Datenanbieter für Kurse, zweite Quelle und Märkte ohne XBRL? | keiner, nur kostenlose Quellen. Titel ohne strukturierte Daten erhalten Status N | Schritt 4 (Kurse) |
+| 1 | Kommerzieller Datenanbieter für Kurse, zweite Quelle und Märkte ohne XBRL? | entschieden 14.10.2026 für die Kurse: Yahoo, kein bezahlter Anbieter (ADR 0005). Offen für Abschlusszahlen außerhalb USA und EU: Titel ohne strukturierte Daten erhalten Status N | Schritt 7 |
 | 2 | Höchstzahl Tiefenanalysen je Lauf (Abo-Limits schonen) | 3 | Schritt 6 |
 | 3 | Gemini über Lucas Google-Konto als externer Prüfer (8.8)? Falls die Anmeldung mit AI Plus nicht funktioniert: Gemini-API-Schlüssel mit Abrechnung oder nur Claude? | Gemini über Google-Konto versuchen, sonst nur Claude | Schritt 10 |
 | 4 | Zeitplan und API-Betrieb (kostet pro Token) für Läufe ohne Luca? | nein, Start von Hand über das Abo | Schritt 12 |

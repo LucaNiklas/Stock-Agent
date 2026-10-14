@@ -1,10 +1,10 @@
 # Projektstand (Übergabe)
 
-Stand: 13.10.2026, nach Bauschritt 3. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
+Stand: 14.10.2026, Bauschritt 4 begonnen. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
 
 ## Was das System ist
 
-Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar sind. Es zeigt nur an und bewertet. Es gibt keine Orders, keinen Depotzugriff und keine Budget- oder Allokationsplanung. Die Spezifikation liegt in `docs/spec/` (Inhaltsverzeichnis `docs/SPEC.md`, Version 4.4), die harten Regeln stehen in `docs/spec/00-arbeitsanweisung.md`.
+Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar sind. Es zeigt nur an und bewertet. Es gibt keine Orders, keinen Depotzugriff und keine Budget- oder Allokationsplanung. Die Spezifikation liegt in `docs/spec/` (Inhaltsverzeichnis `docs/SPEC.md`, Version 4.5), die harten Regeln stehen in `docs/spec/00-arbeitsanweisung.md`.
 
 ## Arbeitsweise mit Luca
 
@@ -28,7 +28,7 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 
 ## Stand der Daten (lokal, nicht im Repository)
 
-- `data/stockagent.duckdb` (Schema-Version 5, Versionen 3 und 4 werden beim Öffnen ohne Datenverlust aufgerüstet): 14.509 Aktien, Stand der Quelle 12.10.2026.
+- `data/stockagent.duckdb` (Schema-Version 6, Versionen 3 bis 5 werden beim Öffnen ohne Datenverlust aufgerüstet): 14.509 Aktien, Stand der Quelle 12.10.2026.
 - Zuordnung zur SEC (Lauf vom 13.10.2026): von 4.021 US-ISINs sind 3.117 einer CIK zugeordnet (3.052 verschiedene Firmen), 9 unsicher, 895 ohne SEC-Melder (davon 845 Hinterlegungsscheine, meist nicht gesponserte ADRs, 69 davon nur ADR-Registrierungen der Depotbank). Stammdaten liegen für alle 3.052 vor. Die SEC selbst führt bei 115 keinen SIC-Code (überwiegend geschlossene Fonds) und bei 2 keine Geschäftsadresse. 2.697 haben eine US-Geschäftsadresse.
 - Die 9 unsicheren Zuordnungen zeigt `stockagent sec show <ISIN>` mit Grund (meist Umbenennungen wie Hypera/Hypermarcas oder Verwechslungen bei OpenFIGI wie Helix Energy mit dem Ticker von Hornbeck Offshore). Festlegen mit `stockagent sec map <ISIN> <CIK>|keine`.
 - Abschlusswerte und Prüfungen bisher für die 10 Abnahmefirmen: Apple, Microsoft, Coca-Cola, Johnson & Johnson, Caterpillar, Procter & Gamble, Nike, Walmart, JPMorgan, PagerDuty. Alle erfüllen die Bilanzgleichung für zehn Jahre, alle verfügbaren Kernwerte stimmen auf dem zweiten Weg mit dem Originalbericht überein.
@@ -56,6 +56,9 @@ uv run stockagent tr-check <ISIN> ja|nein
 uv run stockagent sec update [--isin <ISIN>] [--refresh]
 uv run stockagent sec show <ISIN>
 uv run stockagent sec map <ISIN> <CIK>|keine
+uv run stockagent prices update -i <ISIN> [--refresh]
+uv run stockagent prices show <ISIN>
+uv run stockagent prices map <ISIN> <SYMBOL>|keine
 uv run stockagent metrics update [--isin <ISIN>] [--as-of JJJJ-MM-TT]
 uv run stockagent metrics show <ISIN> [--rechenweg <id>]
 uv run pytest && uv run ruff check . && uv run mypy
@@ -68,7 +71,8 @@ uv run pytest && uv run ruff check . && uv run mypy
 - Keine Order-Sperre nötig (Lucas Entscheidung). HR-09 ist eine Umfangsregel.
 - ADR 0002: ISIN zu CIK über OpenFIGI und die Tickerliste der SEC, Unsicheres bleibt leer. onvista und finanzen.net werden nicht automatisch abgefragt.
 - ADR 0003: vier Abteilungen (Recherche, Berechnung, Auswertung, Prüfung) mit Quellenkarte. Python holt alles mit fester Adresse, Agenten suchen nur, wo es keine gibt.
-- Werte für Abschlusszahlen nur für eine Auswahl laden, alle US-Firmen erst in Schritt 5 (Lucas Entscheidung 13.10.2026).
+- Werte für Abschlusszahlen nur für eine Auswahl laden (Lucas Entscheidung 13.10.2026).
+- ADR 0005 (14.10.2026): Bewertung auf Anfrage statt Gesamtlauf, Vergleichsgruppe 15 bis 50 Titel, Kursquelle Yahoo Finance für alle Länder mit eigenem kleinem Abrufmodul, ohne Schlüssel. Polygon bleibt als zweite Quelle für US-Kurse vorgesehen.
 
 ## Offen und bekannt
 
@@ -80,7 +84,8 @@ uv run pytest && uv run ruff check . && uv run mypy
 - **Abgeleitetes EBIT enthält übrige nicht operative Posten** (Kursgewinne, Beteiligungserträge). Bei Johnson & Johnson springt die EBIT-Marge 2025 dadurch auf 35,6 Prozent, und die Ausreißerprüfung meldet das an A4. Die um Sondereffekte bereinigte Reihe aus Schritt 6 wird das erklären.
 - **DQ-06 in `dq_flags`** stammt noch aus dem Lauf von Schritt 2 mit der alten Ausreißerprüfung. Beim nächsten `sec update --isin` wird sie mit der neuen Prüfung ersetzt.
 - **Banken:** Bruttomarge, Free Cashflow, Current Ratio und Finanzschulden passen nicht auf Banken (JPMorgan: 20 Kennzahlen `unknown` mit Grund). Eigene Scorecard in Schritt 8.
-- **Zweite unabhängige Quelle:** Der zweite Weg ist das XBRL des Originalberichts. Ein kommerzieller Anbieter fehlt (SPEC 19 Nr. 1), spätestens für Kurse in Schritt 4 nötig.
+- **Zweite unabhängige Quelle:** Für Abschlusszahlen ist der zweite Weg das XBRL des Originalberichts. Für Kurse gibt es keine Gegenprobe, nur Plausibilitätsprüfungen (ADR 0005).
+- **Yahoo noch nicht live getestet:** Die Domains waren beim Bau gesperrt. Die Testdaten in `tests/fixtures/yahoo/` sind im Format der Antwort nachgebaut und als solche gekennzeichnet. Unklar ist noch, ob Yahoo Abrufe mit unserem eigenen User-Agent annimmt. Lehnt Yahoo ab, wird das gemeldet und nicht umgangen.
 - **Vorzugsaktien und Anleihen im Universum:** Die Deutsche Börse führt einige Vorzugsaktien und nachrangige Anleihen als `CS` (etwa „HANCOCK WHITNEY SU.NTS 25“). Sie werden dem richtigen Emittenten zugeordnet, sind aber keine Stammaktie. Bereinigung des Universums offen.
 - **Gelöschte Handzuordnung:** Entfernt Luca einen Eintrag aus `state/cik_overrides.yaml`, gilt die alte Zuordnung bis zur nächsten Neuprüfung (90 Tage). Sofort wirkt `sec map <ISIN> <CIK>`.
 - Das Feld „Primary Market MIC Code“ der Deutschen Börse ist kein verlässlicher Primärmarkt und darf nicht als Kursquelle dienen.
@@ -102,4 +107,4 @@ Das Dashboard wird die Bedienzentrale: suchen in eigenen Worten, filtern nach Ti
 
 ## Nächster Schritt
 
-Bauschritt 4 „Marktdaten und Bewertung“ (SPEC 3.3, 3.6, 5.2, BAUPLAN). Zuerst braucht es Lucas Entscheidung zur Kursquelle (SPEC 19 Nr. 1). Aus Schritt 3 übernommen: alle Kennzahlen mit Börsenkurs, Altman Z für Produzenten, `ev_ebit_normalized`, TTM aus Quartalen.
+Bauschritt 4 weiter (Branch `schritt-04-kursquelle`, erster Teil gebaut): Sobald Luca die Domains `query1.finance.yahoo.com`, `query2.finance.yahoo.com` und `data-api.ecb.europa.eu` freigegeben hat, echte Abrufe testen, die nachgebauten Testdaten in `tests/fixtures/yahoo/` durch gekürzte echte Antworten ersetzen und die Stichprobe von 10 Titeln aus USA, Deutschland, UK, Japan und Hongkong prüfen. Danach Wechselkurse, Zinsen und die Kennzahlen mit Börsenkurs.

@@ -37,7 +37,7 @@ ESEF-Taxonomie und US-GAAP-Taxonomie haben unterschiedliche Konzeptnamen. Das Ma
 
 | Daten | Quelle | Hinweise |
 |---|---|---|
-| Kurse und Volumen (täglich) | offizielle kostenlose Quelle, falls vorhanden (in Schritt 4 recherchieren), sonst Anbieter nach 19 Nr. 1. `yfinance` nur für Entwicklung | `yfinance` ist inoffiziell und für den Dauerbetrieb ungeeignet |
+| Kurse, Volumen, Splits, Dividenden (täglich) | Yahoo Finance über die Chart-Adresse, eigenes Modul `data/sources/yahoo.py`, Symbol über OpenFIGI (ADR 0005) | inoffiziell, nur persönliche Nutzung, nur angefragte Titel und Vergleichsgruppe, abschaltbar. Polygon als zweite Quelle für US-Kurse vorgesehen |
 | Wechselkurse | EZB-Referenzkurse (SDMX-API) | alle Vergleiche in EUR, Originalwährung immer mitspeichern |
 | Risikofreier Zins | Bundesbank-Zinsstrukturkurve, US-Treasury (FRED) | |
 | Aktienrisikoprämie, Branchenbetas, Branchenmultiples | Damodaran-Datensätze (NYU Stern, jährlich und monatlich) | als datierter Snapshot speichern |
@@ -106,7 +106,6 @@ facts(fact_id PK, issuer_id FK, concept, internal_metric, value, unit, unit_raw,
 index_members(index_id, isin, tier, valid_from, valid_to, source_sha256)   # 7.9, ab Schritt 5
 dq_flags(issuer_id, check_id[DQ-01..DQ-08], severity[ok|info|warnung|stopp], period_end, concept, detail,
          trace_json, checked_at)
-prices(isin, date, close, volume, currency, source)
 metric_runs(run_id PK, issuer_id, as_of, stichtag, methodology_version, computed_at)   # ab Schritt 3
 metrics(run_id, issuer_id, metric_id, metric_version, statistik[wert|niveau|veraenderung_vj|cagr_3j|cagr_5j|stdabw|
         steigung|plausibilitaet], period_end, value, grund, ungereimtheit, warnungen_json, vermerke_json,
@@ -114,6 +113,11 @@ metrics(run_id, issuer_id, metric_id, metric_version, statistik[wert|niveau|vera
         # value als Text (Decimal ungerundet), NULL = unknown mit grund. Je Firma nur der letzte Lauf.
         # calc_trace_json (mit Eingaben und Quellen) nur für Jahreswerte des letzten Geschäftsjahres,
         # Vorjahre und Trends werden bei Bedarf nachgerechnet. vermerke_json: etwa abgeleitetes EBIT
+price_symbols(isin PK, symbol, exch_code, method[openfigi|manuell], status[zugeordnet|unsicher|keine], detail,
+              quelle_name, waehrung, boerse, warnungen_json, checked_at, retrieved_at)   # ab Schritt 4, ADR 0005
+prices(isin, date, close, adj_close, volume, currency, symbol, source, raw_sha256, retrieved_at)
+       # ersetzt die frühere Zeile prices(...). close um Splits bereinigt, Währung wie geliefert (GBp)
+price_events(isin, date, kind[split|dividende], value, numerator, denominator, currency, symbol, source, raw_sha256)
 hinweise(run_id, issuer_id, regel[H-01..], an_agent, abteilung, anlass, metric_id, period_end, detail,
          status[offen|beauftragt|erledigt], erstellt_at)   # 8.5, Regeln in config/hinweise.yaml
 insider_tx(tx_id PK, lei, person_name, role, relation[self|spouse|child|household|controlled_entity],

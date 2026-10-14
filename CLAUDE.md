@@ -25,6 +25,7 @@ Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abs
 - uv run stockagent universe update | show | html | serve
 - uv run stockagent sec update [--isin <ISIN>] | show <ISIN> | map <ISIN> <CIK>|keine
 - uv run stockagent tr-check <ISIN> ja|nein
+- uv run stockagent prices update -i <ISIN> [--refresh] | show <ISIN> | map <ISIN> <SYMBOL>|keine
 - uv run stockagent metrics update [--isin <ISIN>] [--as-of JJJJ-MM-TT] | show <ISIN> [--rechenweg <id>]
 - uv run stockagent run [--profile scheduled --yes]
 - uv run stockagent screen

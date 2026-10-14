@@ -66,7 +66,7 @@ Alles andere (Filtern, Noten, Kennzahlen, Speichern) erledigt Python ohne Modell
 
 - Ein großes Eingabefeld: „Tier-1-Aktien aus Griechenland, Branche Automobil“. Das Dashboard zeigt darunter den verstandenen Filter als Schaltflächen (Tier 1 · Griechenland · Automobil) mit Trefferzahl. Jede Schaltfläche lässt sich wegklicken oder ändern. Bei null Treffern erscheint ein Vorschlag zum Lockern.
 - Name, ISIN, WKN oder Ticker im selben Feld springen direkt zur Aktie, ohne Modellaufruf.
-- Darunter die Trefferliste mit Note, Konfidenz, Risiko, Kategorie, Tier, Branche, Land, Trade-Republic-Status. Knöpfe „Alle bewerten“ und „Auswahl bewerten“ starten die Tiefenanalyse für die besten Treffer bis zur Grenze aus HR-18. Vorher zeigt das Dashboard den Laufplan (Anzahl, geschätzte Dauer, Hinweis auf das Kontingent des Abos) und wartet auf Bestätigung.
+- Darunter die Trefferliste mit Note, Konfidenz, Risiko, Kategorie, Tier, Branche, Land, Trade-Republic-Status. Noch nicht bewertete Titel haben eine leere Notenspalte und den Knopf „Bewerten“: Er holt Kurse und Kennzahlen des Titels und seiner Vergleichsgruppe (15 bis 50 Titel) und rechnet die Note ohne Sprachmodell, in Sekunden bis wenigen Minuten (ADR 0005). Knöpfe „Alle bewerten“ und „Auswahl bewerten“ starten die Tiefenanalyse für die besten Treffer bis zur Grenze aus HR-18. Vorher zeigt das Dashboard den Laufplan (Anzahl, geschätzte Dauer, Hinweis auf das Kontingent des Abos) und wartet auf Bestätigung.
 
 **Filterleiste** in der Übersicht, jeder Filter mit Anzahl Treffer je Wert:
 

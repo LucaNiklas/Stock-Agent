@@ -24,6 +24,13 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Rechenweg `core/calc.py` in Bauschritt 2 vorgezogen, Datenqualität rechnet über Prüfpunkte (SPEC 12.7).
 - Goldstandard startet mit mindestens 20 Fällen (SPEC 11.6).
 
+## 4.5 (14.10.2026)
+
+- Bewertung auf Anfrage statt Gesamtlauf: bewertet werden angefragte Titel und ihre Vergleichsgruppe (ADR 0005).
+- Vergleichsgruppe mindestens 15, höchstens 50 Titel, bei mehr die mit dem ähnlichsten Umsatz (SPEC 6.2, Lucas Vorgabe).
+- Kursquelle Yahoo Finance für alle Länder, Kurse wie geliefert gespeichert (SPEC 7.3).
+- Einordnung gegen den Gesamtmarkt nur, wenn es einen Lauf über alle Titel gibt (SPEC 3.3).
+
 ## 4.4 (13.10.2026, Bauschritt 3, `methodology_version` der Kennzahlen 1.0)
 
 - Erste Fassung der 33 Kennzahlen und Scores ohne Börsenkurs in `config/metrics.yaml`. Kennzahlen mit Börsenkurs, Altman Z für Produzenten und `ev_ebit_normalized` folgen in Schritt 4, der Qualitätskomposit in Schritt 5.
