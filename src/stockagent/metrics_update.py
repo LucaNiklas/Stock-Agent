@@ -50,6 +50,18 @@ class Konfiguration:
     metrics: dict[str, Any]
     hinweise: dict[str, Any]
     sources: dict[str, Any]
+    kapitalkosten: dict[str, Any] = field(default_factory=dict)
+    # Lucas Festlegungen der Damodaran-Branche je ISIN (state/damodaran_branchen.yaml)
+    branchen: dict[str, str] = field(default_factory=dict)
+
+    def kk_cfg(self) -> dict[str, Any] | None:
+        if not self.kapitalkosten:
+            return None
+        return {
+            **self.kapitalkosten,
+            "boersen": self.sources.get("damodaran", {}).get("boersen", {}),
+            "festgelegt": self.branchen,
+        }
 
     def kurs_cfg(self) -> dict[str, Any]:
         return {
@@ -63,12 +75,23 @@ class Konfiguration:
             data: dict[str, Any] = yaml.safe_load((config / name).read_text("utf-8"))
             return data
 
+        festgelegt = config.parent / "state" / "damodaran_branchen.yaml"
+        branchen = (
+            {
+                str(k): str(v)
+                for k, v in (yaml.safe_load(festgelegt.read_text("utf-8")) or {}).items()
+            }
+            if festgelegt.exists()
+            else {}
+        )
         return cls(
             concepts.load(config),
             yml("quality.yaml"),
             yml("metrics.yaml"),
             yml("hinweise.yaml"),
             yml("sources.yaml"),
+            yml("kapitalkosten.yaml") if (config / "kapitalkosten.yaml").exists() else {},
+            branchen,
         )
 
 
@@ -119,6 +142,7 @@ def _reihen(
         cfg.quality,
         isin=isin if isin is not None else isin_for_issuer(conn, issuer_id),
         kurs_cfg=cfg.kurs_cfg(),
+        kk_cfg=cfg.kk_cfg(),
     )
 
 

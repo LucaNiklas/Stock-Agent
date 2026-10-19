@@ -23,7 +23,7 @@ import duckdb
 from stockagent.core import pit
 from stockagent.core.hinweise import Hinweis, Kennzahlwert
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);
@@ -252,8 +252,62 @@ CREATE TABLE IF NOT EXISTS fx_rates (
 );
 """
 
+SCHEMA_V8 = """
+CREATE TABLE IF NOT EXISTS rates (
+    date          DATE NOT NULL,
+    series        VARCHAR NOT NULL,      -- rf_10y_EUR, rf_10y_USD
+    percent       VARCHAR NOT NULL,      -- Zins in Prozent wie geliefert, Decimal als Text
+    source        VARCHAR NOT NULL,      -- bundesbank, treasury
+    raw_sha256    VARCHAR NOT NULL,
+    retrieved_at  TIMESTAMP NOT NULL,
+    PRIMARY KEY (date, series)
+);
+-- Damodaran (SPEC 3.6, 7.3): je Datensatz der zuletzt geladene Stand. Werte als Text wie geliefert.
+CREATE TABLE IF NOT EXISTS damodaran_meta (
+    dataset       VARCHAR PRIMARY KEY,   -- betas_us, ratings, wacc_us, firms, erp
+    stand         VARCHAR,               -- etwa "January 2026"
+    raw_sha256    VARCHAR NOT NULL,
+    url           VARCHAR NOT NULL,
+    retrieved_at  TIMESTAMP NOT NULL
+);
+CREATE TABLE IF NOT EXISTS damodaran_betas (
+    industry          VARCHAR PRIMARY KEY,
+    firms             INTEGER,
+    beta              VARCHAR,
+    de_percent        VARCHAR,
+    tax_percent       VARCHAR,
+    unlevered         VARCHAR,
+    cash_percent      VARCHAR,
+    unlevered_cash    VARCHAR
+);
+CREATE TABLE IF NOT EXISTS damodaran_ratings (
+    kind              VARCHAR NOT NULL,  -- nichtfinanz, finanz
+    coverage_from     VARCHAR NOT NULL,
+    coverage_to       VARCHAR NOT NULL,
+    rating            VARCHAR NOT NULL,
+    spread_percent    VARCHAR NOT NULL
+);
+CREATE TABLE IF NOT EXISTS damodaran_wacc (
+    industry          VARCHAR PRIMARY KEY,
+    cost_of_debt_percent VARCHAR
+);
+CREATE TABLE IF NOT EXISTS damodaran_erp (
+    month         DATE PRIMARY KEY,      -- Monatsanfang
+    erp           VARCHAR NOT NULL,      -- Anteil, etwa 0.0437
+    tbond         VARCHAR,
+    raw_sha256    VARCHAR NOT NULL
+);
+CREATE TABLE IF NOT EXISTS damodaran_firms (
+    ticker        VARCHAR NOT NULL,      -- Börse:Kürzel wie bei Damodaran, etwa NasdaqGS:AAPL
+    firm          VARCHAR,
+    industry      VARCHAR NOT NULL,
+    sic           VARCHAR,
+    country       VARCHAR
+);
+"""
+
 # Schemaversionen, aus denen ohne Datenverlust aufgerüstet wird.
-_MIGRATABLE = {3, 4, 5, 6}
+_MIGRATABLE = {3, 4, 5, 6, 7}
 
 _COLUMNS = (
     "isin, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, lei_name, "
@@ -320,6 +374,7 @@ def connect(path: Path) -> duckdb.DuckDBPyConnection:
     conn.execute(SCHEMA_V5)
     conn.execute(SCHEMA_V6)
     conn.execute(SCHEMA_V7)
+    conn.execute(SCHEMA_V8)
     conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", [str(SCHEMA_VERSION)])
     return conn
 
@@ -1233,7 +1288,11 @@ class FxRate:
 
 
 def _bulk_replace(
-    conn: duckdb.DuckDBPyConnection, table: str, types: dict[str, str], rows: list[list[Any]]
+    conn: duckdb.DuckDBPyConnection,
+    table: str,
+    types: dict[str, str],
+    rows: list[list[Any]],
+    ersetzen: bool = True,
 ) -> None:
     """Viele Zeilen auf einmal über eine Zwischendatei (executemany ist zeilenweise langsam).
     Läuft in der Transaktion des Aufrufers."""
@@ -1245,8 +1304,9 @@ def _bulk_replace(
             csv.writer(fh).writerows(rows)
         spalten = ", ".join(f"'{k}': '{v}'" for k, v in types.items())
         conn.execute(
-            f"INSERT OR REPLACE INTO {table} SELECT * FROM read_csv(?, header = false, "
-            f"columns = {{{spalten}}}, nullstr = '')",
+            f"INSERT {'OR REPLACE ' if ersetzen else ''}INTO {table} SELECT * FROM "
+            "read_csv(?, header = false, "
+            f"columns = {{{spalten}}}, nullstr = '', quote = '\"', escape = '\"')",
             [str(csv_path)],
         )
 
@@ -1322,3 +1382,198 @@ def dividend_events(
 def listing_is_receipt(conn: duckdb.DuckDBPyConnection, isin: str) -> bool:
     row = conn.execute("SELECT is_receipt FROM listings WHERE isin = ?", [isin]).fetchone()
     return bool(row and row[0])
+
+
+# ------------------------------------------------------------------ Zinsen (Bauschritt 4)
+
+
+@dataclass(frozen=True)
+class Rate:
+    date: date
+    series: str
+    percent: Decimal
+    source: str
+    raw_sha256: str
+
+
+def save_rates(
+    conn: duckdb.DuckDBPyConnection,
+    rows: list[tuple[date, str, Decimal]],
+    source: str,
+    raw_sha256: str,
+    retrieved_at: datetime,
+) -> None:
+    jetzt = _utc_naive(retrieved_at)
+    conn.execute("BEGIN")
+    try:
+        _bulk_replace(
+            conn,
+            "rates",
+            {
+                "date": "DATE",
+                "series": "VARCHAR",
+                "percent": "VARCHAR",
+                "source": "VARCHAR",
+                "raw_sha256": "VARCHAR",
+                "retrieved_at": "TIMESTAMP",
+            },
+            [[d, s, str(v), source, raw_sha256, jetzt] for d, s, v in rows],
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def last_rate(conn: duckdb.DuckDBPyConnection, series: str) -> tuple[date, datetime] | None:
+    row = conn.execute(
+        "SELECT max(date), max(retrieved_at) FROM rates WHERE series = ?", [series]
+    ).fetchone()
+    if row is None or row[0] is None:
+        return None
+    return row[0], row[1].replace(tzinfo=UTC)
+
+
+def rate_on_or_before(conn: duckdb.DuckDBPyConnection, series: str, day: date) -> Rate | None:
+    row = conn.execute(
+        "SELECT date, series, percent, source, raw_sha256 FROM rates "
+        "WHERE series = ? AND date <= ? ORDER BY date DESC LIMIT 1",
+        [series, day],
+    ).fetchone()
+    return None if row is None else Rate(row[0], row[1], Decimal(row[2]), row[3], row[4])
+
+
+# ------------------------------------------------------------------ Damodaran (Bauschritt 4)
+
+
+def save_damodaran(
+    conn: duckdb.DuckDBPyConnection,
+    dataset: str,
+    table: str,
+    types: dict[str, str],
+    rows: list[list[Any]],
+    *,
+    stand: str | None,
+    raw_sha256: str,
+    url: str,
+    retrieved_at: datetime,
+    replace_all: bool = True,
+) -> None:
+    """Einen Datensatz von Damodaran speichern. Standard: der neue Stand ersetzt den alten."""
+    conn.execute("BEGIN")
+    try:
+        if replace_all:
+            conn.execute(f"DELETE FROM {table}")
+        _bulk_replace(conn, table, types, rows, ersetzen=not replace_all)
+        conn.execute(
+            "INSERT OR REPLACE INTO damodaran_meta VALUES (?, ?, ?, ?, ?)",
+            [dataset, stand, raw_sha256, url, _utc_naive(retrieved_at)],
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+@dataclass(frozen=True)
+class DamodaranMeta:
+    dataset: str
+    stand: str | None
+    raw_sha256: str
+    url: str
+    retrieved_at: datetime
+
+
+def damodaran_meta(conn: duckdb.DuckDBPyConnection, dataset: str) -> DamodaranMeta | None:
+    row = conn.execute("SELECT * FROM damodaran_meta WHERE dataset = ?", [dataset]).fetchone()
+    if row is None:
+        return None
+    return DamodaranMeta(row[0], row[1], row[2], row[3], row[4].replace(tzinfo=UTC))
+
+
+@dataclass(frozen=True)
+class IndustryBeta:
+    industry: str
+    firms: int
+    unlevered_cash: Decimal | None
+    de_percent: Decimal | None
+
+
+def industry_beta(conn: duckdb.DuckDBPyConnection, industry: str) -> IndustryBeta | None:
+    row = conn.execute(
+        "SELECT industry, firms, unlevered_cash, de_percent FROM damodaran_betas "
+        "WHERE industry = ?",
+        [industry],
+    ).fetchone()
+    return None if row is None else IndustryBeta(row[0], row[1], _dec(row[2]), _dec(row[3]))
+
+
+@dataclass(frozen=True)
+class RatingRow:
+    kind: str
+    coverage_from: Decimal
+    coverage_to: Decimal
+    rating: str
+    spread_percent: Decimal
+
+
+def rating_table(conn: duckdb.DuckDBPyConnection, kind: str) -> list[RatingRow]:
+    rows = conn.execute(
+        "SELECT kind, coverage_from, coverage_to, rating, spread_percent "
+        "FROM damodaran_ratings WHERE kind = ?",
+        [kind],
+    ).fetchall()
+    out = [RatingRow(r[0], Decimal(r[1]), Decimal(r[2]), r[3], Decimal(r[4])) for r in rows]
+    return sorted(out, key=lambda r: r.coverage_from)
+
+
+def industry_cost_of_debt(conn: duckdb.DuckDBPyConnection, industry: str) -> Decimal | None:
+    row = conn.execute(
+        "SELECT cost_of_debt_percent FROM damodaran_wacc WHERE industry = ?", [industry]
+    ).fetchone()
+    return _dec(row[0]) if row else None
+
+
+@dataclass(frozen=True)
+class ErpRow:
+    month: date
+    erp: Decimal
+    tbond: Decimal | None
+    raw_sha256: str
+
+
+def erp_on_or_before(conn: duckdb.DuckDBPyConnection, day: date) -> ErpRow | None:
+    row = conn.execute(
+        "SELECT month, erp, tbond, raw_sha256 FROM damodaran_erp WHERE month <= ? "
+        "ORDER BY month DESC LIMIT 1",
+        [day],
+    ).fetchone()
+    return None if row is None else ErpRow(row[0], Decimal(row[1]), _dec(row[2]), row[3])
+
+
+def damodaran_industry_for(
+    conn: duckdb.DuckDBPyConnection, tickers: list[str]
+) -> tuple[str, str] | None:
+    """Branche über Börse:Kürzel, in der Reihenfolge der Liste. (Branche, Kürzel)."""
+    for t in tickers:
+        row = conn.execute(
+            "SELECT industry FROM damodaran_firms WHERE ticker = ? LIMIT 1", [t]
+        ).fetchone()
+        if row:
+            return row[0], t
+    return None
+
+
+def damodaran_industry_by_sic(
+    conn: duckdb.DuckDBPyConnection, sic: str
+) -> tuple[str, int, int] | None:
+    """Häufigste Branche unter Damodarans Firmen mit diesem SIC-Code: (Branche, Treffer, alle)."""
+    rows = conn.execute(
+        "SELECT industry, count(*) AS n FROM damodaran_firms WHERE sic = ? "
+        "GROUP BY industry ORDER BY n DESC, industry LIMIT 1",
+        [sic],
+    ).fetchone()
+    if rows is None:
+        return None
+    total = conn.execute("SELECT count(*) FROM damodaran_firms WHERE sic = ?", [sic]).fetchone()
+    return rows[0], int(rows[1]), int(total[0]) if total else 0

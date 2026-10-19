@@ -86,7 +86,14 @@ STROM = {
     },
     "cost_of_revenue": {T25: ("220960", 29), T24: ("210352", 29), T23: ("214137", 29)},
     "gross_profit": {T25: ("195201", 29), T24: ("180683", 29), T23: ("169148", 29)},
-    "ebit": {T25: ("133050", 29), T24: ("123216", 29), T23: ("114301", 29)},
+    "ebit": {
+        T25: ("133050", 29),
+        T24: ("123216", 29),
+        T23: ("114301", 29),
+        T22: ("119437", 29),
+        T21: ("108949", 29),
+        T20: ("66288", 29),
+    },
     "pretax_income": {T25: ("132729", 29), T24: ("123485", 29)},
     "income_tax": {T25: ("20719", 29), T24: ("29749", 29)},
     "net_income": {T25: ("112010", 29), T24: ("93736", 29), T23: ("96995", 29)},
@@ -154,6 +161,8 @@ def werte() -> dict[str, dict[date, Eingabe]]:
     out["shares_diluted"] = {
         t: _e("aktien", t, v, s, "shares", TSD, True) for t, (v, s) in AKTIEN.items()
     }
+    for name, (je, einheit, quelle) in MARKT.items():
+        out[name] = {t: Eingabe(Decimal(v), quelle, einheit, t) for t, v in je.items()}
     out["kurs"] = {
         t: Eingabe(Decimal(v), f"Yahoo AAPL Schlusskurs {tag.isoformat()}", "per_share", t, "USD")
         for t, (v, tag) in KURS.items()
@@ -161,11 +170,122 @@ def werte() -> dict[str, dict[date, Eingabe]]:
     return out
 
 
+# Kapitalmarkt am Geschäftsjahresende (Lauf vom 19.10.2026, `stockagent markt update`):
+# - rf: Treasury 10 Yr am letzten Handelstag vor dem Stichtag (home.treasury.gov, Daily Treasury
+#   Par Yield Curve 2025 und 2024), in Prozent.
+# - erp: Damodaran, ERPbymonth.xlsx, Spalte "ERP (T12m)", Monat des Stichtags.
+# - beta_unverschuldet: Damodaran Betas.html Stand January 2026, Branche Computers/Peripherals
+#   (Apple steht dort als NasdaqGS:AAPL), "Unlevered beta corrected for cash".
+# - kd_branche: Damodaran wacc.html Stand January 2026, Cost of Debt der Branche, in Prozent.
+# - rf_damodaran: Damodarans Treasury-Zins zum Stand der Tabelle (ERPbymonth.xlsx, 01.2026).
+# - steuersatz, endwachstum_max: config/kapitalkosten.yaml.
+MARKT = {
+    "rf": ({T25: "4.20", T24: "3.75"}, "prozent", "Treasury 10 Yr {tag}"),
+    "erp": (
+        {T25: "0.039399999999999998", T24: "0.0406"},
+        "anteil",
+        "Damodaran ERP (T12m) Monat des Stichtags",
+    ),
+    "beta_unverschuldet": (
+        {T25: "1.32", T24: "1.32"},
+        "faktor",
+        "Damodaran Betas Stand January 2026, Computers/Peripherals",
+    ),
+    "kd_branche": ({T25: "5.29", T24: "5.29"}, "prozent", "Damodaran wacc Stand January 2026"),
+    "rf_damodaran": (
+        {T25: "0.041799999999999997", T24: "0.041799999999999997"},
+        "anteil",
+        "Damodaran Treasury 01.2026",
+    ),
+    "steuersatz": ({T25: "0.21", T24: "0.21"}, "anteil", "config/kapitalkosten.yaml US"),
+    "endwachstum_max": ({T25: "0.025", T24: "0.025"}, "anteil", "config/kapitalkosten.yaml"),
+}
+# Rating-Tabelle für große Nicht-Finanzfirmen, Damodaran ratings.html Stand January 2026
+RATINGS = [
+    ("-100000", "0.199999", "D2/D", "19.00"),
+    ("0.2", "0.649999", "C2/C", "16.00"),
+    ("0.65", "0.799999", "Ca2/CC", "12.61"),
+    ("0.8", "1.249999", "Caa/CCC", "8.85"),
+    ("1.25", "1.499999", "B3/B-", "5.09"),
+    ("1.5", "1.749999", "B2/B", "3.21"),
+    ("1.75", "1.999999", "B1/B+", "2.75"),
+    ("2", "2.2499999", "Ba2/BB", "1.84"),
+    ("2.25", "2.49999", "Ba1/BB+", "1.38"),
+    ("2.5", "2.999999", "Baa2/BBB", "1.11"),
+    ("3", "4.249999", "A3/A-", "0.89"),
+    ("4.25", "5.499999", "A2/A", "0.78"),
+    ("5.5", "6.499999", "A1/A+", "0.70"),
+    ("6.5", "8.499999", "Aa2/AA", "0.55"),
+    ("8.50", "100000", "Aaa/AAA", "0.40"),
+]
+
+
+def parameter() -> dict[str, Any]:
+    kk = yaml.safe_load((ROOT / "config" / "kapitalkosten.yaml").read_text("utf-8"))
+    return {
+        "kapitalkosten": kk,
+        "finanzfirma": False,
+        "produzent": True,  # SIC 3571 Electronic Computers (SEC Submissions)
+        "sic": 3571,
+        "ratings": [
+            {
+                "art": "nichtfinanz",
+                "ab": a,
+                "bis": b,
+                "rating": r,
+                "aufschlag": s,
+                "stand": "January 2026",
+            }
+            for a, b, r, s in RATINGS
+        ],
+        "vermerke_kapitalkosten": (),
+    }
+
+
 # Apple teilte die Aktie 2020 im Verhältnis 4:1. Alle Werte oben stammen aus Berichten nach dem
 # Split und sind schon umgerechnet. Der Test der Bereinigung nutzt eigene Werte.
 SPLIT_2020 = Split(datetime(2020, 10, 30, 14, 0, tzinfo=UTC), Decimal(4), "4:1")
 
-APPLE = Reihen("sec:0000320193", (T25, T24, T23, T22, T21, T20), werte(), (SPLIT_2020,))
+APPLE = Reihen(
+    "sec:0000320193",
+    (T25, T24, T23, T22, T21, T20),
+    werte(),
+    (SPLIT_2020,),
+    parameter=parameter(),
+)
+
+# Für das normalisierte EV/EBIT (mindestens 7 Jahre): operatives Ergebnis 2016 bis 2019 aus den
+# SEC Company Facts, us-gaap:OperatingIncomeLoss, Geschäftsjahr wie angegeben, je aus dem 10-K des
+# Jahres (Accession in der Quelle).
+T19, T18, T17, T16 = date(2019, 9, 28), date(2018, 9, 29), date(2017, 9, 30), date(2016, 9, 24)
+EBIT_FRUEHER = {
+    T19: ("63930", "0000320193-19-000119"),
+    T18: ("70898", "0000320193-18-000145"),
+    T17: ("61344", "0000320193-17-000070"),
+    T16: ("60024", "0001628280-16-020309"),
+}
+
+
+def _zehn_jahre() -> Reihen:
+    w = {k: dict(v) for k, v in APPLE.werte.items()}
+    for t, (v, acc) in EBIT_FRUEHER.items():
+        w["ebit"][t] = Eingabe(
+            Decimal(v) * MIO,
+            f"us-gaap:OperatingIncomeLoss FY bis {t.isoformat()} (Accession {acc})",
+            "monetary",
+            t,
+            "USD",
+        )
+    return Reihen(
+        APPLE.subjekt,
+        (*APPLE.stichtage, T19, T18, T17, T16),
+        w,
+        APPLE.splits,
+        parameter=APPLE.parameter,
+    )
+
+
+APPLE_10J = _zehn_jahre()
 
 
 def definition(metric_id: str) -> dict[str, Any]:
@@ -191,7 +311,9 @@ def ohne(name: str, t: date | None = None, reihen: Reihen = APPLE) -> Reihen:
         w.pop(name, None)
     else:
         w.get(name, {}).pop(t, None)
-    return Reihen(reihen.subjekt, reihen.stichtage, w, reihen.splits)
+    return Reihen(
+        reihen.subjekt, reihen.stichtage, w, reihen.splits, reihen.luecken, reihen.parameter
+    )
 
 
 def mit(name: str, t: date, wert: Decimal, reihen: Reihen = APPLE) -> Reihen:
@@ -207,7 +329,9 @@ def mit(name: str, t: date, wert: Decimal, reihen: Reihen = APPLE) -> Reihen:
         alt.periode_start,
         alt.veroeffentlicht,
     )
-    return Reihen(reihen.subjekt, reihen.stichtage, w, reihen.splits)
+    return Reihen(
+        reihen.subjekt, reihen.stichtage, w, reihen.splits, reihen.luecken, reihen.parameter
+    )
 
 
 def q(x: Decimal, stellen: int = 6) -> Decimal:

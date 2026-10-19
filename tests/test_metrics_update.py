@@ -15,13 +15,14 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from stockagent import metrics_update, sec_update
+from stockagent import kapitalmarkt_update, metrics_update, sec_update
 from stockagent.cli import app
 from stockagent.core import registry
 from stockagent.data import inputs, store
 from stockagent.paths import Paths
-from tests.metrics.apple import T25, q, rechne
+from tests.metrics.apple import APPLE, APPLE_10J, T25, q, rechne
 from tests.sec_fixtures import AGENT, NOW, FakeWeb, no_sleep, project
+from tests.test_kapitalmarkt import FakeWeb as KapitalmarktWeb
 
 APPLE_ISIN = "US0378331005"
 ISSUER = "sec:0000320193"
@@ -38,6 +39,33 @@ KURSE = {
     date(2025, 9, 26): "255.4600067138672",
     date(2026, 10, 13): "341.2699890136719",
 }
+
+
+# Echte Treasury-Zinsen 10 Yr (home.treasury.gov, Lauf vom 19.10.2026) an den Kurstagen oben
+ZINSEN = {
+    date(2019, 9, 27): "1.69",
+    date(2020, 9, 25): "0.66",
+    date(2021, 9, 24): "1.47",
+    date(2022, 9, 23): "3.69",
+    date(2023, 9, 29): "4.59",
+    date(2024, 9, 27): "3.75",
+    date(2025, 9, 26): "4.20",
+    date(2026, 10, 13): "5.21",
+}
+
+
+def markt_laden(paths: Paths) -> None:
+    """Zinsen wie oben, Damodaran aus tests/fixtures/damodaran/ (Apple als NasdaqGS:AAPL)."""
+    kapitalmarkt_update.damodaran_update(paths, fetcher=KapitalmarktWeb(), now=NOW)
+    conn = store.connect(paths.db)
+    store.save_rates(
+        conn,
+        [(d, "rf_10y_USD", Decimal(v)) for d, v in ZINSEN.items()],
+        "treasury",
+        "0" * 64,
+        NOW,
+    )
+    conn.close()
 
 
 def kurse_laden(paths: Paths) -> None:
@@ -74,6 +102,7 @@ def geladen(tmp_path_factory: pytest.TempPathFactory) -> Paths:
     paths = project(tmp_path_factory.mktemp("projekt"))
     sec_update.update(paths, isins=[APPLE_ISIN], fetcher=FakeWeb(), sleep=no_sleep, now=NOW)
     kurse_laden(paths)
+    markt_laden(paths)
     metrics_update.update(paths, isins=[APPLE_ISIN], now=NOW)
     mp.undo()
     return paths
@@ -91,7 +120,8 @@ def test_database_matches_hand_calculation(geladen: Paths) -> None:
     assert set(db) == registry.ids()
     abweichend = {}
     for metric_id, row in db.items():
-        hand = rechne(metric_id)
+        # Normalisiertes EV/EBIT braucht 10 Jahre EBIT (tests/metrics/apple.py APPLE_10J)
+        hand = rechne(metric_id, APPLE_10J if metric_id == "ev_ebit_normalized" else APPLE)
         if hand.wert is None or row.value is None:
             if (hand.wert is None) != (row.value is None):
                 abweichend[metric_id] = (hand.grund, row.grund)
@@ -136,7 +166,7 @@ def test_hinweise_saved(geladen: Paths) -> None:
     h = store.load_hinweise(conn, ISSUER)
     run = store.load_metric_run(conn, ISSUER)
     conn.close()
-    assert run is not None and run[3] == "1.2"
+    assert run is not None and run[3] == "1.3"
     # Apple 2025: Piotroski 8, Altman Z'' 2,31, Beneish -2,23, Sloan 0,1 %: keine Schwellenregel
     assert not [x for x in h if x.regel in ("H-01", "H-02", "H-03", "H-04")]
     assert all(x.status == "offen" and x.an_agent for x in h)
@@ -220,7 +250,15 @@ def test_percentile_against_own_history(geladen: Paths) -> None:
     aktuelle KGV 45,7 liegt über allen: Anteil der Jahre mit höchstens so hohem KGV = 1."""
     p = _werte(geladen, "perzentil_historie")
     assert p["pe"].value == 1
-    assert set(p) == {"pe", "ev_ebit", "ev_sales", "fcf_yield", "pb", "dividend_yield"}
+    assert set(p) == {
+        "pe",
+        "ev_ebit",
+        "ev_sales",
+        "fcf_yield",
+        "pb",
+        "dividend_yield",
+        "ev_ebit_normalized",
+    }
 
 
 def test_cli_shows_valuation(geladen: Paths, monkeypatch: pytest.MonkeyPatch) -> None:
