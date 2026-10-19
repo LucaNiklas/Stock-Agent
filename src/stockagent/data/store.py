@@ -23,7 +23,7 @@ import duckdb
 from stockagent.core import pit
 from stockagent.core.hinweise import Hinweis, Kennzahlwert
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);
@@ -306,8 +306,68 @@ CREATE TABLE IF NOT EXISTS damodaran_firms (
 );
 """
 
+SCHEMA_V9 = """
+-- Umsatz aller SEC-Melder je Kalenderjahr (Frames-Schnittstelle), für die Vergleichsgruppe
+CREATE TABLE IF NOT EXISTS revenue_frames (
+    cik           VARCHAR NOT NULL,
+    period        VARCHAR NOT NULL,      -- CY2025
+    concept       VARCHAR NOT NULL,
+    value         VARCHAR NOT NULL,
+    period_start  DATE,
+    period_end    DATE NOT NULL,
+    accession     VARCHAR,
+    raw_sha256    VARCHAR NOT NULL,
+    retrieved_at  TIMESTAMP NOT NULL,
+    PRIMARY KEY (cik, period, concept)
+);
+-- Letzte Bewertung je Titel (SPEC 6), Bewertung auf Anfrage (ADR 0005)
+CREATE TABLE IF NOT EXISTS grades (
+    isin               VARCHAR PRIMARY KEY,
+    issuer_id          VARCHAR,
+    as_of              TIMESTAMP NOT NULL,
+    scorecard          VARCHAR,
+    branche            VARCHAR,
+    region             VARCHAR,
+    score              VARCHAR,          -- Gesamtwert 0 bis 100, Decimal als Text
+    grade              VARCHAR NOT NULL, -- A bis E oder N
+    grund              VARCHAR,          -- bei N
+    konfidenz          VARCHAR,
+    risiko             VARCHAR,
+    kategorie          VARCHAR,
+    groessenklasse     VARCHAR,
+    peer_level         VARCHAR,
+    detail_json        VARCHAR,          -- Säulen, Perzentile, Vergleichsgruppe, Kappungen
+    methodology_version VARCHAR NOT NULL,
+    computed_at        TIMESTAMP NOT NULL
+);
+-- Notenkontrolle (SPEC 14.2): eingefrorene Noten je Tag
+CREATE TABLE IF NOT EXISTS grade_snapshots (
+    snapshot_date      DATE NOT NULL,
+    isin               VARCHAR NOT NULL,
+    grade              VARCHAR NOT NULL,
+    score              VARCHAR,
+    konfidenz          VARCHAR,
+    risiko             VARCHAR,
+    kategorie          VARCHAR,
+    price              VARCHAR,
+    currency           VARCHAR,
+    methodology_version VARCHAR NOT NULL,
+    PRIMARY KEY (snapshot_date, isin)
+);
+-- Indexmitglieder für die Indexstufe (SPEC 7.9), Stände mit Gültigkeit für Backtests
+CREATE TABLE IF NOT EXISTS index_members (
+    index_id      VARCHAR NOT NULL,
+    isin          VARCHAR NOT NULL,
+    valid_from    DATE NOT NULL,
+    valid_to      DATE,
+    source        VARCHAR NOT NULL,
+    raw_sha256    VARCHAR NOT NULL,
+    PRIMARY KEY (index_id, isin, valid_from)
+);
+"""
+
 # Schemaversionen, aus denen ohne Datenverlust aufgerüstet wird.
-_MIGRATABLE = {3, 4, 5, 6, 7}
+_MIGRATABLE = {3, 4, 5, 6, 7, 8}
 
 _COLUMNS = (
     "isin, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, lei_name, "
@@ -375,6 +435,7 @@ def connect(path: Path) -> duckdb.DuckDBPyConnection:
     conn.execute(SCHEMA_V6)
     conn.execute(SCHEMA_V7)
     conn.execute(SCHEMA_V8)
+    conn.execute(SCHEMA_V9)
     conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", [str(SCHEMA_VERSION)])
     return conn
 
@@ -1577,3 +1638,260 @@ def damodaran_industry_by_sic(
         return None
     total = conn.execute("SELECT count(*) FROM damodaran_firms WHERE sic = ?", [sic]).fetchone()
     return rows[0], int(rows[1]), int(total[0]) if total else 0
+
+
+# ------------------------------------------------------------------ Bewertung (Bauschritt 5)
+
+
+def save_revenue_frame(
+    conn: duckdb.DuckDBPyConnection,
+    period: str,
+    concept: str,
+    rows: list[tuple[str, Decimal, date | None, date, str]],
+    raw_sha256: str,
+    retrieved_at: datetime,
+) -> None:
+    jetzt = _utc_naive(retrieved_at)
+    conn.execute("BEGIN")
+    try:
+        _bulk_replace(
+            conn,
+            "revenue_frames",
+            {
+                "cik": "VARCHAR",
+                "period": "VARCHAR",
+                "concept": "VARCHAR",
+                "value": "VARCHAR",
+                "period_start": "DATE",
+                "period_end": "DATE",
+                "accession": "VARCHAR",
+                "raw_sha256": "VARCHAR",
+                "retrieved_at": "TIMESTAMP",
+            },
+            [
+                [cik, period, concept, str(v), s or "", e, acc, raw_sha256, jetzt]
+                for cik, v, s, e, acc in rows
+            ],
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def revenue_frame_loaded(conn: duckdb.DuckDBPyConnection, period: str) -> datetime | None:
+    row = conn.execute(
+        "SELECT max(retrieved_at) FROM revenue_frames WHERE period = ?", [period]
+    ).fetchone()
+    return row[0].replace(tzinfo=UTC) if row and row[0] else None
+
+
+def revenues(
+    conn: duckdb.DuckDBPyConnection, period: str, concepts: list[str]
+) -> dict[str, Decimal]:
+    """Umsatz je CIK im Zeitraum, je CIK das erste Konzept der Liste mit Wert."""
+    rows = conn.execute(
+        "SELECT cik, concept, value FROM revenue_frames WHERE period = ?", [period]
+    ).fetchall()
+    rang = {c: i for i, c in enumerate(concepts)}
+    best: dict[str, tuple[int, Decimal]] = {}
+    for cik, concept, value in rows:
+        if concept not in rang:
+            continue
+        if cik not in best or rang[concept] < best[cik][0]:
+            best[cik] = (rang[concept], Decimal(value))
+    return {cik: v for cik, (_, v) in best.items()}
+
+
+@dataclass(frozen=True)
+class GradeRow:
+    isin: str
+    issuer_id: str | None
+    as_of: datetime
+    scorecard: str | None
+    branche: str | None
+    region: str | None
+    score: Decimal | None
+    grade: str
+    grund: str | None
+    konfidenz: str | None
+    risiko: str | None
+    kategorie: str | None
+    groessenklasse: str | None
+    peer_level: str | None
+    detail_json: str | None
+    methodology_version: str
+    computed_at: datetime
+
+
+def save_grade(conn: duckdb.DuckDBPyConnection, g: GradeRow) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO grades VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            g.isin,
+            g.issuer_id,
+            _utc_naive(g.as_of),
+            g.scorecard,
+            g.branche,
+            g.region,
+            str(g.score) if g.score is not None else None,
+            g.grade,
+            g.grund,
+            g.konfidenz,
+            g.risiko,
+            g.kategorie,
+            g.groessenklasse,
+            g.peer_level,
+            g.detail_json,
+            g.methodology_version,
+            _utc_naive(g.computed_at),
+        ],
+    )
+
+
+def _grade(row: tuple[Any, ...]) -> GradeRow:
+    return GradeRow(
+        row[0],
+        row[1],
+        row[2].replace(tzinfo=UTC),
+        row[3],
+        row[4],
+        row[5],
+        _dec(row[6]),
+        row[7],
+        row[8],
+        row[9],
+        row[10],
+        row[11],
+        row[12],
+        row[13],
+        row[14],
+        row[15],
+        row[16].replace(tzinfo=UTC),
+    )
+
+
+def load_grade(conn: duckdb.DuckDBPyConnection, isin: str) -> GradeRow | None:
+    row = conn.execute("SELECT * FROM grades WHERE isin = ?", [isin]).fetchone()
+    return _grade(row) if row else None
+
+
+def load_grades(conn: duckdb.DuckDBPyConnection) -> list[GradeRow]:
+    return [_grade(r) for r in conn.execute("SELECT * FROM grades ORDER BY isin").fetchall()]
+
+
+def save_snapshot(
+    conn: duckdb.DuckDBPyConnection,
+    day: date,
+    g: GradeRow,
+    price: Decimal | None,
+    currency: str | None,
+) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO grade_snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            day,
+            g.isin,
+            g.grade,
+            str(g.score) if g.score is not None else None,
+            g.konfidenz,
+            g.risiko,
+            g.kategorie,
+            str(price) if price is not None else None,
+            currency,
+            g.methodology_version,
+        ],
+    )
+
+
+def snapshot_grades(conn: duckdb.DuckDBPyConnection, isin: str) -> list[tuple[date, str]]:
+    return [
+        (r[0], r[1])
+        for r in conn.execute(
+            "SELECT snapshot_date, grade FROM grade_snapshots WHERE isin = ? "
+            "ORDER BY snapshot_date",
+            [isin],
+        ).fetchall()
+    ]
+
+
+def metrics_map(
+    conn: duckdb.DuckDBPyConnection, issuer_id: str
+) -> dict[tuple[str, str], Decimal | None]:
+    """Werte des letzten Laufs am letzten Stichtag je (Kennzahl, Statistik)."""
+    lauf = load_metric_run(conn, issuer_id)
+    if lauf is None:
+        return {}
+    stichtag = lauf[2]
+    return {
+        (r.metric_id, r.statistik): r.value
+        for r in load_metrics(conn, issuer_id)
+        if r.period_end == stichtag
+    }
+
+
+def report_currency(conn: duckdb.DuckDBPyConnection, issuer_id: str) -> str | None:
+    """Berichtswährung: die häufigste Währung der Geldwerte eines Emittenten."""
+    row = conn.execute(
+        "SELECT currency FROM facts WHERE issuer_id = ? AND currency IS NOT NULL "
+        "AND unit = 'monetary' GROUP BY currency ORDER BY count(*) DESC LIMIT 1",
+        [issuer_id],
+    ).fetchone()
+    return row[0] if row else None
+
+
+def replace_index_members(
+    conn: duckdb.DuckDBPyConnection,
+    index_id: str,
+    isins: list[str],
+    stand: date,
+    source: str,
+    raw_sha256: str,
+) -> tuple[int, int]:
+    """Neuer Stand eines Index. Wer nicht mehr dabei ist, bekommt `valid_to`, alte Stände
+    bleiben für Backtests (HR-07). Zurück: neu aufgenommen, ausgeschieden."""
+    offen = {
+        r[0]
+        for r in conn.execute(
+            "SELECT isin FROM index_members WHERE index_id = ? AND valid_to IS NULL", [index_id]
+        ).fetchall()
+    }
+    neu, raus = set(isins) - offen, offen - set(isins)
+    conn.execute("BEGIN")
+    try:
+        for isin in sorted(raus):
+            conn.execute(
+                "UPDATE index_members SET valid_to = ? WHERE index_id = ? AND isin = ? "
+                "AND valid_to IS NULL",
+                [stand, index_id, isin],
+            )
+        for isin in sorted(neu):
+            conn.execute(
+                "INSERT OR REPLACE INTO index_members VALUES (?, ?, ?, NULL, ?, ?)",
+                [index_id, isin, stand, source, raw_sha256],
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    return len(neu), len(raus)
+
+
+def index_memberships(
+    conn: duckdb.DuckDBPyConnection, day: date | None = None
+) -> dict[str, list[str]]:
+    """Indizes je ISIN zum Tag (Standard: heute gültige Stände)."""
+    if day is None:
+        rows = conn.execute(
+            "SELECT isin, index_id FROM index_members WHERE valid_to IS NULL"
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT isin, index_id FROM index_members WHERE valid_from <= ? "
+            "AND (valid_to IS NULL OR valid_to > ?)",
+            [day, day],
+        ).fetchall()
+    out: dict[str, list[str]] = {}
+    for isin, idx in rows:
+        out.setdefault(isin, []).append(idx)
+    return out

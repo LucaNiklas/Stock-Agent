@@ -34,6 +34,7 @@ from stockagent.core.kennzahlen import (
     _cp01,
     _opt,
     _quote,
+    _umsatz_cagr,
     ebit_wert,
     fcf_wert,
     finanzschulden,
@@ -280,3 +281,12 @@ def altman_z(r: Rechenweg, d: Reihen, t: date) -> Decimal:
         x4=x4,
         x5=x5,
     )
+
+
+@metric("growth_gap")
+def growth_gap(r: Rechenweg, d: Reihen, t: date) -> Decimal:
+    """Implizites Wachstum minus Umsatzwachstum der letzten 5 Jahre (SPEC 3.6
+    Bewertungsbedingung: erfüllt, wenn negativ)."""
+    implizit = implied_growth(r, d, t)
+    historie = _umsatz_cagr(r, d, t, 5)
+    return r.schritt("abstand", "implizit - historie", implizit=implizit, historie=historie)

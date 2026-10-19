@@ -122,9 +122,9 @@ def test_database_matches_hand_calculation(geladen: Paths) -> None:
     # Die DCF-Szenarien nutzen die Historie von bis zu 10 Jahren, die Handrechnung in
     # tests/metrics/apple.py hat für Umlaufvermögen und Abschreibungen nur 2 bis 3 Jahre. Sie sind
     # in tests/metrics/test_dcf_szenarien.py von Hand geprüft und hier in
-    # test_dcf_scenarios_ordered_and_repeatable.
+    # test_dcf_scenarios_ordered_and_repeatable. Die Sicherheitsmarge baut auf dem Base-Szenario.
     for metric_id, row in db.items():
-        if metric_id.startswith("dcf_"):
+        if metric_id.startswith("dcf_") or metric_id == "margin_of_safety":
             continue
         # Normalisiertes EV/EBIT braucht 10 Jahre EBIT (tests/metrics/apple.py APPLE_10J)
         hand = rechne(metric_id, APPLE_10J if metric_id == "ev_ebit_normalized" else APPLE)
@@ -172,7 +172,7 @@ def test_hinweise_saved(geladen: Paths) -> None:
     h = store.load_hinweise(conn, ISSUER)
     run = store.load_metric_run(conn, ISSUER)
     conn.close()
-    assert run is not None and run[3] == "1.4"
+    assert run is not None and run[3] == "1.5"
     # Apple 2025: Piotroski 8, Altman Z'' 2,31, Beneish -2,23, Sloan 0,1 %: keine Schwellenregel
     assert not [x for x in h if x.regel in ("H-01", "H-02", "H-03", "H-04")]
     assert all(x.status == "offen" and x.an_agent for x in h)

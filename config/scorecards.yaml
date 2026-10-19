@@ -1,5 +1,52 @@
-# Scorecard-Zuordnung (SPEC 3.11).
-# PLATZHALTER: wird in Bauschritt 5 gebaut (docs/BAUPLAN.md).
+# Scorecards (SPEC 3.11, 6.2). Version bei Änderung erhöhen, Eintrag im METHODOLOGY_CHANGELOG.
+# Zuordnung: die erste Scorecard, deren Regel passt (SIC-Bereich oder Kennzahlregel). In Schritt 5
+# ist nur `standard` aktiv. Titel einer anderen Scorecard bekommen Status N mit Grund, bis die
+# Scorecard in Schritt 8 gebaut ist (`ab_schritt`).
 #
-# Inhalt: In Schritt 5 nur `standard` mit ihren Kennzahlen je Säule. Regeln für die Zuordnung über
-#   SIC, NACE und Kennzahlen. Weitere Scorecards in Schritt 8.
+# Je Säule die Kennzahlen mit Statistik und Richtung. Statistik: `wert` (Geschäftsjahr),
+# `aktuell` (mit letztem Kurs), Trendstatistiken wie `steigung` oder `stdabw` (core/trends.py).
+# Richtung: hoch = höher ist besser, niedrig = niedriger ist besser.
+version: "1.0"
+
+zuordnung:
+  - {scorecard: banken, sic: [[6020, 6099]], ab_schritt: 8}
+  - {scorecard: versicherer, sic: [[6300, 6411]], ab_schritt: 8}
+  - {scorecard: immobilien, sic: [[6798, 6798], [6500, 6553]], ab_schritt: 8}
+  - {scorecard: versorger, sic: [[4900, 4991]], ab_schritt: 8}
+  # Wachstum ohne Gewinn: EBIT in den letzten 2 Jahren negativ und Umsatzwachstum über 15 %
+  - {scorecard: growth, regel: wachstum_ohne_gewinn, ab_schritt: 8}
+  # Chemie ohne Körperpflege und Haushaltsprodukte (2840 bis 2844, Procter & Gamble), die nicht
+  # zyklisch sind (Abweichung von SPEC 3.11, ADR 0007)
+  - {scorecard: cyclicals, sic: [[1000, 1499], [2800, 2839], [2845, 2899], [3310, 3399], [3711, 3716], [3674, 3674]], ab_schritt: 8}
+  - {scorecard: standard, ab_schritt: 5}
+
+scorecards:
+  standard:
+    name: Standard
+    saeulen:
+      qualitaet:
+        - {kennzahl: gp_to_assets, statistik: wert, richtung: hoch}
+        - {kennzahl: roic, statistik: wert, richtung: hoch}
+        - {kennzahl: fcf_margin, statistik: wert, richtung: hoch}
+        - {kennzahl: ebit_margin, statistik: stdabw, richtung: niedrig}   # Margenstabilität
+        - {kennzahl: piotroski_f_score, statistik: wert, richtung: hoch}
+      bewertung:
+        - {kennzahl: ev_ebit, statistik: aktuell, richtung: niedrig}
+        - {kennzahl: fcf_yield, statistik: aktuell, richtung: hoch}
+        - {kennzahl: growth_gap, statistik: aktuell, richtung: niedrig}   # implizites minus Historie
+        - {kennzahl: margin_of_safety, statistik: aktuell, richtung: hoch}
+      stabilitaet:
+        - {kennzahl: net_debt_to_ebitda, statistik: wert, richtung: niedrig}
+        - {kennzahl: interest_coverage, statistik: wert, richtung: hoch}
+        - {kennzahl: altman_z_double_prime, statistik: wert, richtung: hoch}
+        - {kennzahl: debt_maturity_12m, statistik: wert, richtung: niedrig}
+      wachstum:
+        - {kennzahl: revenue_cagr_5y, statistik: wert, richtung: hoch}
+        - {kennzahl: fcf_per_share_cagr_5y, statistik: wert, richtung: hoch}
+        - {kennzahl: ebit_margin, statistik: steigung, richtung: hoch}
+        - {kennzahl: fcf_margin, statistik: steigung, richtung: hoch}
+      kapitalallokation:
+        - {kennzahl: shareholder_yield, statistik: aktuell, richtung: hoch}
+        - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
+        - {kennzahl: acquisition_intensity, statistik: wert, richtung: niedrig}
+      insider: []   # Schritt 9. Ohne Insider-Daten geht das Gewicht auf die anderen Säulen

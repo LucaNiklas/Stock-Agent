@@ -68,6 +68,17 @@ informationen:
       - {name: OpenFIGI (ISIN -> Börsenkürzel), zugriff: python, modul: openfigi, ab_schritt: 4}
       - {name: Yahoo Finance (inoffiziell, persönliche Nutzung), zugriff: python, modul: yahoo, ab_schritt: 4}
 
+  umsatz_aller_melder:
+    beschreibung: Umsatz aller SEC-Melder eines Kalenderjahres für die Auswahl der Vergleichsgruppe
+      nach ähnlichstem Umsatz (ADR 0005, ADR 0007)
+    region: US
+    quellen:
+      - {name: SEC XBRL Frames (je Umsatzkonzept ein Abruf), zugriff: python, modul: sec, ab_schritt: 5}
+
+  # Indexmitglieder für Tier 1 bis 3 (SPEC 7.9): bis die Quellen je Index geprüft und die Domains
+  # frei sind, Import einer Bestandsliste von Hand (`stockagent tiers import`, ADR 0007). Danach
+  # folgt ein Quellenmodul `indices`.
+
   wechselkurse:
     region: alle
     quellen:

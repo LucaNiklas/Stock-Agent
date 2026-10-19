@@ -11,7 +11,7 @@
 # `ttm: true`: zusätzlich mit den Werten der letzten 12 Monate bis zum letzten Quartal (Statistik
 # `ttm`, core/ttm.py). Nicht für Kennzahlen mit Vorjahresvergleich oder Durchschnitten.
 
-methodology_version: "1.4"
+methodology_version: "1.5"
 
 # Kurse für Bewertungskennzahlen (Bauschritt 4, ADR 0005)
 kurse:
@@ -1417,5 +1417,58 @@ metrics:
   - CP-03
   tests:
   - tests/metrics/test_dcf_szenarien.py
+  kurs: true
+  ttm: true
+- id: growth_gap
+  version: '1.0'
+  name: Implizites Wachstum minus Historie
+  formel: implied_growth - revenue_cagr_5y
+  definition: Bewertungsbedingung aus SPEC 3.6. Negativ heißt, der Kurs verlangt weniger Wachstum, als
+    die Firma in den letzten 5 Jahren beim Umsatz erreicht hat. Historie über den Umsatz, weil die
+    FCF-Wachstumsrate bei Verlustjahren nicht definiert ist (ADR 0007).
+  eingaben:
+  - kurs
+  - revenue
+  - operating_cash_flow
+  - capex
+  einheit: percent
+  richtung: lower_better
+  rundung:
+    anzeige: punkte
+    nachkommastellen: 1
+  scorecards:
+  - standard
+  quelle: SPEC 3.6
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-06
+  tests:
+  - tests/metrics/test_growth_gap.py
+  kurs: true
+  ttm: true
+- id: margin_of_safety
+  version: '1.0'
+  name: Sicherheitsmarge (DCF Base)
+  formel: Wert je Aktie im Base-Szenario / Kurs - 1
+  definition: Positiv heißt, der Kurs liegt unter dem Wert des Base-Szenarios (SPEC 6.2 Säule Bewertung).
+  eingaben:
+  - kurs
+  - revenue
+  - ebit
+  einheit: percent
+  richtung: higher_better
+  rundung:
+    anzeige: percent
+    nachkommastellen: 0
+  scorecards:
+  - standard
+  quelle: Graham (1949), The Intelligent Investor; SPEC 6.2
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  tests:
+  - tests/metrics/test_growth_gap.py
   kurs: true
   ttm: true
