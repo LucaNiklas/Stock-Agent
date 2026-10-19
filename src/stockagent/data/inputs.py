@@ -19,7 +19,9 @@ import duckdb
 from stockagent.core import dq
 from stockagent.core.calc import Eingabe
 from stockagent.core.reihen import Reihen, Split
+from stockagent.core.ttm import Strom
 from stockagent.data import concepts, quality, store
+from stockagent.data.quality import ANNUAL_FORMS
 
 
 def eingabe(f: store.StoredFact) -> Eingabe:
@@ -396,6 +398,77 @@ def reihen(
         luecken=luecken,
         parameter=parameter,
     )
+
+
+def ttm(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    as_of: datetime,
+    cmap: dict[str, Any],
+    basis: Reihen,
+) -> tuple[date, dict[str, Strom], dict[str, Eingabe]] | None:
+    """Teile für TTM-Werte zum letzten Quartal nach dem letzten Geschäftsjahr (SPEC 3.4 Nr. 1):
+    je Strom Geschäftsjahr, Zeitraum seit Jahresbeginn und derselbe Zeitraum im Vorjahr, je
+    Stand der Wert am Quartalsende. None, wenn seit dem Geschäftsjahr kein Quartal gemeldet ist.
+    Reine Auswahl, gerechnet wird in `core/ttm.py`."""
+    if not basis.stichtage or not basis.hat("revenue", basis.stichtage[0]):
+        return None
+    gj = basis.stichtage[0]
+    gj_umsatz = basis.hole("revenue", gj)
+    if gj_umsatz.periode_start is None:
+        return None
+    facts = [
+        f
+        for f in store.pit_query(conn, as_of=as_of, issuer_id=issuer_id)
+        if f.form not in ANNUAL_FORMS
+    ]
+
+    def nah(a: date | None, b: date) -> bool:
+        return a is not None and dq.dauer_tage(min(a, b), max(a, b)) <= 8
+
+    umsatz = concepts.resolve(facts, cmap["us-gaap"]["revenue"])
+    quartale = [e for (s, e) in umsatz if e > gj and s is not None and dq.dauer_tage(gj, s) <= 9]
+    if not quartale:
+        return None
+    quartal = max(quartale)
+    stroeme: dict[str, Strom] = {}
+    staende: dict[str, Eingabe] = {}
+    for name, liste in cmap["us-gaap"].items():
+        je = concepts.resolve(facts, liste)
+        stand = je.get((None, quartal))
+        if stand is not None:
+            staende[name] = eingabe(stand)
+            continue
+        if name == "shares_diluted":
+            # Aktienzahl: Durchschnitt des letzten Quartals
+            q3 = [f for (s, e), f in je.items() if e == quartal and dq.periode_passt(s, e, "Q")]
+            if q3:
+                staende[name] = eingabe(q3[0])
+            continue
+        if gj not in basis.werte.get(name, {}):
+            continue
+        ytd = next(
+            (
+                f
+                for (s, e), f in je.items()
+                if e == quartal and s is not None and dq.dauer_tage(gj, s) <= 9
+            ),
+            None,
+        )
+        vj = next(
+            (
+                f
+                for (s, e), f in je.items()
+                if s is not None
+                and nah(s, gj_umsatz.periode_start)
+                and e < quartal
+                and 358 <= dq.dauer_tage(e, quartal) <= 374
+            ),
+            None,
+        )
+        if ytd is not None and vj is not None:
+            stroeme[name] = Strom(basis.werte[name][gj], eingabe(ytd), eingabe(vj))
+    return quartal, stroeme, staende
 
 
 def reihen_aktuell(

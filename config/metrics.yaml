@@ -8,8 +8,10 @@
 # wenn nicht gemeldet, mit Vermerk im Rechenweg.
 # Bewertungskennzahlen mit Börsenkurs (`kurs: true`, core/marktkennzahlen.py) seit Bauschritt 4.
 # `historie_perzentil: true`: Einordnung gegen die eigenen letzten 10 Jahre (SPEC 3.3).
+# `ttm: true`: zusätzlich mit den Werten der letzten 12 Monate bis zum letzten Quartal (Statistik
+# `ttm`, core/ttm.py). Nicht für Kennzahlen mit Vorjahresvergleich oder Durchschnitten.
 
-methodology_version: "1.3"
+methodology_version: "1.4"
 
 # Kurse für Bewertungskennzahlen (Bauschritt 4, ADR 0005)
 kurse:
@@ -48,6 +50,7 @@ metrics:
   - CP-02
   tests:
   - tests/metrics/test_gross_margin.py
+  ttm: true
 - id: ebit_margin
   version: '1.0'
   name: EBIT-Marge
@@ -68,6 +71,7 @@ metrics:
   - CP-02
   tests:
   - tests/metrics/test_ebit_margin.py
+  ttm: true
 - id: fcf_margin
   version: '1.0'
   name: FCF-Marge
@@ -91,6 +95,7 @@ metrics:
   - CP-02
   tests:
   - tests/metrics/test_fcf_margin.py
+  ttm: true
 - id: gp_to_assets
   version: '1.0'
   name: Bruttoergebnis zu Bilanzsumme
@@ -833,6 +838,7 @@ metrics:
   tests:
   - tests/metrics/test_market_cap.py
   kurs: true
+  ttm: true
 - id: enterprise_value
   version: '1.0'
   name: Unternehmenswert
@@ -868,6 +874,7 @@ metrics:
   tests:
   - tests/metrics/test_enterprise_value.py
   kurs: true
+  ttm: true
 - id: pe
   version: '1.0'
   name: KGV
@@ -891,6 +898,7 @@ metrics:
   - tests/metrics/test_pe.py
   kurs: true
   historie_perzentil: true
+  ttm: true
 - id: ev_ebit
   version: '1.0'
   name: EV/EBIT
@@ -928,6 +936,7 @@ metrics:
   - tests/metrics/test_ev_ebit.py
   kurs: true
   historie_perzentil: true
+  ttm: true
 - id: ev_sales
   version: '1.0'
   name: EV/Umsatz
@@ -965,6 +974,7 @@ metrics:
   - tests/metrics/test_ev_sales.py
   kurs: true
   historie_perzentil: true
+  ttm: true
 - id: fcf_yield
   version: '1.0'
   name: FCF-Rendite
@@ -992,6 +1002,7 @@ metrics:
   - tests/metrics/test_fcf_yield.py
   kurs: true
   historie_perzentil: true
+  ttm: true
 - id: pb
   version: '1.0'
   name: Kurs-Buchwert-Verhältnis
@@ -1016,6 +1027,7 @@ metrics:
   - tests/metrics/test_pb.py
   kurs: true
   historie_perzentil: true
+  ttm: true
 - id: dividend_yield
   version: '1.0'
   name: Dividendenrendite
@@ -1040,6 +1052,7 @@ metrics:
   - tests/metrics/test_dividend_yield.py
   kurs: true
   historie_perzentil: true
+  ttm: true
 - id: buyback_yield
   version: '1.0'
   name: Rückkaufrendite
@@ -1065,6 +1078,7 @@ metrics:
   tests:
   - tests/metrics/test_buyback_yield.py
   kurs: true
+  ttm: true
 - id: shareholder_yield
   version: '1.0'
   name: Aktionärsrendite
@@ -1140,6 +1154,7 @@ metrics:
   tests:
   - tests/metrics/test_wacc.py
   kurs: true
+  ttm: true
 - id: implied_growth
   version: '1.0'
   name: Implizites Wachstum (Reverse-DCF)
@@ -1187,6 +1202,7 @@ metrics:
   tests:
   - tests/metrics/test_implied_growth.py
   kurs: true
+  ttm: true
 - id: ev_ebit_normalized
   version: '1.0'
   name: EV/EBIT normalisiert
@@ -1260,3 +1276,146 @@ metrics:
   schwellen:
     gefahr_unter: '1.81'
     sicher_ueber: '2.99'
+- id: dcf_bear
+  version: '1.0'
+  name: DCF Bear je Aktie
+  formel: (Barwert FCFF 10 Jahre + Endwert - Nettoverschuldung + Ausfinanzierung - Minderheiten + Beteiligungen) / Aktien
+  definition: Szenario Bear (SPEC 3.6). Annahmen Umsatzwachstum, EBIT-Marge, Netto-Investitionsquote
+    und Working-Capital-Quote je in der Stufe aus config/kapitalkosten.yaml (szenarien), Stufen aus der
+    eigenen Historie (25., 50., 75. Perzentil). Information, geht nicht in die Note ein (HR-13).
+  eingaben:
+  - revenue
+  - ebit
+  - capex
+  - depreciation
+  - current_assets
+  - current_liabilities
+  - cash
+  - kurs
+  - shares_diluted
+  - rf
+  - erp
+  - beta_unverschuldet
+  - steuersatz
+  - endwachstum_max
+  optionale_eingaben:
+  - st_investments
+  - debt_current
+  - short_term_borrowings
+  - commercial_paper
+  - interest_expense
+  - pension_funded_status
+  - equity_incl_nci
+  - equity_investments
+  einheit: per_share
+  richtung: higher_better
+  rundung:
+    anzeige: kurs
+    nachkommastellen: 2
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage, Kapitel 12 und 15; SPEC 3.6
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  tests:
+  - tests/metrics/test_dcf_szenarien.py
+  kurs: true
+  ttm: true
+- id: dcf_base
+  version: '1.0'
+  name: DCF Base je Aktie
+  formel: (Barwert FCFF 10 Jahre + Endwert - Nettoverschuldung + Ausfinanzierung - Minderheiten + Beteiligungen) / Aktien
+  definition: Szenario Base (SPEC 3.6). Annahmen Umsatzwachstum, EBIT-Marge, Netto-Investitionsquote
+    und Working-Capital-Quote je in der Stufe aus config/kapitalkosten.yaml (szenarien), Stufen aus der
+    eigenen Historie (25., 50., 75. Perzentil). Information, geht nicht in die Note ein (HR-13). Mit Sensitivitätsmatrix über WACC ±1 Prozentpunkt und Endwachstum
+    ±0,5 Prozentpunkte.
+  eingaben:
+  - revenue
+  - ebit
+  - capex
+  - depreciation
+  - current_assets
+  - current_liabilities
+  - cash
+  - kurs
+  - shares_diluted
+  - rf
+  - erp
+  - beta_unverschuldet
+  - steuersatz
+  - endwachstum_max
+  optionale_eingaben:
+  - st_investments
+  - debt_current
+  - short_term_borrowings
+  - commercial_paper
+  - interest_expense
+  - pension_funded_status
+  - equity_incl_nci
+  - equity_investments
+  einheit: per_share
+  richtung: higher_better
+  rundung:
+    anzeige: kurs
+    nachkommastellen: 2
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage, Kapitel 12 und 15; SPEC 3.6
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  - CP-04
+  tests:
+  - tests/metrics/test_dcf_szenarien.py
+  kurs: true
+  ttm: true
+- id: dcf_bull
+  version: '1.0'
+  name: DCF Bull je Aktie
+  formel: (Barwert FCFF 10 Jahre + Endwert - Nettoverschuldung + Ausfinanzierung - Minderheiten + Beteiligungen) / Aktien
+  definition: Szenario Bull (SPEC 3.6). Annahmen Umsatzwachstum, EBIT-Marge, Netto-Investitionsquote
+    und Working-Capital-Quote je in der Stufe aus config/kapitalkosten.yaml (szenarien), Stufen aus der
+    eigenen Historie (25., 50., 75. Perzentil). Information, geht nicht in die Note ein (HR-13).
+  eingaben:
+  - revenue
+  - ebit
+  - capex
+  - depreciation
+  - current_assets
+  - current_liabilities
+  - cash
+  - kurs
+  - shares_diluted
+  - rf
+  - erp
+  - beta_unverschuldet
+  - steuersatz
+  - endwachstum_max
+  optionale_eingaben:
+  - st_investments
+  - debt_current
+  - short_term_borrowings
+  - commercial_paper
+  - interest_expense
+  - pension_funded_status
+  - equity_incl_nci
+  - equity_investments
+  einheit: per_share
+  richtung: higher_better
+  rundung:
+    anzeige: kurs
+    nachkommastellen: 2
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage, Kapitel 12 und 15; SPEC 3.6
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  tests:
+  - tests/metrics/test_dcf_szenarien.py
+  kurs: true
+  ttm: true

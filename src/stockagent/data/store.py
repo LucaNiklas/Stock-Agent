@@ -995,7 +995,7 @@ def replace_metrics(
                         json.dumps(list(w.ergebnis.warnungen), ensure_ascii=False),
                         json.dumps(list(w.ergebnis.vermerke), ensure_ascii=False),
                         w.ergebnis.rechenweg_json()
-                        if w.period_end == stichtag and w.statistik in ("wert", "aktuell")
+                        if w.period_end == stichtag and w.statistik in ("wert", "aktuell", "ttm")
                         else None,
                         jetzt,
                     ]

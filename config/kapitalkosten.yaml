@@ -46,6 +46,7 @@ finanz_sic: [6000, 6799]
 
 # Reverse-DCF und DCF (SPEC 3.6)
 jahre: 10                  # Prognosejahre, danach Endwert nach Gordon
+ausblenden_ab_jahr: 6      # DCF-Szenarien: ab diesem Jahr läuft das Wachstum linear zum Endwachstum aus
 endwachstum_max: "0.025"   # Endwachstum höchstens risikofreier Zins, Default höchstens 2,5 %
 suche:
   wachstum_min: "-0.5"     # implizites Wachstum wird in diesem Bereich gesucht
@@ -61,3 +62,15 @@ ev_ebit_normalisiert:
 
 # Altman Z für Produzenten (SPEC 3.5): SIC-Bereiche der verarbeitenden Industrie
 produzent_sic: [[2000, 3999]]
+
+# DCF-Szenarien (SPEC 3.6): Stufe je Größe und Szenario. Ab Schritt 6 wählt A5 die Stufen mit
+# Begründung, bis dahin gilt diese Vorgabe. Stufen: niedrig = 25. Perzentil, mittel = Median,
+# hoch = 75. Perzentil der eigenen 10 Jahre. Hohe Investitions- und WC-Quote sind ungünstig.
+szenarien:
+  bear: {wachstum: niedrig, marge: niedrig, investition: hoch, working_capital: hoch}
+  base: {wachstum: mittel, marge: mittel, investition: mittel, working_capital: mittel}
+  bull: {wachstum: hoch, marge: hoch, investition: niedrig, working_capital: niedrig}
+# Sensitivität des Base-Szenarios (SPEC 3.6 Nr. 4): Verschiebung von WACC und Endwachstum
+sensitivitaet:
+  wacc: ["-0.01", "-0.005", "0", "0.005", "0.01"]
+  endwachstum: ["-0.005", "0", "0.005"]

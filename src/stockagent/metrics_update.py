@@ -28,7 +28,7 @@ from typing import Any
 import duckdb
 import yaml
 
-from stockagent.core import hinweise, registry, trends
+from stockagent.core import hinweise, registry, trends, ttm
 from stockagent.core.calc import Ergebnis as CalcErgebnis
 from stockagent.core.hinweise import Hinweis, Kennzahlwert
 from stockagent.core.reihen import Reihen
@@ -162,6 +162,7 @@ def berechne(
     tcfg = cfg.metrics["trends"]
     waehrung = _waehrung(reihen)
     aktuell = inputs.reihen_aktuell(conn, reihen, isin, as_of.date(), cfg.kurs_cfg())
+    ttm_stand = _ttm_reihen(conn, issuer_id, as_of, cfg, reihen, isin)
     werte: list[Kennzahlwert] = []
     for d in cfg.metrics["metrics"]:
         jahre = trends.jahresreihe(d, reihen, int(tcfg["max_jahre"]))
@@ -170,6 +171,10 @@ def berechne(
         geld = waehrung if d["einheit"] == "monetary" else None
         tr = trends.trend(d, issuer_id, jahre, stichtag, geld, tcfg, cfg.quality["ausreisser"])
         werte += [Kennzahlwert(d["id"], version, s, stichtag, e) for s, e in tr.items()]
+        if d.get("ttm") and ttm_stand is not None:
+            # Letzte 12 Monate bis zum letzten Quartal, mit dem letzten Schlusskurs
+            e = registry.berechne(d, ttm_stand, ttm_stand.stichtage[0])
+            werte.append(Kennzahlwert(d["id"], version, "ttm", stichtag, e))
         if not d.get("kurs"):
             continue
         # Bewertung mit dem letzten Schlusskurs statt dem Kurs am Geschäftsjahresende
@@ -184,6 +189,23 @@ def berechne(
     flags = store.load_dq_flags(conn, issuer_id)
     h = hinweise.ableiten(werte, flags, stichtag, cfg.hinweise, cfg.metrics)
     return Rechnung(issuer_id, stichtag, werte, h)
+
+
+def _ttm_reihen(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    as_of: datetime,
+    cfg: Konfiguration,
+    reihen: Reihen,
+    isin: str | None,
+) -> Reihen | None:
+    """Reihen mit dem TTM-Stichtag (letztes Quartal) vorne und dem letzten Schlusskurs."""
+    teile = inputs.ttm(conn, issuer_id, as_of, cfg.cmap, reihen)
+    if teile is None:
+        return None
+    quartal, stroeme, staende = teile
+    stand = ttm.ttm_reihen(reihen, quartal, ttm.ttm_werte(issuer_id, quartal, stroeme, staende))
+    return inputs.reihen_aktuell(conn, stand, isin, as_of.date(), cfg.kurs_cfg())
 
 
 def nachrechnen(

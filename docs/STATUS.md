@@ -27,6 +27,7 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 | 4 Kurse (Teil 1) | Kursquelle Yahoo für alle Länder auf Anfrage, Zuordnung über OpenFIGI, Befehl `prices`, Plan: Bewertung auf Anfrage, Vergleichsgruppe 15 bis 50 (ADR 0005) | LucaNiklas/Stock-Agent#11 |
 | 4 Bewertung (Teil 2) | Wechselkurse der EZB, Umrechnung im Rechenweg, zehn Kennzahlen mit Börsenkurs, Bewertung mit aktuellem Kurs, Rang gegen die eigenen 10 Jahre, Dividenden-Gegenprobe | LucaNiklas/Stock-Agent#12 |
 | 4 Kapitalkosten (Teil 3a) | Zinsen (Bundesbank, Treasury), Damodaran, WACC, Reverse-DCF, normalisiertes EV/EBIT, Altman Z für Produzenten (ADR 0006) | Branch `schritt-04-kapitalkosten` |
+| 4 DCF und TTM (Teil 3b) | DCF-Szenarien Bear, Base, Bull mit Sensitivität, TTM-Werte aus Quartalsberichten | Branch `schritt-04-dcf` |
 | 3 Kennzahlen | 33 Kennzahlen und Scores ohne Börsenkurs mit Rechenweg und Prüfpunkten, Trends, vertikale Analyse, Speicherung, Hinweise an die Agenten, Befehl `metrics`, Architekturtest HR-06 | LucaNiklas/Stock-Agent#9 |
 
 ## Stand der Daten (lokal, nicht im Repository)
@@ -40,6 +41,8 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 - Bewertung (Lauf vom 14.10.2026, Kurse bis 13.10.2026) für die 10 Abnahmefirmen: 43 Kennzahlen je Firma, davon 10 mit Börsenkurs. Es fehlen JPMorgan 5 (Unternehmenswert, EV/EBIT, EV/Umsatz und Aktionärsrendite brauchen die Nettoverschuldung, FCF-Rendite den Capex: Bank, Schritt 8) . PagerDuty zahlt keine Dividende: Dividendenrendite 0 % (Bericht und Yahoo zeigen keine), Aktionärsrendite 9,45 % aus Rückkäufen und Schuldenabbau. Die Werte aus der Datenbank stimmen für Apple bei allen 43 Kennzahlen mit der Handrechnung überein. Beispiel Apple: KGV 34,2 am Geschäftsjahresende, 45,7 mit dem Kurs vom 13.10.2026, so hoch wie in keinem der letzten 10 Geschäftsjahre.
 - Zinsen und Damodaran (Lauf vom 19.10.2026): 10-jährige Zinsen EUR und USD ab 2015, Damodaran-Stand Januar 2026 (96 Branchen, 48.144 Firmen), Risikoprämie monatlich bis Oktober 2026 (3,70 %).
 - Kapitalkosten (Lauf vom 19.10.2026, 10 Abnahmefirmen): WACC zwischen 6,4 % (Coca-Cola) und 12,0 % (PagerDuty), Apple 9,37 %. Implizites FCFF-Wachstum über 10 Jahre am Geschäftsjahresende: Procter & Gamble 4,5 %, Johnson & Johnson 6,1 %, Coca-Cola 9,8 %, Caterpillar 10,6 %, Nike 11,5 %, Apple 15,5 %, Walmart 16,2 %, Microsoft 16,8 %, PagerDuty -2,0 %. JPMorgan ohne WACC (Bank). Rückrechnung CP-06 bei allen bestanden. Die Werte aus der Datenbank stimmen für Apple bei allen 47 Kennzahlen mit der Handrechnung überein.
+- DCF-Szenarien mit aktuellem Kurs (Lauf vom 19.10.2026, Wert je Aktie Bear / Base / Bull): Apple 83 / 107 / 152 USD (Kurs 341), Microsoft 198 / 324 / 416, Caterpillar 144 / 287 / 488 (Kurs 773), Johnson & Johnson 101 / 141 / 167, Procter & Gamble 102 / 117 / 133, Coca-Cola 29 / 48 / 58, Walmart 29 / 54 / 63, Nike 27 / 52 / 69. PagerDuty ohne DCF (operativer Verlust, Scorecard Schritt 8), JPMorgan ohne (Bank). Die Szenarien stützen sich nur auf die eigene Historie und liegen deshalb bei Wachstumswerten weit unter dem Kurs. Das zeigt dasselbe wie der Reverse-DCF.
+- TTM bis zum letzten Quartal für Apple, Caterpillar, Coca-Cola, Johnson & Johnson, Nike, Walmart und PagerDuty. Microsoft und Procter & Gamble haben ihr Geschäftsjahr gerade abgeschlossen. Bei Caterpillar, JPMorgan und PagerDuty fehlt im Quartalsbericht der Wert `LongTermDebt`, dort sind die TTM-Werte mit Unternehmenswert `unknown`.
 - `data/raw/`: Rohdateien mit SHA-256, auch jede SEC- und OpenFIGI-Antwort.
 - `state/tr_checks.yaml`: Lucas Prüfungen in der Trade-Republic-App. Noch leer.
 - `state/cik_overrides.yaml`: Lucas Zuordnungen zur SEC (`stockagent sec map`). Noch leer.
@@ -122,4 +125,4 @@ Das Dashboard wird die Bedienzentrale: suchen in eigenen Worten, filtern nach Ti
 
 ## Nächster Schritt
 
-Bauschritt 4 Teil 3b: DCF-Szenarien mit Sensitivität und TTM-Werte aus Quartalen. Danach Schritt 5.
+Bauschritt 5: Note, Vergleichsgruppe, Indexstufe, Dashboard.

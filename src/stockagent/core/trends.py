@@ -47,6 +47,7 @@ STATISTIKEN = (
     "steigung",
     "plausibilitaet",
     "aktuell",
+    "ttm",
     "perzentil_historie",
 )
 # Einheiten, bei denen die Vorjahresveränderung relativ gerechnet wird
