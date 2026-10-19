@@ -49,6 +49,13 @@ class Konfiguration:
     quality: dict[str, Any]
     metrics: dict[str, Any]
     hinweise: dict[str, Any]
+    sources: dict[str, Any]
+
+    def kurs_cfg(self) -> dict[str, Any]:
+        return {
+            **self.metrics["kurse"],
+            "unterwaehrungen": self.sources["ecb"]["unterwaehrungen"],
+        }
 
     @classmethod
     def laden(cls, config: Path) -> Konfiguration:
@@ -57,7 +64,11 @@ class Konfiguration:
             return data
 
         return cls(
-            concepts.load(config), yml("quality.yaml"), yml("metrics.yaml"), yml("hinweise.yaml")
+            concepts.load(config),
+            yml("quality.yaml"),
+            yml("metrics.yaml"),
+            yml("hinweise.yaml"),
+            yml("sources.yaml"),
         )
 
 
@@ -82,16 +93,51 @@ class Rechnung:
         return c
 
 
+def isin_for_issuer(conn: duckdb.DuckDBPyConnection, issuer_id: str) -> str | None:
+    """ISIN zum Emittenten, bevorzugt eine mit zugeordnetem Kurssymbol."""
+    isins = sorted(
+        isin
+        for isin, m in store.load_isin_cik(conn).items()
+        if m.cik and sec.issuer_id(m.cik) == issuer_id
+    )
+    mit_kurs = [i for i in isins if (s := store.load_price_symbol(conn, i)) and s.symbol]
+    return next(iter(mit_kurs or isins), None)
+
+
+def _reihen(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    as_of: datetime,
+    cfg: Konfiguration,
+    isin: str | None,
+) -> Reihen:
+    return inputs.reihen(
+        conn,
+        issuer_id,
+        as_of,
+        cfg.cmap,
+        cfg.quality,
+        isin=isin if isin is not None else isin_for_issuer(conn, issuer_id),
+        kurs_cfg=cfg.kurs_cfg(),
+    )
+
+
 def berechne(
-    conn: duckdb.DuckDBPyConnection, issuer_id: str, as_of: datetime, cfg: Konfiguration
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    as_of: datetime,
+    cfg: Konfiguration,
+    isin: str | None = None,
 ) -> Rechnung:
     """Alle Kennzahlen und Trends einer Firma zum Datenstand `as_of`, ohne zu speichern."""
-    reihen = inputs.reihen(conn, issuer_id, as_of, cfg.cmap, cfg.quality)
+    isin = isin if isin is not None else isin_for_issuer(conn, issuer_id)
+    reihen = _reihen(conn, issuer_id, as_of, cfg, isin)
     if not reihen.stichtage:
         return Rechnung(issuer_id, None, fehler="Kein Jahresbericht mit Abschlusswerten")
     stichtag = reihen.stichtage[0]
     tcfg = cfg.metrics["trends"]
     waehrung = _waehrung(reihen)
+    aktuell = inputs.reihen_aktuell(conn, reihen, isin, as_of.date(), cfg.kurs_cfg())
     werte: list[Kennzahlwert] = []
     for d in cfg.metrics["metrics"]:
         jahre = trends.jahresreihe(d, reihen, int(tcfg["max_jahre"]))
@@ -100,6 +146,17 @@ def berechne(
         geld = waehrung if d["einheit"] == "monetary" else None
         tr = trends.trend(d, issuer_id, jahre, stichtag, geld, tcfg, cfg.quality["ausreisser"])
         werte += [Kennzahlwert(d["id"], version, s, stichtag, e) for s, e in tr.items()]
+        if not d.get("kurs"):
+            continue
+        # Bewertung mit dem letzten Schlusskurs statt dem Kurs am Geschäftsjahresende
+        jetzt = registry.berechne(d, aktuell, stichtag) if aktuell else None
+        if jetzt is not None:
+            werte.append(Kennzahlwert(d["id"], version, "aktuell", stichtag, jetzt))
+        if d.get("historie_perzentil") and stichtag in jahre:
+            p = trends.perzentil_historie(
+                d, issuer_id, jahre, jetzt or jahre[stichtag], stichtag, tcfg
+            )
+            werte.append(Kennzahlwert(d["id"], version, "perzentil_historie", stichtag, p))
     flags = store.load_dq_flags(conn, issuer_id)
     h = hinweise.ableiten(werte, flags, stichtag, cfg.hinweise, cfg.metrics)
     return Rechnung(issuer_id, stichtag, werte, h)
@@ -118,7 +175,7 @@ def nachrechnen(
     Vorjahre speichern nur den Wert. Weil `pit_query` zum selben `as_of` dieselben Daten liefert,
     ergibt das Nachrechnen denselben Wert mit vollständigem Rechenweg (SPEC 12.5). None, wenn es
     das Geschäftsjahr im Datenstand nicht gibt."""
-    reihen = inputs.reihen(conn, issuer_id, as_of, cfg.cmap, cfg.quality)
+    reihen = _reihen(conn, issuer_id, as_of, cfg, None)
     treffer = [t for t in reihen.stichtage if t.year == jahr]
     definition = next(d for d in cfg.metrics["metrics"] if d["id"] == metric_id)
     return registry.berechne(definition, reihen, treffer[0]) if treffer else None
@@ -133,7 +190,7 @@ def nachrechnen_trend(
     cfg: Konfiguration,
 ) -> CalcErgebnis | None:
     """Rechenweg einer Trendstatistik zum selben Datenstand wie der gespeicherte Lauf."""
-    reihen = inputs.reihen(conn, issuer_id, as_of, cfg.cmap, cfg.quality)
+    reihen = _reihen(conn, issuer_id, as_of, cfg, None)
     if not reihen.stichtage:
         return None
     tcfg = cfg.metrics["trends"]
@@ -210,7 +267,7 @@ def update(
                 out.append(Ergebnis(isin, None, "keinem SEC-Melder zugeordnet"))
                 continue
             progress(f"Kennzahlen: {isin} ({issuer})")
-            r = berechne(conn, issuer, as_of, cfg)
+            r = berechne(conn, issuer, as_of, cfg, isin)
             if r.fehler:
                 out.append(Ergebnis(isin, r, r.fehler))
                 continue

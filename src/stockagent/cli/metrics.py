@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Any
 
 import typer
@@ -111,8 +111,12 @@ def show(
             "--trend", "-t", help="Mit --rechenweg: Trend zeigen (etwa steigung, plausibilitaet)."
         ),
     ] = None,
+    aktuell: Annotated[
+        bool,
+        typer.Option("--aktuell", "-a", help="Mit --rechenweg: Bewertung mit letztem Kurs zeigen."),
+    ] = False,
 ) -> None:
-    """Kennzahlen des letzten Geschäftsjahres mit Trend und Hinweisen anzeigen."""
+    """Kennzahlen des letzten Geschäftsjahres mit Trend, Bewertung und Hinweisen anzeigen."""
     paths = Paths.default()
     conn = connect(paths)
     try:
@@ -146,6 +150,14 @@ def show(
             typer.echo(f"Nachgerechnet zum Datenstand {as_of:%d.%m.%Y}")
             _rechenweg(erg.rechenweg, erg.grund, erg.vermerke)
             return
+        if aktuell:
+            if (rechenweg, "aktuell") not in je:
+                typer.echo(f"Für {rechenweg} gibt es keine Bewertung mit aktuellem Kurs.")
+                raise typer.Exit(code=1)
+            row = je[(rechenweg, "aktuell")]
+            trace = json.loads(row.calc_trace_json) if row.calc_trace_json else {}
+            _rechenweg(trace, row.grund, row.vermerke)
+            return
         if jahr is None or stichtag is None or jahr == stichtag.year:
             row = je[(rechenweg, "wert")]
             trace = json.loads(row.calc_trace_json) if row.calc_trace_json else {}
@@ -175,6 +187,8 @@ def show(
     for col in ("Kennzahl", "Wert", "Vorjahr", "Trend je Jahr", "Anmerkung"):
         table.add_column(col)
     for metric_id, d in defs.items():
+        if d.get("kurs"):
+            continue  # eigene Tabelle unten
         anz, st = d["rundung"]["anzeige"], int(d["rundung"]["nachkommastellen"])
         wert = je.get((metric_id, "wert"))
         vj = je.get((metric_id, "veraenderung_vj"))
@@ -208,9 +222,59 @@ def show(
             notiz[:70],
         )
     console.print(table)
+    _bewertung(defs, je, stichtag, geld)
     typer.echo(f"Offene Hinweise an die Agenten: {len(hinweise)}")
     for h in hinweise:
         typer.echo(
             f"  {h.regel} an {h.an_agent} ({h.abteilung}) {h.metric_id or ''}: {h.detail[:100]}"
         )
     typer.echo("Rechenweg einer Kennzahl: stockagent metrics show <ISIN> --rechenweg <id>")
+    typer.echo("Mit aktuellem Kurs: stockagent metrics show <ISIN> --rechenweg pe --aktuell")
+
+
+def _kurstag(row: store.MetricRow | None) -> str | None:
+    """Handelstag des Kurses aus dem Rechenweg (Quelle „Yahoo SYM Schlusskurs JJJJ-MM-TT“)."""
+    if row is None or not row.calc_trace_json:
+        return None
+    for s in json.loads(row.calc_trace_json)["schritte"]:
+        for e in s["eingaben"].values():
+            if isinstance(e, dict) and "Schlusskurs" in str(e.get("quelle", "")):
+                tag = date.fromisoformat(str(e["quelle"]).rsplit(" ", 1)[-1])
+                return f"{tag:%d.%m.%Y}"
+    return None
+
+
+def _bewertung(
+    defs: dict[str, dict[str, Any]],
+    je: dict[tuple[str, str], store.MetricRow],
+    stichtag: Any,
+    geld: str | None,
+) -> None:
+    bewertung = {m: d for m, d in defs.items() if d.get("kurs")}
+    if not bewertung:
+        return
+    tag = _kurstag(je.get(("pe", "aktuell"))) or _kurstag(je.get(("market_cap", "aktuell")))
+    table = Table(
+        title=f"Bewertung mit Börsenkurs (Kurs am Geschäftsjahresende {stichtag:%d.%m.%Y} "
+        f"und aktuell{f' vom {tag}' if tag else ''})"
+    )
+    for col in ("Kennzahl", "GJ-Ende", "Aktuell", "Rang in 10 Jahren", "Anmerkung"):
+        table.add_column(col)
+    for metric_id, d in bewertung.items():
+        anz, st = d["rundung"]["anzeige"], int(d["rundung"]["nachkommastellen"])
+        wert, jetzt = je.get((metric_id, "wert")), je.get((metric_id, "aktuell"))
+        p = je.get((metric_id, "perzentil_historie"))
+        rang = "-" if p is None or p.value is None else formatiere(p.value, "percent", 0)
+        notiz = next((r.grund for r in (jetzt, wert, p) if r is not None and r.grund), "")
+        table.add_row(
+            d["name"],
+            formatiere(wert.value if wert else None, anz, st, geld),
+            formatiere(jetzt.value if jetzt else None, anz, st, geld),
+            rang,
+            (notiz or "")[:70],
+        )
+    console.print(table)
+    typer.echo(
+        "Rang: Anteil der Geschäftsjahre, in denen der Wert höchstens so hoch war wie aktuell "
+        "(100 % = so hoch wie nie)."
+    )

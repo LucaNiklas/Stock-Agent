@@ -24,16 +24,19 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 | Spezifikation 4.2 | Vier Abteilungen, Quellenkarte, Auftragsform, Rechenweg nach Schritt 2 vorgezogen (ADR 0003) | LucaNiklas/Stock-Agent#6 |
 | 2 Abschlussdaten USA | ISIN zu CIK über OpenFIGI (ADR 0002), SIC und Adresse der SEC, Company Facts mit Zeitpunktbezug, Rechenweg `core/calc.py`, Datenqualität DQ-01 bis DQ-08, CLI als Paket | LucaNiklas/Stock-Agent#7 |
 | Spezifikation 4.3 | Dashboard als Bedienzentrale, Indexstufe Tier 1 bis 4, Suche in eigenen Worten (ADR 0004) | LucaNiklas/Stock-Agent#8 |
-| 4 Kurse (Teil 1) | Kursquelle Yahoo für alle Länder auf Anfrage, Zuordnung über OpenFIGI, Befehl `prices`, Plan: Bewertung auf Anfrage, Vergleichsgruppe 15 bis 50 (ADR 0005) | Branch `schritt-04-kursquelle` |
+| 4 Kurse (Teil 1) | Kursquelle Yahoo für alle Länder auf Anfrage, Zuordnung über OpenFIGI, Befehl `prices`, Plan: Bewertung auf Anfrage, Vergleichsgruppe 15 bis 50 (ADR 0005) | LucaNiklas/Stock-Agent#11 |
+| 4 Bewertung (Teil 2) | Wechselkurse der EZB, Umrechnung im Rechenweg, zehn Kennzahlen mit Börsenkurs, Bewertung mit aktuellem Kurs, Rang gegen die eigenen 10 Jahre | Branch `schritt-04-bewertung` |
 | 3 Kennzahlen | 33 Kennzahlen und Scores ohne Börsenkurs mit Rechenweg und Prüfpunkten, Trends, vertikale Analyse, Speicherung, Hinweise an die Agenten, Befehl `metrics`, Architekturtest HR-06 | LucaNiklas/Stock-Agent#9 |
 
 ## Stand der Daten (lokal, nicht im Repository)
 
-- `data/stockagent.duckdb` (Schema-Version 6, Versionen 3 bis 5 werden beim Öffnen ohne Datenverlust aufgerüstet): 14.509 Aktien, Stand der Quelle 12.10.2026.
+- `data/stockagent.duckdb` (Schema-Version 7, Versionen 3 bis 6 werden beim Öffnen ohne Datenverlust aufgerüstet): 14.509 Aktien, Stand der Quelle 12.10.2026.
 - Zuordnung zur SEC (Lauf vom 13.10.2026): von 4.021 US-ISINs sind 3.117 einer CIK zugeordnet (3.052 verschiedene Firmen), 9 unsicher, 895 ohne SEC-Melder (davon 845 Hinterlegungsscheine, meist nicht gesponserte ADRs, 69 davon nur ADR-Registrierungen der Depotbank). Stammdaten liegen für alle 3.052 vor. Die SEC selbst führt bei 115 keinen SIC-Code (überwiegend geschlossene Fonds) und bei 2 keine Geschäftsadresse. 2.697 haben eine US-Geschäftsadresse.
 - Die 9 unsicheren Zuordnungen zeigt `stockagent sec show <ISIN>` mit Grund (meist Umbenennungen wie Hypera/Hypermarcas oder Verwechslungen bei OpenFIGI wie Helix Energy mit dem Ticker von Hornbeck Offshore). Festlegen mit `stockagent sec map <ISIN> <CIK>|keine`.
 - Abschlusswerte und Prüfungen bisher für die 10 Abnahmefirmen: Apple, Microsoft, Coca-Cola, Johnson & Johnson, Caterpillar, Procter & Gamble, Nike, Walmart, JPMorgan, PagerDuty. Alle erfüllen die Bilanzgleichung für zehn Jahre, alle verfügbaren Kernwerte stimmen auf dem zweiten Weg mit dem Originalbericht überein.
 - Kennzahlen (Lauf vom 13.10.2026) für die 10 Abnahmefirmen: zusammen 306 von 330 Jahreswerten im letzten Geschäftsjahr berechnet, kein Prüfpunkt gestoppt. Die fehlenden: JPMorgan 20 (Bank, eigene Scorecard in Schritt 8), Apple, Caterpillar und Nike je 1 (kein Zinsaufwand gemeldet, Zinsdeckung unbekannt), PagerDuty 1 (Gewinn je Aktie vor 5 Jahren negativ, Wachstumsrate in Prozent nicht berechenbar). Bei Johnson & Johnson und Nike ist das EBIT abgeleitet und markiert. Speicher je Firma rund 100 KB. Die Werte aus der Datenbank stimmen für Apple bei allen 33 Kennzahlen mit der Handrechnung aus den 10-K überein.
+- Wechselkurse der EZB (Lauf vom 14.10.2026): 86.703 Referenzkurse für 29 Währungen ab 2015.
+- Bewertung (Lauf vom 14.10.2026, Kurse bis 13.10.2026) für die 10 Abnahmefirmen: 43 Kennzahlen je Firma, davon 10 mit Börsenkurs. Es fehlen JPMorgan 5 (Unternehmenswert, EV/EBIT, EV/Umsatz und Aktionärsrendite brauchen die Nettoverschuldung, FCF-Rendite den Capex: Bank, Schritt 8) . PagerDuty zahlt keine Dividende: Dividendenrendite 0 % (Bericht und Yahoo zeigen keine), Aktionärsrendite 9,45 % aus Rückkäufen und Schuldenabbau. Die Werte aus der Datenbank stimmen für Apple bei allen 43 Kennzahlen mit der Handrechnung überein. Beispiel Apple: KGV 34,2 am Geschäftsjahresende, 45,7 mit dem Kurs vom 13.10.2026, so hoch wie in keinem der letzten 10 Geschäftsjahre.
 - `data/raw/`: Rohdateien mit SHA-256, auch jede SEC- und OpenFIGI-Antwort.
 - `state/tr_checks.yaml`: Lucas Prüfungen in der Trade-Republic-App. Noch leer.
 - `state/cik_overrides.yaml`: Lucas Zuordnungen zur SEC (`stockagent sec map`). Noch leer.
@@ -60,8 +63,10 @@ uv run stockagent sec map <ISIN> <CIK>|keine
 uv run stockagent prices update -i <ISIN> [--refresh]
 uv run stockagent prices show <ISIN>
 uv run stockagent prices map <ISIN> <SYMBOL>|keine
+uv run stockagent fx update [--refresh]
+uv run stockagent fx show USD [--datum JJJJ-MM-TT]
 uv run stockagent metrics update [--isin <ISIN>] [--as-of JJJJ-MM-TT]
-uv run stockagent metrics show <ISIN> [--rechenweg <id>]
+uv run stockagent metrics show <ISIN> [--rechenweg <id> [--jahr J | --trend T | --aktuell]]
 uv run pytest && uv run ruff check . && uv run mypy
 ```
 
@@ -86,6 +91,8 @@ uv run pytest && uv run ruff check . && uv run mypy
 - **DQ-06 in `dq_flags`** stammt noch aus dem Lauf von Schritt 2 mit der alten Ausreißerprüfung. Beim nächsten `sec update --isin` wird sie mit der neuen Prüfung ersetzt.
 - **Banken:** Bruttomarge, Free Cashflow, Current Ratio und Finanzschulden passen nicht auf Banken (JPMorgan: 20 Kennzahlen `unknown` mit Grund). Eigene Scorecard in Schritt 8.
 - **Zweite unabhängige Quelle:** Für Abschlusszahlen ist der zweite Weg das XBRL des Originalberichts. Für Kurse gibt es keine Gegenprobe, nur Plausibilitätsprüfungen (ADR 0005).
+- **Firmen ohne Dividende (Lucas Entscheidung 14.10.2026):** 0 % nur, wenn weder der Bericht noch Yahoo im Geschäftsjahr eine Dividende zeigt. Zeigt Yahoo eine und der Bericht nicht, bleibt der Wert `unknown`, und Hinweis H-10 geht an die Recherche (fehlende Zuordnung des XBRL-Konzepts). Jahre vor dem ersten gespeicherten Kurs haben keine Gegenprobe.
+- **Rang gegen die eigene Geschichte:** Der Rang sagt nur, wo der Wert in den eigenen 10 Jahren liegt. Ob hoch gut oder schlecht ist, hängt von der Kennzahl ab (hohes KGV teuer, hohe FCF-Rendite günstig). Das ordnet die Note in Schritt 5 ein.
 - **Kurse von Yahoo:** live getestet am 14.10.2026 mit 12 Titeln aus USA, Deutschland, UK, Japan, Hongkong, Kanada, Australien, Niederlande und Schweiz (ADR 0005). Inoffizielle Quelle, kann ausfallen. Kurse liegen lokal für diese 12 Titel vor.
 - **Vorzugsaktien und Anleihen im Universum:** Die Deutsche Börse führt einige Vorzugsaktien und nachrangige Anleihen als `CS` (etwa „HANCOCK WHITNEY SU.NTS 25“). Sie werden dem richtigen Emittenten zugeordnet, sind aber keine Stammaktie. Bereinigung des Universums offen.
 - **Gelöschte Handzuordnung:** Entfernt Luca einen Eintrag aus `state/cik_overrides.yaml`, gilt die alte Zuordnung bis zur nächsten Neuprüfung (90 Tage). Sofort wirkt `sec map <ISIN> <CIK>`.
@@ -108,4 +115,4 @@ Das Dashboard wird die Bedienzentrale: suchen in eigenen Worten, filtern nach Ti
 
 ## Nächster Schritt
 
-Bauschritt 4 weiter: Wechselkurse der EZB (`data/sources/fx.py`, Domain frei), Umrechnung und Unterwährungen in `core/fx.py`, Zinsen, dann die Kennzahlen mit Börsenkurs (Börsenwert, Unternehmenswert, KGV, EV/EBIT, FCF-Rendite) über den Rechenweg und die Bewertung (Reverse-DCF, Multiples).
+Bauschritt 4, dritter Teil: Zinsen (Bundesbank, US-Treasury), Damodaran, Kapitalkosten, Reverse-DCF, DCF-Szenarien, `ev_ebit_normalized`, Altman Z für Produzenten, TTM-Werte aus Quartalen. Braucht die Domains `api.statistiken.bundesbank.de`, `home.treasury.gov` und `pages.stern.nyu.edu`.

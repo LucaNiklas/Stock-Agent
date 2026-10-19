@@ -6,9 +6,14 @@
 # core/trends.py über die Zeitreihe der Kennzahl.
 # Eingaben mit "|" sind Alternativen, "+" eine Summe von Teilen. Optionale Eingaben zählen 0,
 # wenn nicht gemeldet, mit Vermerk im Rechenweg.
-# Bewertungskennzahlen mit Börsenkurs (EV, KGV, FCF-Rendite, Altman Z) folgen in Bauschritt 4.
+# Bewertungskennzahlen mit Börsenkurs (`kurs: true`, core/marktkennzahlen.py) seit Bauschritt 4.
+# `historie_perzentil: true`: Einordnung gegen die eigenen letzten 10 Jahre (SPEC 3.3).
 
-methodology_version: "1.0"
+methodology_version: "1.2"
+
+# Kurse für Bewertungskennzahlen (Bauschritt 4, ADR 0005)
+kurse:
+  max_abstand_tage: 7          # letzter Schlusskurs höchstens so lange vor dem Stichtag
 
 # Trends je Kennzahl (SPEC 3.4, core/trends.py)
 trends:
@@ -806,3 +811,291 @@ metrics:
   - tests/metrics/test_beneish_m_score.py
   schwellen:
     eskalation_ueber: '-1.78'
+- id: market_cap
+  version: '1.0'
+  name: Börsenwert
+  formel: Kurs mal verwässerte Aktienzahl
+  definition: Schlusskurs zum Stichtag (in Berichtswährung umgerechnet, falls nötig) mal verwässerte durchschnittliche Aktienzahl des Geschäftsjahres, beide um Splits bereinigt.
+  eingaben:
+  - kurs
+  - shares_diluted
+  einheit: monetary
+  richtung: neutral
+  rundung:
+    anzeige: betrag
+    nachkommastellen: 0
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage; SPEC 3.3
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/metrics/test_market_cap.py
+  kurs: true
+- id: enterprise_value
+  version: '1.0'
+  name: Unternehmenswert
+  formel: Börsenwert + Nettoverschuldung + Pensionsdefizit + Minderheiten - Beteiligungen
+  definition: Nettoverschuldung wie net_debt (mit Leasing). Pensionsdefizit aus dem Ausfinanzierungsstatus, Minderheiten aus Eigenkapital gesamt minus Anteil der Aktionäre, at-equity-Beteiligungen abgezogen. Brücke zurück zum Börsenwert als Summenprobe (CP-03).
+  eingaben:
+  - kurs
+  - shares_diluted
+  - debt_long_total|debt_noncurrent
+  - cash
+  - lease_operating
+  optionale_eingaben:
+  - debt_current
+  - short_term_borrowings
+  - commercial_paper
+  - st_investments
+  - lease_finance
+  - pension_funded_status
+  - equity_incl_nci
+  - equity_investments
+  einheit: monetary
+  richtung: neutral
+  rundung:
+    anzeige: betrag
+    nachkommastellen: 0
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage; SPEC 3.3
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  tests:
+  - tests/metrics/test_enterprise_value.py
+  kurs: true
+- id: pe
+  version: '1.0'
+  name: KGV
+  formel: Kurs / verwässerter Gewinn je Aktie
+  definition: Nur bei positivem Gewinn je Aktie, sonst nicht aussagekräftig.
+  eingaben:
+  - kurs
+  - eps_diluted
+  einheit: pure
+  richtung: lower_better
+  rundung:
+    anzeige: faktor
+    nachkommastellen: 1
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage; SPEC 3.3
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/metrics/test_pe.py
+  kurs: true
+  historie_perzentil: true
+- id: ev_ebit
+  version: '1.0'
+  name: EV/EBIT
+  formel: Unternehmenswert / EBIT
+  definition: EBIT wie gemeldet oder abgeleitet (Vermerk). Nur bei positivem EBIT.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - debt_long_total|debt_noncurrent
+  - cash
+  - lease_operating
+  - ebit
+  optionale_eingaben:
+  - debt_current
+  - short_term_borrowings
+  - commercial_paper
+  - st_investments
+  - lease_finance
+  - pension_funded_status
+  - equity_incl_nci
+  - equity_investments
+  einheit: pure
+  richtung: lower_better
+  rundung:
+    anzeige: faktor
+    nachkommastellen: 1
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage; SPEC 3.3
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  tests:
+  - tests/metrics/test_ev_ebit.py
+  kurs: true
+  historie_perzentil: true
+- id: ev_sales
+  version: '1.0'
+  name: EV/Umsatz
+  formel: Unternehmenswert / Umsatz
+  definition: Für Firmen mit negativem EBIT.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - debt_long_total|debt_noncurrent
+  - cash
+  - lease_operating
+  - revenue
+  optionale_eingaben:
+  - debt_current
+  - short_term_borrowings
+  - commercial_paper
+  - st_investments
+  - lease_finance
+  - pension_funded_status
+  - equity_incl_nci
+  - equity_investments
+  einheit: pure
+  richtung: lower_better
+  rundung:
+    anzeige: faktor
+    nachkommastellen: 2
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage; SPEC 3.3
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  tests:
+  - tests/metrics/test_ev_sales.py
+  kurs: true
+  historie_perzentil: true
+- id: fcf_yield
+  version: '1.0'
+  name: FCF-Rendite
+  formel: Free Cashflow / Börsenwert
+  definition: FCF wie Kennzahl fcf.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - operating_cash_flow
+  - capex
+  optionale_eingaben:
+  - capex_intangibles
+  einheit: ratio
+  richtung: higher_better
+  rundung:
+    anzeige: percent
+    nachkommastellen: 1
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage; SPEC 3.3
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/metrics/test_fcf_yield.py
+  kurs: true
+  historie_perzentil: true
+- id: pb
+  version: '1.0'
+  name: Kurs-Buchwert-Verhältnis
+  formel: Börsenwert / Eigenkapital
+  definition: Gleich Kurs / Buchwert je Aktie. Nur bei positivem Eigenkapital.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - equity
+  einheit: pure
+  richtung: lower_better
+  rundung:
+    anzeige: faktor
+    nachkommastellen: 2
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage; SPEC 3.3
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/metrics/test_pb.py
+  kurs: true
+  historie_perzentil: true
+- id: dividend_yield
+  version: '1.0'
+  name: Dividendenrendite
+  formel: Gezahlte Dividenden / Börsenwert
+  definition: Gezahlte Dividenden des Geschäftsjahres laut Kapitalflussrechnung, gleich Dividende je Aktie / Kurs bei gleicher Aktienzahl.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - dividends_paid
+  einheit: ratio
+  richtung: higher_better
+  rundung:
+    anzeige: percent
+    nachkommastellen: 2
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage; SPEC 3.3
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/metrics/test_dividend_yield.py
+  kurs: true
+  historie_perzentil: true
+- id: buyback_yield
+  version: '1.0'
+  name: Rückkaufrendite
+  formel: (Aktienrückkäufe - Aktienausgabe) / Börsenwert
+  definition: Netto-Rückkäufe laut Kapitalflussrechnung.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - buybacks
+  optionale_eingaben:
+  - stock_issuance
+  einheit: ratio
+  richtung: higher_better
+  rundung:
+    anzeige: percent
+    nachkommastellen: 2
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage; SPEC 3.3
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/metrics/test_buyback_yield.py
+  kurs: true
+- id: shareholder_yield
+  version: '1.0'
+  name: Aktionärsrendite
+  formel: (Dividenden + Netto-Rückkäufe + Abbau der Nettoverschuldung) / Börsenwert
+  definition: Abbau der Nettoverschuldung = Nettoverschuldung Vorjahr minus Nettoverschuldung (wie net_debt).
+  eingaben:
+  - kurs
+  - shares_diluted
+  - dividends_paid
+  - buybacks
+  - debt_long_total|debt_noncurrent
+  - cash
+  - lease_operating
+  optionale_eingaben:
+  - stock_issuance
+  - debt_current
+  - short_term_borrowings
+  - commercial_paper
+  - st_investments
+  - lease_finance
+  einheit: ratio
+  richtung: higher_better
+  rundung:
+    anzeige: percent
+    nachkommastellen: 2
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage; SPEC 3.3
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/metrics/test_shareholder_yield.py
+  kurs: true
