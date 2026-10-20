@@ -122,12 +122,9 @@ class Rechnung:
 
 
 def isin_for_issuer(conn: duckdb.DuckDBPyConnection, issuer_id: str) -> str | None:
-    """ISIN zum Emittenten, bevorzugt eine mit zugeordnetem Kurssymbol."""
-    isins = sorted(
-        isin
-        for isin, m in store.load_isin_cik(conn).items()
-        if m.cik and sec.issuer_id(m.cik) == issuer_id
-    )
+    """ISIN zum Emittenten, bevorzugt eine mit zugeordnetem Kurssymbol, Stammaktie vor
+    Hinterlegungsschein."""
+    isins = store.isins_for_issuer(conn, issuer_id)
     mit_kurs = [i for i in isins if (s := store.load_price_symbol(conn, i)) and s.symbol]
     return next(iter(mit_kurs or isins), None)
 
@@ -311,8 +308,7 @@ def speichere(
 
 
 def issuer_for_isin(conn: duckdb.DuckDBPyConnection, isin: str) -> str | None:
-    mapping = store.load_isin_cik(conn).get(isin.upper())
-    return sec.issuer_id(mapping.cik) if mapping and mapping.cik else None
+    return store.issuer_for_isin(conn, isin)
 
 
 @dataclass

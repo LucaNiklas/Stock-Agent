@@ -58,7 +58,9 @@ def kurs(r: Rechenweg, d: Reihen, t: date) -> Eingabe:
     ziel = berichtswaehrung(d, t)
     if ziel is not None and k.waehrung != ziel:
         unter = dict(d.parameter.get("unterwaehrungen", {}))
-        benoetigt = {fx.hauptwaehrung(str(k.waehrung), unter), ziel} - {"EUR"}
+        haupt = fx.hauptwaehrung(str(k.waehrung), unter)
+        # Nur Unterwährung (GBp -> GBP): Teiler 100, kein Wechselkurs nötig
+        benoetigt = set() if haupt == ziel else {haupt, ziel} - {"EUR"}
         kurse = {w: d.hole(f"fx_{w}", t) for w in benoetigt}
         k = fx.umrechnen(r, "kurs_in_berichtswaehrung", k, ziel, kurse, unter)
     if not d.hat("adr_aktien_je_schein", t):

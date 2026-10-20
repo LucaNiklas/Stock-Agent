@@ -39,3 +39,30 @@ def umsatz_aus_bruttoergebnis(
             ),
         )
     return out
+
+
+def aktien_aus_eps(
+    aktien: Mapping[date, Eingabe],
+    ergebnis: Mapping[date, Eingabe],
+    eps: Mapping[date, Eingabe],
+) -> dict[date, Eingabe]:
+    """Verwässerte Aktienzahl je Stichtag, fehlende Jahre aus Ergebnis der Aktionäre /
+    verwässertem Ergebnis je Aktie (ESEF: TotalEnergies, Enel, Iberdrola melden keine
+    Aktienzahl). Nur bei gleicher Währung und Ergebnis ungleich 0. Das Ergebnis je Aktie ist auf
+    Cent gerundet, die Abweichung liegt meist unter 0,1 %."""
+    out = dict(aktien)
+    for t, e in ergebnis.items():
+        k = eps.get(t)
+        if t in out or k is None or k.wert == 0 or e.wert == 0 or e.waehrung != k.waehrung:
+            continue
+        out[t] = Eingabe(
+            wert=e.wert / k.wert,
+            quelle=f"abgeleitet: Aktien = Ergebnis / Ergebnis je Aktie verwässert "
+            f"({e.quelle}; {k.quelle})",
+            einheit="shares",
+            periode_ende=t,
+            waehrung=None,
+            periode_start=e.periode_start,
+            veroeffentlicht=e.veroeffentlicht,
+        )
+    return out

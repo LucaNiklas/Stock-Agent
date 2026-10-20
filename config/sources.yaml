@@ -41,6 +41,16 @@ sec:
   report_forms: [10-K, 10-K/A, 10-Q, 10-Q/A, 10-KT, 10-KT/A, 10-QT, 10-QT/A, 20-F, 20-F/A,
                  40-F, 40-F/A, 6-K, 6-K/A]
 
+esef:
+  # ESEF-Jahresberichte der EU über filings.xbrl.org (SPEC 7.2, ADR 0009). Ohne Schlüssel.
+  # Abdeckung ab 2020. Deutsche Berichte fehlen dort (Unternehmensregister nicht angebunden).
+  base_url: https://filings.xbrl.org
+  filings_url: https://filings.xbrl.org/api/entities/{lei}/filings
+  pause_s: 1.0
+  timeout_s: 180
+  jahre: 6               # so viele Einreichungen je Firma, neueste zuerst
+  max_fehler: 0          # Einreichungen mit Validierungsfehlern von filings.xbrl.org auslassen
+
 openfigi:
   # ISIN -> Ticker (ADR 0002). Ohne API-Schlüssel, Grenzen live gemessen am 13.10.2026
   # (Antwort-Header ratelimit-policy: 25;w=60, mehr als 10 Aufträge je Anfrage ergibt HTTP 413).

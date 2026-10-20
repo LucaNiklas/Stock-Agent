@@ -132,6 +132,9 @@ us-gaap:
     - us-gaap:Depreciation
     - ifrs-full:AdjustmentsForDepreciationAndAmortisationExpense
     - ifrs-full:DepreciationAndAmortisationExpense
+    # Mit Wertminderungen (Enel, Iberdrola, TotalEnergies melden nur diese Summe)
+    - ifrs-full:AdjustmentsForDepreciationAndAmortisationExpenseAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss
+    - ifrs-full:DepreciationAmortisationAndImpairmentLossReversalOfImpairmentLossRecognisedInProfitOrLoss
   current_assets:
     - us-gaap:AssetsCurrent
     - ifrs-full:CurrentAssets
@@ -202,6 +205,7 @@ us-gaap:
   eps_diluted:
     - us-gaap:EarningsPerShareDiluted
     - ifrs-full:DilutedEarningsLossPerShare
+    - ifrs-full:BasicAndDilutedEarningsLossPerShare
   ppe_net:
     - us-gaap:PropertyPlantAndEquipmentNet
     - ifrs-full:PropertyPlantAndEquipment

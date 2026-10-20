@@ -111,3 +111,25 @@ def test_fiscal_year_needs_core_value() -> None:
     assert quality.jahresstichtage(facts) == [date(2026, 6, 30), date(2025, 6, 30)]  # type: ignore[arg-type]
     kern = {"ifrs-full:Revenue"}
     assert quality.jahresstichtage(facts, kern) == [date(2025, 6, 30)]  # type: ignore[arg-type]
+
+
+def test_gbx_price_in_pence_converted_to_pounds() -> None:
+    """GBX-Fall (SPEC 5.2): Londoner Kurse in Pence, Bericht in Pfund. 2.450 GBp = 24,50 GBP.
+    Mit Umrechnung in einen EUR-Bericht: 24,50 GBP / 0,85 GBP je EUR = 28,82 EUR."""
+    werte = {
+        "revenue": {T: _e("32667000000", "ifrs-full:Revenue", "GBP")},
+        "kurs": {T: Eingabe(Decimal(2450), "Yahoo GSK.L", "per_share", T, "GBp")},
+    }
+    unter = {"unterwaehrungen": {"GBp": "GBP", "GBX": "GBP"}}
+    d = Reihen("x", (T,), werte, parameter=unter)
+    k = registry.marktkennzahlen.kurs(Rechenweg("t", "1", "x", "t"), d, T)
+    assert k.waehrung == "GBP" and k.wert == Decimal("24.5")
+    eur = {
+        **werte,
+        "revenue": {T: _e("1", "ifrs-full:Revenue", "EUR")},
+        "fx_GBP": {T: Eingabe(Decimal("0.85"), "EZB", "pure", T)},
+    }
+    k2 = registry.marktkennzahlen.kurs(
+        Rechenweg("t", "1", "x", "t"), Reihen("x", (T,), eur, parameter=unter), T
+    )
+    assert k2.waehrung == "EUR" and k2.wert.quantize(Decimal("0.01")) == Decimal("28.82")

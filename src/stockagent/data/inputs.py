@@ -386,6 +386,9 @@ def reihen(
         ):
             del werte["lease_finance"][t]
             leasing_in_schulden.append(t)
+    werte["shares_diluted"] = abgeleitet.aktien_aus_eps(
+        werte.get("shares_diluted", {}), werte.get("net_income", {}), werte.get("eps_diluted", {})
+    )
     werte["revenue"] = abgeleitet.umsatz_aus_bruttoergebnis(
         werte.get("revenue", {}), werte.get("gross_profit", {}), werte.get("cost_of_revenue", {})
     )

@@ -29,7 +29,14 @@ from typing import Any
 import duckdb
 import yaml
 
-from stockagent import fx_update, kapitalmarkt_update, metrics_update, prices_update, sec_update
+from stockagent import (
+    esef_update,
+    fx_update,
+    kapitalmarkt_update,
+    metrics_update,
+    prices_update,
+    sec_update,
+)
 from stockagent.core import dq, fx, marktrisiko, note, sektoren, vergleichsgruppe
 from stockagent.core.calc import Rechenweg
 from stockagent.data import concepts, inputs, quality, store
@@ -58,6 +65,7 @@ class Lader:
         p, isins=i
     )
     umsatz: Callable[[Paths, str, list[str]], None] = field(default=lambda p, z, k: None)
+    esef: Callable[[Paths, list[str]], object] = lambda p, i: esef_update.update(p, i)
 
 
 def umsatz_laden(paths: Paths, zeitraum: str, konzepte: list[str]) -> None:
@@ -349,7 +357,26 @@ def bewerten(
         finally:
             conn.close()
     if issuer is None:
-        return _n(paths, isin, None, now, "kein SEC-Melder (Europa ab Schritt 7)")
+        # Kein SEC-Melder: ESEF-Bericht über die LEI (Bauschritt 7)
+        progress(f"{isin}: ESEF-Berichte über die LEI")
+        lader.esef(paths, [isin])
+        conn = store.connect(paths.db)
+        try:
+            issuer = metrics_update.issuer_for_isin(conn, isin)
+        finally:
+            conn.close()
+        if issuer is not None:
+            lader.kurse(paths, [isin])
+            lader.kennzahlen(paths, [isin])
+    if issuer is None:
+        return _n(
+            paths,
+            isin,
+            None,
+            now,
+            "weder SEC-Melder noch ESEF-Bericht bei filings.xbrl.org (deutsche Berichte fehlen "
+            "dort, ADR 0009)",
+        )
     conn = store.connect(paths.db)
     try:
         frisch = not _veraltet(conn, issuer, now, tage)

@@ -59,6 +59,7 @@ ERLAUBT: dict[tuple[str, str], str] = {
         "int(cfg.scoring['vergleichsgruppe']['mindest']) - 1",
     ): "Mindestzahl der Vergleichstitel ohne die Firma selbst",
     ("dashboard/app.py", "s - {isin}"): "Mengendifferenz",
+    ("data/sources/esef.py", "dt.date() - timedelta(days=1)"): "halboffenes Periodenende (Datum)",
     ("metrics_update.py", "config.parent / 'state' / name"): "Pfad",
     (
         "dashboard/app.py",

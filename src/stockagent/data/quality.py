@@ -34,7 +34,7 @@ from stockagent.data import concepts
 from stockagent.data.sources.sec_xbrl import InstanceFact, Summation
 from stockagent.data.store import DqFlag, StoredFact
 
-ANNUAL_FORMS = ("10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A", "10-KT")
+ANNUAL_FORMS = ("10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A", "10-KT", "ESEF")
 
 
 @dataclass(frozen=True)
