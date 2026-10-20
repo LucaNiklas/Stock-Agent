@@ -23,7 +23,7 @@ import duckdb
 from stockagent.core import pit
 from stockagent.core.hinweise import Hinweis, Kennzahlwert
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);
@@ -366,8 +366,19 @@ CREATE TABLE IF NOT EXISTS index_members (
 );
 """
 
+SCHEMA_V10 = """
+-- Seitentext geladener Berichte (Bauschritt 6): Grundlage für Zitat-Gate (HR-03) und Agenten.
+-- Seitenzahl = laufende Seite im Dokument nach den Seitenumbrüchen der Quelle.
+CREATE TABLE IF NOT EXISTS document_pages (
+    doc_hash  VARCHAR NOT NULL,
+    page      INTEGER NOT NULL,
+    text      VARCHAR NOT NULL,
+    PRIMARY KEY (doc_hash, page)
+);
+"""
+
 # Schemaversionen, aus denen ohne Datenverlust aufgerüstet wird.
-_MIGRATABLE = {3, 4, 5, 6, 7, 8}
+_MIGRATABLE = {3, 4, 5, 6, 7, 8, 9}
 
 _COLUMNS = (
     "isin, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, lei_name, "
@@ -409,6 +420,12 @@ class RawUse:
     url: str
 
 
+def connect_read(path: Path) -> duckdb.DuckDBPyConnection:
+    """Nur lesen. Mehrere Prozesse gleichzeitig möglich (Werkzeuge der Agenten, Annahme), solange
+    kein Prozess schreibend geöffnet hat."""
+    return duckdb.connect(str(path), read_only=True)
+
+
 def connect(path: Path) -> duckdb.DuckDBPyConnection:
     path.parent.mkdir(parents=True, exist_ok=True)
     fresh = not path.exists()
@@ -436,6 +453,7 @@ def connect(path: Path) -> duckdb.DuckDBPyConnection:
     conn.execute(SCHEMA_V7)
     conn.execute(SCHEMA_V8)
     conn.execute(SCHEMA_V9)
+    conn.execute(SCHEMA_V10)
     conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", [str(SCHEMA_VERSION)])
     return conn
 
@@ -841,7 +859,16 @@ def replace_facts(
                 for a in pit.restatements(alle)
             ]
             if updates:
-                conn.executemany("UPDATE facts SET superseded_by = ? WHERE fact_id = ?", updates)
+                # Ein UPDATE über eine Hilfstabelle statt eines Befehls je Wert: bei großen
+                # Firmen sind es Tausende Restatements, einzeln dauerte das Minuten
+                upd_path = Path(tmp) / "superseded.csv"
+                with upd_path.open("w", newline="", encoding="utf-8") as fh:
+                    csv.writer(fh).writerows(updates)
+                conn.execute(
+                    "UPDATE facts SET superseded_by = u.neu FROM read_csv(?, header = false, "
+                    "columns = {'neu': 'BIGINT', 'alt': 'BIGINT'}) u WHERE facts.fact_id = u.alt",
+                    [str(upd_path)],
+                )
             conn.execute("COMMIT")
         except Exception:
             conn.execute("ROLLBACK")
@@ -1895,3 +1922,63 @@ def index_memberships(
     for isin, idx in rows:
         out.setdefault(isin, []).append(idx)
     return out
+
+
+# ------------------------------------------------------------------ Dokumente (Bauschritt 6)
+
+
+def save_document(
+    conn: duckdb.DuckDBPyConnection, d: DocumentRow, pages: list[str], language: str | None
+) -> None:
+    """Dokument mit Seitentext speichern. Ersetzt die Seiten desselben Hashs."""
+    if d.doc_hash is None:
+        raise ValueError("Dokument ohne Hash")
+    conn.execute("BEGIN")
+    try:
+        conn.execute(
+            "INSERT OR REPLACE INTO documents (doc_id, doc_hash, issuer_id, doc_type, period_end, "
+            "published_at, retrieved_at, source_url, language, pages) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                d.doc_id,
+                d.doc_hash,
+                d.issuer_id,
+                d.doc_type,
+                d.period_end,
+                _utc_naive(d.published_at),
+                _utc_naive(d.retrieved_at),
+                d.source_url,
+                language,
+                len(pages),
+            ],
+        )
+        conn.execute("DELETE FROM document_pages WHERE doc_hash = ?", [d.doc_hash])
+        if pages:
+            conn.executemany(
+                "INSERT INTO document_pages VALUES (?, ?, ?)",
+                [[d.doc_hash, i, t] for i, t in enumerate(pages, start=1)],
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def page_text(conn: duckdb.DuckDBPyConnection, doc_hash: str, page: int) -> str | None:
+    row = conn.execute(
+        "SELECT text FROM document_pages WHERE doc_hash = ? AND page = ?", [doc_hash, page]
+    ).fetchone()
+    return str(row[0]) if row else None
+
+
+def loaded_documents(
+    conn: duckdb.DuckDBPyConnection, issuer_id: str
+) -> list[tuple[str, str, str, date | None, int]]:
+    """Geladene Dokumente mit Seitentext: doc_id, doc_hash, Typ, Periode, Seiten."""
+    rows = conn.execute(
+        "SELECT doc_id, doc_hash, doc_type, period_end, pages FROM documents "
+        "WHERE issuer_id = ? AND doc_hash IS NOT NULL AND pages > 0 "
+        "ORDER BY period_end DESC NULLS LAST, doc_id",
+        [issuer_id],
+    ).fetchall()
+    return [(r[0], r[1], r[2], r[3], int(r[4])) for r in rows]

@@ -1,1 +1,197 @@
-{# Vorlage Analyse als Markdown. PLATZHALTER: wird in Bauschritt 6 gebaut (docs/BAUPLAN.md). Inhalt: Die 14 Pflichtabschnitte aus SPEC 12.3 in fester Reihenfolge: Kopf, Urteil, These, Geschäftsmodell, Kennzahlentabelle, Ertragsqualität, Bewertung, Anpassungen, Insider, Qualitative Befunde, Gegenposition, Ungereimtheiten, Prüfprotokoll, Grenzen und Quellen. #}
+{#- Finanzieller Überblick als Markdown (SPEC 12.3). 14 Abschnitte in fester Reihenfolge. -#}
+{%- macro claims(liste) -%}
+{% for c in liste %}
+- {{ c.text }}{% for b in c.belege %}{% if b.art == "dokument" %} (S. {{ b.seite }}: „{{ b.zitat }}“){% else %} [{{ b.ref }}]{% endif %}{% endfor %}
+
+{% endfor %}
+{%- endmacro -%}
+# Finanzieller Überblick: {{ kopf.name }}
+
+## 1. Kopf
+
+| | |
+|---|---|
+| ISIN | {{ kopf.isin }} |
+| LEI | {{ kopf.lei }} |
+| Handelbar bei Trade Republic | {{ kopf.tr }} (Quelle: eigene Prüfung in der App) |
+| Scorecard | {{ kopf.scorecard }} |
+| Rechnungslegung | {{ kopf.standard }} |
+| Berichtswährung / Kurswährung | {{ kopf.berichtswaehrung }} / {{ kopf.kurswaehrung }} |
+| Datenstand / letztes Geschäftsjahr | {{ kopf.datenstand }} / {{ kopf.stichtag }} |
+| Lauf | {{ kopf.run_id }} |
+| Methodik / Formelregister | {{ kopf.methodik }} / {{ kopf.register }} |
+
+## 2. Urteil
+
+**Note {{ urteil.note }} · {{ urteil.konfidenz }} · {{ urteil.risiko }} · {{ urteil.kategorie }}** (Gesamtwert {{ urteil.gesamtwert }} von 100, Vergleichsgruppe {{ urteil.vergleichsgruppe }})
+
+{% if urteil.grund %}Status N: {{ urteil.grund }}
+
+{% endif %}
+Die Kategorie ist eine Einordnung, keine Empfehlung. Sie entsteht deterministisch aus den Kennzahlen ({{ urteil.deterministisch }}). Sprachmodelle können sie nur senken oder eskalieren (HR-13).
+{% for u in urteil.uebergaenge %}
+- {{ u.art }}: {{ u.grund }}
+{% endfor %}
+{% if urteil.vorher %}
+Letzter Stand davor: {{ urteil.vorher }}.
+{% endif %}
+
+## 3. These
+
+{% if these.text %}{{ these.text }}
+
+Gestützt auf: {{ these.claims | join(", ") }}
+{% else %}Nicht anwendbar: Die Synthese hat keine geprüfte These geliefert.
+{% endif %}
+
+## 4. Geschäftsmodell und Segmente
+
+{% for t in geschaeftsmodell %}
+**{{ t.thema }}** ({{ t.einordnung }})
+
+{{ claims(t.claims) }}
+{%- else %}
+Nicht anwendbar: keine geprüften Befunde.
+{% endfor %}
+Segmentzahlen aus den XBRL-Daten folgen mit der Segmentauswertung (SPEC 3.3).
+
+## 5. Kennzahlentabelle
+
+| Kennzahl |{% for j in kennzahlen.jahre %} {{ j }} |{% endfor %} TTM | aktuell | Perzentil Gruppe |
+|---|{% for j in kennzahlen.jahre %}---|{% endfor %}---|---|---|
+{% for z in kennzahlen.zeilen %}
+| {{ z.name }} |{% for v in z.jahre %} {{ v }} |{% endfor %} {{ z.ttm }} | {{ z.aktuell }} | {{ z.gruppe }} |
+{% endfor %}
+
+## 6. Ertragsqualität und Bilanz
+
+{% for e in ertragsqualitaet.werte %}
+- {{ e.name }}: {{ e.wert }}
+{% endfor %}
+
+Einordnung der Ertragsqualität: {{ ertragsqualitaet.einordnung }}
+
+{{ claims(ertragsqualitaet.claims) }}
+
+## 7. Bewertung
+
+{% for k in bewertung.kennzahlen %}
+- {{ k.name }}: {{ k.wert }}
+{% endfor %}
+
+{% if bewertung.kurs %}Kurs am {{ bewertung.kurs.datum }}: {{ bewertung.kurs.wert }} {{ bewertung.kurs.waehrung }}
+{% endif %}
+
+Szenarien mit den Stufen des Bewertungsagenten (Werte je Aktie, von Python gerechnet):
+
+| Szenario | Wachstum | Marge | Investition | Working Capital | Wert je Aktie |
+|---|---|---|---|---|---|
+{% for s, wahl in bewertung.a5_wahl.items() %}
+| {{ s }} | {{ wahl.wachstum }} | {{ wahl.marge }} | {{ wahl.investition }} | {{ wahl.working_capital }} | {{ bewertung.a5_werte.get(s, "–") }} |
+{% endfor %}
+{% for k in bewertung.a5_korrekturen %}
+- Korrektur: {{ k }}
+{% endfor %}
+
+{{ claims(bewertung.a5_claims) }}
+{% if bewertung.sensitivitaet %}
+Sensitivität des Base-Szenarios (Wert je Aktie):
+
+| WACC | Endwachstum | Wert |
+|---|---|---|
+{% for s in bewertung.sensitivitaet %}
+| {{ s.wacc }} | {{ s.g }} | {{ s.wert }} |
+{% endfor %}
+{% endif %}
+
+## 8. Anpassungen
+
+Normalisierungen nach SPEC 4.3 und Währungsumrechnungen nach SPEC 5.2 folgen mit Bauschritt 7. Vermerke der Rechnung:
+{% for a in anpassungen %}
+- {{ a }}
+{% else %}
+- keine
+{% endfor %}
+
+## 9. Insider
+
+Nicht anwendbar: Das Insider-Modul folgt mit Bauschritt 9.
+
+## 10. Qualitative Befunde
+
+{% for t in themen %}
+**{{ t.thema }}** ({{ t.einordnung }})
+
+{{ claims(t.claims) }}
+{%- else %}
+Nicht anwendbar: Die qualitative Analyse hat keine geprüften Befunde geliefert.
+{% endfor %}
+
+## 11. Gegenposition
+
+{% for r in gegenposition.risiken %}
+**Risiko {{ loop.index }}: {{ r.titel }}**
+
+Frühindikator: {{ r.fruehindikator }}
+
+{{ claims(r.claims) }}
+{% if r.offen %}Erwiderung: offen.{% else %}Erwiderung:
+
+{{ claims(r.erwiderung) }}{% endif %}
+
+{% else %}
+Nicht anwendbar: keine Gegenposition geliefert.
+{% endfor %}
+{% if gegenposition.pre_mortem %}
+Pre-Mortem: {{ gegenposition.pre_mortem }}
+{% endif %}
+
+## 12. Ungereimtheiten
+
+{% for u in ungereimtheiten %}
+- {{ u.id }}: {{ u.text }}
+{% else %}
+Keine gefunden.
+{% endfor %}
+
+Ausgeführte Prüfungen:
+{% for p in pruefungen %}
+- {{ p }}
+{% endfor %}
+
+## 13. Prüfprotokoll
+
+| Auftrag | Agent | Status | Versuche | Fehler |
+|---|---|---|---|---|
+{% for a in protokoll.auftraege %}
+| {{ a.id }} | {{ a.agent }} | {{ a.status }} | {{ a.versuche }} | {{ a.fehler }} |
+{% endfor %}
+
+J1 (blinde Nachrechnung): {% for k, v in protokoll.j1.items() %}{{ k }} {{ v }}{% if not loop.last %}, {% endif %}{% else %}nicht gelaufen{% endfor %}
+
+Claims: {% for k, v in protokoll.claims.items() %}{{ k }} {{ v }}{% if not loop.last %}, {% endif %}{% else %}keine{% endfor %}
+
+{% for e in protokoll.entfernt %}
+- entfernt oder abgelehnt in {{ e.auftrag }}: {{ e.grund }}
+{% endfor %}
+
+Ebene 3 (Jury J3) und Ebene 4 (Endkontrolle J4) folgen mit Bauschritt 10. Bis dahin prüfen nur Claude-Modelle, die Diversität der Prüfer ist eingeschränkt (HR-16).
+
+## 14. Grenzen und Quellen
+
+{% for g in grenzen.lauf %}
+- {{ g }}
+{% endfor %}
+{% for g in grenzen.konfidenz %}
+- Konfidenz: {{ g }}
+{% endfor %}
+{% for g in grenzen.luecken %}
+- Lücke: {{ g }}
+{% endfor %}
+
+Quellen:
+{% for q in grenzen.quellen %}
+- {{ q.typ }} {{ q.periode }} {{ q.url }} {{ q.hash }}
+{% endfor %}
+
+Erstellt {{ kopf.erstellt }}. Keine Anlageberatung, keine Empfehlung.

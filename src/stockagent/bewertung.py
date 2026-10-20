@@ -370,11 +370,13 @@ def bewerten(
     finally:
         conn.close()
     if gruppe_laden and alt:
-        progress(f"Vergleichsgruppe: {len(alt)} von {len(gruppe)} Titeln laden")
-        isins = [t.isin for t in alt]
-        lader.sec(paths, isins)
-        lader.kurse(paths, isins)
-        lader.kennzahlen(paths, isins)
+        # Je Titel vollständig (Abschluss, Kurse, Kennzahlen), damit ein Abbruch das Geladene
+        # behält und der Fortschritt sichtbar ist
+        for nr, titel in enumerate(alt, start=1):
+            progress(f"Vergleichsgruppe: Titel {nr} von {len(alt)} laden ({titel.isin})")
+            lader.sec(paths, [titel.isin])
+            lader.kurse(paths, [titel.isin])
+            lader.kennzahlen(paths, [titel.isin])
 
     # 3. Note
     conn = store.connect(paths.db)
