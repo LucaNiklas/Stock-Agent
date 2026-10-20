@@ -16,7 +16,7 @@ from typing import Any
 
 import duckdb
 
-from stockagent.core import dq
+from stockagent.core import abgeleitet, dq, identifiers
 from stockagent.core.calc import Eingabe
 from stockagent.core.reihen import Reihen, Split
 from stockagent.core.ttm import Strom
@@ -117,6 +117,7 @@ def kurse(
     berichtswaehrung: str | None,
     unterwaehrungen: dict[str, str],
     max_abstand_tage: int,
+    adr: dict[str, str] | None = None,
 ) -> tuple[dict[str, dict[date, Eingabe]], dict[str, str]]:
     """Kurs je Stichtag (letzter Schlusskurs bis zum Stichtag, höchstens `max_abstand_tage`
     davor) und die Referenzkurse der EZB, die für die Umrechnung nötig sind. Dazu Gründe für
@@ -125,8 +126,24 @@ def kurse(
     if isin is None:
         return werte, {"kurs": "keine ISIN zum Emittenten bekannt"}
     if store.listing_is_receipt(conn, isin):
-        return werte, {
-            "kurs": "Hinterlegungsschein, Depotverhältnis zur Stammaktie fehlt (SPEC 5.2 Nr. 11)"
+        # Aktien je Schein: Festlegung, sonst Börsenname (SPEC 5.2 Nr. 11, Bauschritt 7)
+        name = (store.listing_info(conn, isin) or ("", ""))[0]
+        festgelegt = adr or {}
+        verh: Decimal | None
+        if isin in festgelegt:
+            verh = Decimal(str(festgelegt[isin]))
+            quelle = f"festgelegt in state/adr_verhaeltnis.yaml ({isin})"
+        else:
+            verh = identifiers.adr_verhaeltnis(name)
+            quelle = f"Börsenname Deutsche Börse '{name}'"
+        if verh is None:
+            return werte, {
+                "kurs": "Hinterlegungsschein, Aktien je Schein nicht im Börsennamen (festlegen in "
+                f"state/adr_verhaeltnis.yaml: {isin}: <Aktien je Schein>, SPEC 5.2 Nr. 11)"
+            }
+        werte["adr_aktien_je_schein"] = {
+            t: Eingabe(verh, f"Aktien je Hinterlegungsschein: {quelle}", "pure", t)
+            for t in stichtage
         }
     sym = store.load_price_symbol(conn, isin)
     if sym is None or sym.symbol is None:
@@ -343,7 +360,7 @@ def reihen(
     Mit `isin` und `kurs_cfg` (Abschnitt `kurse` aus metrics.yaml plus Unterwährungen) auch
     Schlusskurse und Wechselkurse an den Stichtagen."""
     facts = store.pit_query(conn, as_of=as_of, issuer_id=issuer_id)
-    stichtage = quality.jahresstichtage(facts)[:max_jahre]
+    stichtage = quality.jahresstichtage(facts, quality.kern_konzepte(cmap))[:max_jahre]
     werte: dict[str, dict[Any, Eingabe]] = {}
     for name, liste in cmap["us-gaap"].items():
         je_tag = {}
@@ -354,8 +371,26 @@ def reihen(
                 continue
             je_tag[ende] = eingabe(f)
         werte[name] = je_tag
+    # Investitionen als ein Posten mit immateriellen Werten (SAP, BP): diese nicht doppelt abziehen
+    gesamt = tuple(cmap.get("capex_inkl_immateriell", []))
+    for t, e in werte.get("capex", {}).items():
+        if any(k in e.quelle for k in gesamt):
+            werte.get("capex_intangibles", {}).pop(t, None)
+    # IFRS: Leasing ohne eigene kurz- und langfristige Bilanzzeile steckt in den Finanzschulden
+    # (Shell: Borrowings enthält die Leasingverbindlichkeiten). Dann nicht noch einmal addieren
+    leasing_in_schulden = []
+    for t, e in list(werte.get("lease_finance", {}).items()):
+        if e.quelle.startswith("ifrs-full:LeaseLiabilities@") and not (
+            t in werte.get("lease_finance_current", {})
+            or t in werte.get("lease_finance_noncurrent", {})
+        ):
+            del werte["lease_finance"][t]
+            leasing_in_schulden.append(t)
+    werte["revenue"] = abgeleitet.umsatz_aus_bruttoergebnis(
+        werte.get("revenue", {}), werte.get("gross_profit", {}), werte.get("cost_of_revenue", {})
+    )
     luecken: dict[str, str] = {}
-    parameter: dict[str, Any] = {}
+    parameter: dict[str, Any] = {"leasing_in_finanzschulden": tuple(leasing_in_schulden)}
     if kurs_cfg is not None:
         umsatz = next(iter(werte.get("revenue", {}).values()), None)
         unter = dict(kurs_cfg["unterwaehrungen"])
@@ -366,6 +401,7 @@ def reihen(
             umsatz.waehrung if umsatz else None,
             unter,
             int(kurs_cfg["max_abstand_tage"]),
+            dict(kurs_cfg.get("adr", {})),
         )
         werte.update(kurs_werte)
         parameter["unterwaehrungen"] = unter

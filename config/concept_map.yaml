@@ -10,9 +10,21 @@
 # (Nike meldet kein OperatingIncomeLoss, JPMorgan keine Investitionen in Sachanlagen), bleibt die Größe leer und
 # wird in Schritt 3 als unknown mit Grund behandelt (HR-05). Geraten wird nie.
 #
-# In Schritt 7 kommen die ESEF/IFRS-Konzepte (ifrs-full) dazu.
+# Schritt 7 (20.10.2026): IFRS-Konzepte (ifrs-full) stehen hinter den US-GAAP-Konzepten derselben
+# Größe. Ein Bericht enthält nur eine der beiden Taxonomien, deshalb gilt die Regel oben
+# unverändert. Geprüft gegen die 20-F-Berichte von SAP, Novartis, Novo Nordisk, Sanofi, Unilever,
+# Shell, GSK, Philips, Diageo und BP bei der SEC (Company Facts). Der Abschnitt heißt aus
+# historischen Gründen weiter `us-gaap`.
+# IFRS-Finanzschulden: Borrowings ist meist die Summe aus lang- und kurzfristigen Krediten (SAP,
+# Shell, Philips, BP, Novo). Kurzfristige Kredite und Commercial Paper sind darin enthalten und
+# stehen deshalb nicht unter short_term_borrowings und commercial_paper (sonst doppelt gezählt).
+# Weg B (LongtermBorrowings + kurzfristig fällig) prüft Weg A gegen (CP-04). Bei GSK ist Borrowings
+# nur der langfristige Teil: dann stoppt CP-04 und die Größe ist unknown statt falsch.
+# IFRS 16 kennt keine Operating-Leases mehr: alle Leasingverbindlichkeiten unter lease_finance.
+# Ob eine Firma Leasing schon in Borrowings zählt (etwa Shell), steht nicht in den XBRL-Daten.
+# Das prüft die Regel ACC für Leasing mit dem Bericht (offen, ADR 0009).
 
-version: "1.1"
+version: "1.2"
 
 us-gaap:
   revenue:
@@ -21,38 +33,57 @@ us-gaap:
     - us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax
     - us-gaap:SalesRevenueNet
     - us-gaap:RevenuesNetOfInterestExpense   # Banken (JPMorgan)
+    - ifrs-full:Revenue
+    - ifrs-full:RevenueFromContractsWithCustomers
   ebit:
     - us-gaap:OperatingIncomeLoss
+    - ifrs-full:ProfitLossFromOperatingActivities
   net_income:
     # Anteil der Aktionäre der Muttergesellschaft vor dem Gesamtergebnis einschließlich
     # Minderheiten (Caterpillar meldet seit 2011 nur ProfitLoss)
     - us-gaap:NetIncomeLoss
     - us-gaap:ProfitLoss
+    - ifrs-full:ProfitLossAttributableToOwnersOfParent
+    - ifrs-full:ProfitLoss
   operating_cash_flow:
     - us-gaap:NetCashProvidedByUsedInOperatingActivities
     - us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations
+    - ifrs-full:CashFlowsFromUsedInOperatingActivities
+    - ifrs-full:CashFlowsFromUsedInOperations
   capex:
     - us-gaap:PaymentsToAcquirePropertyPlantAndEquipment
     - us-gaap:PaymentsToAcquireProductiveAssets
+    - ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities
+    # Sachanlagen und immaterielle Werte in einem Posten (SAP, BP). Steht unten unter
+    # capex_inkl_immateriell, damit immaterielle Investitionen nicht doppelt zählen
+    - ifrs-full:PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsOtherThanGoodwillInvestmentPropertyAndOtherNoncurrentAssets
+    - ifrs-full:PurchaseOfOtherLongtermAssetsClassifiedAsInvestingActivities   # Shell
   total_assets:
     - us-gaap:Assets
+    - ifrs-full:Assets
   equity:
     - us-gaap:StockholdersEquity
     - us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest
+    - ifrs-full:EquityAttributableToOwnersOfParent
+    - ifrs-full:Equity
   financial_debt:
     # Nur für den Abgleich zweier Wege (DQ-05). Die Kennzahlen nutzen die Summe der Teile unten.
     - us-gaap:LongTermDebt
     - us-gaap:LongTermDebtNoncurrent
     - us-gaap:LongTermDebtAndCapitalLeaseObligations   # Coca-Cola seit 2024, mit Finanzierungsleasing
     - us-gaap:DebtLongtermAndShorttermCombinedAmount
+    - ifrs-full:Borrowings
   lease_liabilities:
     - us-gaap:OperatingLeaseLiability
     - us-gaap:FinanceLeaseLiability
+    - ifrs-full:LeaseLiabilities
   cash:
     - us-gaap:CashAndCashEquivalentsAtCarryingValue
     - us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents
+    - ifrs-full:CashAndCashEquivalents
   shares_diluted:
     - us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding
+    - ifrs-full:AdjustedWeightedAverageShares
   shares_outstanding:
     - dei:EntityCommonStockSharesOutstanding
     - us-gaap:CommonStockSharesOutstanding
@@ -64,19 +95,25 @@ us-gaap:
   # Verwaltungskosten = Summe der Teile) oder die Kennzahl bleibt unknown mit Grund.
   gross_profit:
     - us-gaap:GrossProfit
+    - ifrs-full:GrossProfit
   cost_of_revenue:
     - us-gaap:CostOfRevenue
     - us-gaap:CostOfGoodsAndServicesSold
+    - ifrs-full:CostOfSales
   income_tax:
     - us-gaap:IncomeTaxExpenseBenefit
+    - ifrs-full:IncomeTaxExpenseContinuingOperations
   pretax_income:
     - us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest
     - us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments
+    - ifrs-full:ProfitLossBeforeTax
   interest_expense:
     # Apple weist seit 2023 keinen Zinsaufwand mehr gesondert aus: Zinsdeckung unknown
     - us-gaap:InterestExpense
     - us-gaap:InterestExpenseNonoperating
     - us-gaap:InterestExpenseDebt
+    - ifrs-full:InterestExpense
+    - ifrs-full:InterestExpenseOnBorrowings
   interest_net:
     # Zinsergebnis netto, positiv = Zinsertrag (Saldo laut Taxonomie im Haben). Nike meldet nur
     # diesen Saldo. Nur für das abgeleitete EBIT, wenn kein Zinsaufwand gemeldet ist
@@ -86,46 +123,68 @@ us-gaap:
   sbc:
     - us-gaap:ShareBasedCompensation
     - us-gaap:AllocatedShareBasedCompensationExpense
+    - ifrs-full:AdjustmentsForSharebasedPayments
+    - ifrs-full:ExpenseFromSharebasedPaymentTransactionsWithEmployees
   depreciation:
     - us-gaap:DepreciationDepletionAndAmortization
     - us-gaap:DepreciationAmortizationAndAccretionNet
     - us-gaap:DepreciationAndAmortization
     - us-gaap:Depreciation
+    - ifrs-full:AdjustmentsForDepreciationAndAmortisationExpense
+    - ifrs-full:DepreciationAndAmortisationExpense
   current_assets:
     - us-gaap:AssetsCurrent
+    - ifrs-full:CurrentAssets
   current_liabilities:
     - us-gaap:LiabilitiesCurrent
+    - ifrs-full:CurrentLiabilities
   inventory:
     - us-gaap:InventoryNet
     - us-gaap:InventoryFinishedGoodsNetOfReserves
     - us-gaap:InventoryFinishedGoods
+    - ifrs-full:Inventories
   receivables:
     - us-gaap:AccountsReceivableNetCurrent
     - us-gaap:ReceivablesNetCurrent
+    - ifrs-full:CurrentTradeReceivables
+    - ifrs-full:TradeAndOtherCurrentReceivables
   retained_earnings:
     - us-gaap:RetainedEarningsAccumulatedDeficit
+    - ifrs-full:RetainedEarnings
   total_liabilities:
     # fehlt bei Coca-Cola, Walmart, Nike: dann Passiva minus Eigenkapital einschließlich Minderheiten
     - us-gaap:Liabilities
+    - ifrs-full:Liabilities
   liabilities_and_equity:
     - us-gaap:LiabilitiesAndStockholdersEquity
+    - ifrs-full:EquityAndLiabilities
   equity_incl_nci:
     - us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest
     - us-gaap:StockholdersEquity
+    - ifrs-full:Equity
   dividends_paid:
     - us-gaap:PaymentsOfDividends
     - us-gaap:PaymentsOfDividendsCommonStock
     - us-gaap:PaymentsOfOrdinaryDividends  # etwa Johnson & Johnson
+    - ifrs-full:DividendsPaidToEquityHoldersOfParentClassifiedAsFinancingActivities
+    - ifrs-full:DividendsPaidClassifiedAsFinancingActivities
+    - ifrs-full:DividendsPaid
   buybacks:
     - us-gaap:PaymentsForRepurchaseOfCommonStock
+    - ifrs-full:PaymentsToAcquireOrRedeemEntitysShares
+    - ifrs-full:PurchaseOfTreasuryShares
   stock_issuance:
     # Ausgabe neuer Aktien gegen Geld, mindert den Netto-Rückkauf (buyback_yield)
     - us-gaap:ProceedsFromIssuanceOfCommonStock
+    - ifrs-full:ProceedsFromIssuingShares
   equity_investments:
     # At-equity-Beteiligungen, nicht betriebsnotwendig, mindern den Unternehmenswert
     - us-gaap:EquityMethodInvestments
+    - ifrs-full:InvestmentAccountedForUsingEquityMethod
+    - ifrs-full:InvestmentsInAssociatesAccountedForUsingEquityMethod
   acquisitions:
     - us-gaap:PaymentsToAcquireBusinessesNetOfCashAcquired
+    - ifrs-full:CashFlowsUsedInObtainingControlOfSubsidiariesOrOtherBusinessesClassifiedAsInvestingActivities
   st_investments:
     - us-gaap:MarketableSecuritiesCurrent
     - us-gaap:ShortTermInvestments
@@ -133,18 +192,28 @@ us-gaap:
   lt_securities:
     - us-gaap:MarketableSecuritiesNoncurrent
     - us-gaap:LongTermInvestments
+  interest_paid_financing:
+    # IFRS-Wahlrecht bis 2026 (IAS 7): gezahlte Zinsen unter Finanzierung. ACC-04 zieht sie vom
+    # operativen Cashflow ab, damit der FCF wie unter US-GAAP nach Zinsen gerechnet ist
+    - ifrs-full:InterestPaidClassifiedAsFinancingActivities
   capex_intangibles:
     - us-gaap:PaymentsToAcquireIntangibleAssets
+    - ifrs-full:PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities
   eps_diluted:
     - us-gaap:EarningsPerShareDiluted
+    - ifrs-full:DilutedEarningsLossPerShare
   ppe_net:
     - us-gaap:PropertyPlantAndEquipmentNet
+    - ifrs-full:PropertyPlantAndEquipment
   sga:
     - us-gaap:SellingGeneralAndAdministrativeExpense
+    - ifrs-full:SellingGeneralAndAdministrativeExpense
   selling_marketing:
     - us-gaap:SellingAndMarketingExpense
+    - ifrs-full:SalesAndMarketingExpense
   general_admin:
     - us-gaap:GeneralAndAdministrativeExpense
+    - ifrs-full:AdministrativeExpense
   credit_lines:
     - us-gaap:LineOfCreditFacilityRemainingBorrowingCapacity
   pension_funded_status:
@@ -154,12 +223,17 @@ us-gaap:
   # B = debt_noncurrent + debt_current + short_term_borrowings + commercial_paper
   debt_long_total:
     - us-gaap:LongTermDebt
+    - ifrs-full:Borrowings
   debt_noncurrent:
     - us-gaap:LongTermDebtNoncurrent
     - us-gaap:LongTermDebtAndCapitalLeaseObligations
+    - ifrs-full:LongtermBorrowings
+    - ifrs-full:NoncurrentPortionOfNoncurrentBorrowings
   debt_current:
     - us-gaap:LongTermDebtCurrent
     - us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent
+    - ifrs-full:CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings
+    - ifrs-full:CurrentPortionOfLongtermBorrowings
   short_term_borrowings:
     - us-gaap:ShortTermBorrowings
     - us-gaap:OtherShortTermBorrowings
@@ -173,10 +247,18 @@ us-gaap:
     - us-gaap:OperatingLeaseLiabilityNoncurrent
   lease_finance:
     - us-gaap:FinanceLeaseLiability
+    - ifrs-full:LeaseLiabilities
   lease_finance_current:
     - us-gaap:FinanceLeaseLiabilityCurrent
+    - ifrs-full:CurrentLeaseLiabilities
   lease_finance_noncurrent:
     - us-gaap:FinanceLeaseLiabilityNoncurrent
+    - ifrs-full:NoncurrentLeaseLiabilities
+
+# Investitionsposten, die immaterielle Werte schon enthalten (capex_intangibles entfällt)
+capex_inkl_immateriell:
+  - ifrs-full:PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsOtherThanGoodwillInvestmentPropertyAndOtherNoncurrentAssets
+  - ifrs-full:PurchaseOfOtherLongtermAssetsClassifiedAsInvestingActivities
 
 # Kernwerte für den Abgleich zweier Wege (SPEC 3.2 Nr. 5)
 kernwerte:
@@ -192,9 +274,11 @@ kernwerte:
 
 # Bilanzgleichung (SPEC 3.2 Nr. 1): Aktiva gegen die erste vollständige Passivseite
 bilanz:
-  aktiva: us-gaap:Assets
+  aktiva: [us-gaap:Assets, ifrs-full:Assets]
   passiva:
     - [us-gaap:LiabilitiesAndStockholdersEquity]
+    - [ifrs-full:EquityAndLiabilities]
+    - [ifrs-full:Liabilities, ifrs-full:Equity]
     - [us-gaap:Liabilities, us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest]
     - [us-gaap:Liabilities, us-gaap:StockholdersEquity, us-gaap:MinorityInterest]
     - [us-gaap:Liabilities, us-gaap:StockholdersEquity]

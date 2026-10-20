@@ -55,6 +55,8 @@ class Konfiguration:
     kapitalkosten: dict[str, Any] = field(default_factory=dict)
     # Lucas Festlegungen der Damodaran-Branche je ISIN (state/damodaran_branchen.yaml)
     branchen: dict[str, str] = field(default_factory=dict)
+    # Lucas Festlegungen Aktien je Hinterlegungsschein (state/adr_verhaeltnis.yaml)
+    adr: dict[str, str] = field(default_factory=dict)
 
     def kk_cfg(self) -> dict[str, Any] | None:
         if not self.kapitalkosten:
@@ -69,6 +71,7 @@ class Konfiguration:
         return {
             **self.metrics["kurse"],
             "unterwaehrungen": self.sources["ecb"]["unterwaehrungen"],
+            "adr": self.adr,
         }
 
     @classmethod
@@ -77,15 +80,14 @@ class Konfiguration:
             data: dict[str, Any] = yaml.safe_load((config / name).read_text("utf-8"))
             return data
 
-        festgelegt = config.parent / "state" / "damodaran_branchen.yaml"
-        branchen = (
-            {
-                str(k): str(v)
-                for k, v in (yaml.safe_load(festgelegt.read_text("utf-8")) or {}).items()
-            }
-            if festgelegt.exists()
-            else {}
-        )
+        def state(name: str) -> dict[str, str]:
+            datei = config.parent / "state" / name
+            if not datei.exists():
+                return {}
+            data = yaml.safe_load(datei.read_text("utf-8")) or {}
+            return {str(k): str(v) for k, v in data.items()}
+
+        branchen = state("damodaran_branchen.yaml")
         return cls(
             concepts.load(config),
             yml("quality.yaml"),
@@ -94,6 +96,7 @@ class Konfiguration:
             yml("sources.yaml"),
             yml("kapitalkosten.yaml") if (config / "kapitalkosten.yaml").exists() else {},
             branchen,
+            state("adr_verhaeltnis.yaml"),
         )
 
 

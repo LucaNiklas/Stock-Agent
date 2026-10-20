@@ -172,7 +172,7 @@ def test_hinweise_saved(geladen: Paths) -> None:
     h = store.load_hinweise(conn, ISSUER)
     run = store.load_metric_run(conn, ISSUER)
     conn.close()
-    assert run is not None and run[3] == "1.5"
+    assert run is not None and run[3] == "1.6"
     # Apple 2025: Piotroski 8, Altman Z'' 2,31, Beneish -2,23, Sloan 0,1 %: keine Schwellenregel
     assert not [x for x in h if x.regel in ("H-01", "H-02", "H-03", "H-04")]
     assert all(x.status == "offen" and x.an_agent for x in h)
