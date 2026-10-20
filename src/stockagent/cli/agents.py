@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from stockagent.agents.render import RenderError, render_all
+from stockagent.agents.render import RenderError, export_schemas, render_all
 from stockagent.cli.common import app
 from stockagent.paths import Paths
 
@@ -22,4 +22,5 @@ def render_agents() -> None:
     except RenderError as exc:
         typer.echo(f"Abbruch: {exc}")
         raise typer.Exit(code=1) from exc
-    typer.echo(f"{len(written)} Agent-Dateien erzeugt.")
+    schemas = export_schemas(paths.root / "schemas" / "json")
+    typer.echo(f"{len(written)} Agent-Dateien und {len(schemas)} Schemas erzeugt.")

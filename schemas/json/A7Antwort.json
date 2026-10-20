@@ -1,0 +1,243 @@
+{
+  "$defs": {
+    "Claim": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "pattern": "^c-\\d{4}$",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 2000,
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "quantitative",
+            "qualitative"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "metric_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metric Refs",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "confidence_level": {
+          "enum": [
+            "hoch",
+            "mittel",
+            "niedrig"
+          ],
+          "title": "Confidence Level",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ClaimStatus",
+          "default": "draft"
+        }
+      },
+      "required": [
+        "claim_id",
+        "text",
+        "type",
+        "confidence_level"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "ClaimStatus": {
+      "enum": [
+        "draft",
+        "checked",
+        "verified",
+        "rejected",
+        "escalated"
+      ],
+      "title": "ClaimStatus",
+      "type": "string"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "description": "Beleg für eine Aussage: Dokumentstelle mit wörtlichem Zitat oder Kennzahl.",
+      "properties": {
+        "source_type": {
+          "$ref": "#/$defs/SourceType"
+        },
+        "doc_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doc Hash"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "maxLength": 1500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quote"
+        },
+        "metric_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metric Ref"
+        }
+      },
+      "required": [
+        "source_type"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Risiko": {
+      "additionalProperties": false,
+      "properties": {
+        "titel": {
+          "maxLength": 300,
+          "title": "Titel",
+          "type": "string"
+        },
+        "fruehindikator": {
+          "maxLength": 300,
+          "title": "Fruehindikator",
+          "type": "string"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Claim Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "titel",
+        "fruehindikator",
+        "claim_ids"
+      ],
+      "title": "Risiko",
+      "type": "object"
+    },
+    "SourceType": {
+      "enum": [
+        "xbrl",
+        "pdf_extracted",
+        "vendor",
+        "document_text"
+      ],
+      "title": "SourceType",
+      "type": "string"
+    },
+    "Unbekannt": {
+      "additionalProperties": false,
+      "description": "HR-05: was die Daten nicht beantworten, mit Grund.",
+      "properties": {
+        "frage": {
+          "maxLength": 300,
+          "title": "Frage",
+          "type": "string"
+        },
+        "grund": {
+          "maxLength": 300,
+          "title": "Grund",
+          "type": "string"
+        }
+      },
+      "required": [
+        "frage",
+        "grund"
+      ],
+      "title": "Unbekannt",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A7 Gegenposition mit Pre-Mortem: die drei realistischsten Wege des Scheiterns.",
+  "properties": {
+    "auftrag": {
+      "pattern": "^[A-Za-z0-9_.:-]+/[A-Za-z0-9_]+$",
+      "title": "Auftrag",
+      "type": "string"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "unbekannt": {
+      "items": {
+        "$ref": "#/$defs/Unbekannt"
+      },
+      "title": "Unbekannt",
+      "type": "array"
+    },
+    "risiken": {
+      "items": {
+        "$ref": "#/$defs/Risiko"
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "title": "Risiken",
+      "type": "array"
+    },
+    "pre_mortem": {
+      "maxLength": 1200,
+      "title": "Pre Mortem",
+      "type": "string"
+    }
+  },
+  "required": [
+    "auftrag",
+    "risiken",
+    "pre_mortem"
+  ],
+  "title": "A7Antwort",
+  "type": "object"
+}

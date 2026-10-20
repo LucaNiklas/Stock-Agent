@@ -68,6 +68,12 @@ informationen:
       - {name: OpenFIGI (ISIN -> Börsenkürzel), zugriff: python, modul: openfigi, ab_schritt: 4}
       - {name: Yahoo Finance (inoffiziell, persönliche Nutzung), zugriff: python, modul: yahoo, ab_schritt: 4}
 
+  berichtstext:
+    beschreibung: Seitentext der letzten zwei Jahresberichte für die Tiefenanalyse (Belege, Zitate)
+    region: US
+    quellen:
+      - {name: SEC EDGAR Hauptdokument der Einreichung (HTML), zugriff: python, modul: sec, ab_schritt: 6}
+
   umsatz_aller_melder:
     beschreibung: Umsatz aller SEC-Melder eines Kalenderjahres für die Auswahl der Vergleichsgruppe
       nach ähnlichstem Umsatz (ADR 0005, ADR 0007)

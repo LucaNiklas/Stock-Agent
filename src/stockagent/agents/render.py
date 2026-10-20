@@ -14,6 +14,7 @@ import yaml
 
 PREAMBLE_TAG = "{{ preamble }}"
 MODEL_TAG = re.compile(r"\{\{ model\.([a-z]+) \}\}")
+TURNS_TAG = "{{ max_turns }}"
 PREAMBLE_FILE = "_preamble.md"
 
 
@@ -48,6 +49,11 @@ def render_one(template: str, name: str, preamble: str, models_cfg: dict[str, An
     if PREAMBLE_TAG not in template:
         raise RenderError(f"{name}: Pflicht-Präambel {PREAMBLE_TAG} fehlt (SPEC 17.6)")
     text = MODEL_TAG.sub(lambda m: resolve_model(m.group(1), models_cfg), template)
+    if TURNS_TAG in text:
+        turns = models_cfg.get("aufwand", {}).get("max_turns", {}).get(name.removesuffix(".md"))
+        if turns is None:
+            raise RenderError(f"{name}: aufwand.max_turns fehlt in config/models.yaml")
+        text = text.replace(TURNS_TAG, str(int(turns)))
     text = text.replace(PREAMBLE_TAG, preamble.strip())
     _frontmatter(text, name)
     return text
@@ -67,4 +73,21 @@ def render_all(src_dir: Path, out_dir: Path, models_file: Path) -> list[Path]:
             encoding="utf-8",
         )
         written.append(target)
+    return written
+
+
+def export_schemas(out_dir: Path) -> list[Path]:
+    """JSON-Schemas der Agentenantworten nach schemas/json/ (SPEC 8.4)."""
+    import json
+
+    from stockagent.schemas.agents import ANTWORTEN
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    for modell in dict.fromkeys(ANTWORTEN.values()):
+        ziel = out_dir / f"{modell.__name__}.json"
+        ziel.write_text(
+            json.dumps(modell.model_json_schema(), ensure_ascii=False, indent=2) + "\n", "utf-8"
+        )
+        written.append(ziel)
     return written

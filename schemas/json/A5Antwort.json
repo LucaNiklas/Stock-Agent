@@ -1,0 +1,302 @@
+{
+  "$defs": {
+    "Annahme": {
+      "additionalProperties": false,
+      "properties": {
+        "szenario": {
+          "enum": [
+            "bear",
+            "base",
+            "bull"
+          ],
+          "title": "Szenario",
+          "type": "string"
+        },
+        "groesse": {
+          "enum": [
+            "wachstum",
+            "marge",
+            "investition",
+            "working_capital"
+          ],
+          "title": "Groesse",
+          "type": "string"
+        },
+        "stufe": {
+          "enum": [
+            "niedrig",
+            "mittel",
+            "hoch"
+          ],
+          "title": "Stufe",
+          "type": "string"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "szenario",
+        "groesse",
+        "stufe"
+      ],
+      "title": "Annahme",
+      "type": "object"
+    },
+    "Claim": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "pattern": "^c-\\d{4}$",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 2000,
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "quantitative",
+            "qualitative"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "metric_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metric Refs",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "confidence_level": {
+          "enum": [
+            "hoch",
+            "mittel",
+            "niedrig"
+          ],
+          "title": "Confidence Level",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ClaimStatus",
+          "default": "draft"
+        }
+      },
+      "required": [
+        "claim_id",
+        "text",
+        "type",
+        "confidence_level"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "ClaimStatus": {
+      "enum": [
+        "draft",
+        "checked",
+        "verified",
+        "rejected",
+        "escalated"
+      ],
+      "title": "ClaimStatus",
+      "type": "string"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "description": "Beleg für eine Aussage: Dokumentstelle mit wörtlichem Zitat oder Kennzahl.",
+      "properties": {
+        "source_type": {
+          "$ref": "#/$defs/SourceType"
+        },
+        "doc_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doc Hash"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "maxLength": 1500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quote"
+        },
+        "metric_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metric Ref"
+        }
+      },
+      "required": [
+        "source_type"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Nachforderung": {
+      "additionalProperties": false,
+      "description": "Fehlende Information an die Recherche (SPEC 8.5). Die Auswertung sucht nie selbst.",
+      "properties": {
+        "dokumenttyp": {
+          "enum": [
+            "geschaeftsbericht",
+            "quartalsbericht",
+            "verguetungsbericht",
+            "proxy",
+            "ad_hoc",
+            "sonstiges"
+          ],
+          "title": "Dokumenttyp",
+          "type": "string"
+        },
+        "periode": {
+          "pattern": "^\\d{4}(-\\d{2})?$|^letzte_12_monate$",
+          "title": "Periode",
+          "type": "string"
+        },
+        "grund": {
+          "maxLength": 300,
+          "title": "Grund",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dokumenttyp",
+        "periode",
+        "grund"
+      ],
+      "title": "Nachforderung",
+      "type": "object"
+    },
+    "SourceType": {
+      "enum": [
+        "xbrl",
+        "pdf_extracted",
+        "vendor",
+        "document_text"
+      ],
+      "title": "SourceType",
+      "type": "string"
+    },
+    "Unbekannt": {
+      "additionalProperties": false,
+      "description": "HR-05: was die Daten nicht beantworten, mit Grund.",
+      "properties": {
+        "frage": {
+          "maxLength": 300,
+          "title": "Frage",
+          "type": "string"
+        },
+        "grund": {
+          "maxLength": 300,
+          "title": "Grund",
+          "type": "string"
+        }
+      },
+      "required": [
+        "frage",
+        "grund"
+      ],
+      "title": "Unbekannt",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A5 Bewertung: je Szenario und Größe eine Stufe aus der eigenen Historie (SPEC 3.6).\nDie Werte rechnet Python.",
+  "properties": {
+    "auftrag": {
+      "pattern": "^[A-Za-z0-9_.:-]+/[A-Za-z0-9_]+$",
+      "title": "Auftrag",
+      "type": "string"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "unbekannt": {
+      "items": {
+        "$ref": "#/$defs/Unbekannt"
+      },
+      "title": "Unbekannt",
+      "type": "array"
+    },
+    "annahmen": {
+      "items": {
+        "$ref": "#/$defs/Annahme"
+      },
+      "title": "Annahmen",
+      "type": "array"
+    },
+    "reverse_dcf_claims": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reverse Dcf Claims",
+      "type": "array"
+    },
+    "nachforderungen": {
+      "items": {
+        "$ref": "#/$defs/Nachforderung"
+      },
+      "maxItems": 3,
+      "title": "Nachforderungen",
+      "type": "array"
+    }
+  },
+  "required": [
+    "auftrag",
+    "annahmen"
+  ],
+  "title": "A5Antwort",
+  "type": "object"
+}

@@ -187,7 +187,11 @@ def kontext(paths: Paths, z: Zustand, ent: dict[str, Any]) -> dict[str, Any]:
     # Bewertung: Standard-Szenarien und Wahl von A5
     a5 = ent["a5"]
     a5_werte = {
-        s: (formatiere(Decimal(v["wert"]), "kurs", 2) if v["wert"] else f"unbekannt ({v['grund']})")
+        s: (
+            formatiere(Decimal(v["wert"]), "kurs", 2, w.waehrung)
+            if v["wert"]
+            else f"unbekannt ({v['grund']})"
+        )
         for s, v in a5["werte"].items()
     }
     sens: list[dict[str, str]] = []
@@ -235,6 +239,14 @@ def kontext(paths: Paths, z: Zustand, ent: dict[str, Any]) -> dict[str, Any]:
         if s["status"] == "rejected" and any(g.startswith("J2") for g in s["gruende"]):
             ungereimt.append({"id": "INC-11", "text": f"{key}: {'; '.join(s['gruende'])}"})
 
+    vermerke: dict[str, set[str]] = {}
+    for r in rows:
+        if r.period_end == (lauf[2] if lauf else None) and r.statistik == "wert":
+            for v in r.vermerke:
+                vermerke.setdefault(v, set()).add(r.metric_id)
+    kurs = ent.get("kurs")
+    if kurs:
+        kurs = {**kurs, "wert": formatiere(Decimal(kurs["wert"]), "kurs", 2, kurs["waehrung"])}
     j1_zahl = dict(Counter(v["urteil"] for v in ent["j1"].values()))
     zaehler = dict(Counter(s["status"] for s in status.values()))
 
@@ -318,16 +330,11 @@ def kontext(paths: Paths, z: Zustand, ent: dict[str, Any]) -> dict[str, Any]:
             "a5_korrekturen": a5["korrekturen"],
             "a5_claims": geprueft("A5"),
             "sensitivitaet": sens,
-            "kurs": ent.get("kurs"),
+            "kurs": kurs,
         },
-        "anpassungen": sorted(
-            {
-                f"{r.metric_id}: {v}"
-                for r in rows
-                if r.period_end == (lauf[2] if lauf else None) and r.statistik == "wert"
-                for v in r.vermerke
-            }
-        ),
+        "anpassungen": [
+            f"{text} ({', '.join(sorted(ids))})" for text, ids in sorted(vermerke.items())
+        ],
         "themen": themen,
         "gegenposition": {
             "risiken": risiken,

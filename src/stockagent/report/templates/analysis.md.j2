@@ -4,6 +4,8 @@
 - {{ c.text }}{% for b in c.belege %}{% if b.art == "dokument" %} (S. {{ b.seite }}: „{{ b.zitat }}“){% else %} [{{ b.ref }}]{% endif %}{% endfor %}
 
 {% endfor %}
+
+
 {%- endmacro -%}
 # Finanzieller Überblick: {{ kopf.name }}
 
@@ -50,7 +52,8 @@ Gestützt auf: {{ these.claims | join(", ") }}
 **{{ t.thema }}** ({{ t.einordnung }})
 
 {{ claims(t.claims) }}
-{%- else %}
+
+{% else %}
 Nicht anwendbar: keine geprüften Befunde.
 {% endfor %}
 Segmentzahlen aus den XBRL-Daten folgen mit der Segmentauswertung (SPEC 3.3).
@@ -79,7 +82,7 @@ Einordnung der Ertragsqualität: {{ ertragsqualitaet.einordnung }}
 - {{ k.name }}: {{ k.wert }}
 {% endfor %}
 
-{% if bewertung.kurs %}Kurs am {{ bewertung.kurs.datum }}: {{ bewertung.kurs.wert }} {{ bewertung.kurs.waehrung }}
+{% if bewertung.kurs %}Kurs am {{ bewertung.kurs.datum }}: {{ bewertung.kurs.wert }}
 {% endif %}
 
 Szenarien mit den Stufen des Bewertungsagenten (Werte je Aktie, von Python gerechnet):
@@ -123,7 +126,8 @@ Nicht anwendbar: Das Insider-Modul folgt mit Bauschritt 9.
 **{{ t.thema }}** ({{ t.einordnung }})
 
 {{ claims(t.claims) }}
-{%- else %}
+
+{% else %}
 Nicht anwendbar: Die qualitative Analyse hat keine geprüften Befunde geliefert.
 {% endfor %}
 

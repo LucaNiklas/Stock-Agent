@@ -7,7 +7,9 @@
       "Bash(uv run stockagent:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Write(./runs/**)",
+      "Read(./runs/**)"
     ],
     "deny": [
       "Read(./.env)",
@@ -48,5 +50,8 @@
         ]
       }
     ]
+  },
+  "env": {
+    "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1"
   }
 }

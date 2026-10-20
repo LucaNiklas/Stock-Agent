@@ -59,6 +59,12 @@ ERLAUBT: dict[tuple[str, str], str] = {
         "int(cfg.scoring['vergleichsgruppe']['mindest']) - 1",
     ): "Mindestzahl der Vergleichstitel ohne die Firma selbst",
     ("dashboard/app.py", "s - {isin}"): "Mengendifferenz",
+    (
+        "dashboard/app.py",
+        "len(self.warteschlange()) - 1",
+    ): "Anzahl Titel in der Warteschlange davor",
+    ("dashboard/app.py", "self.paths.runs / letzter.run_id"): "Pfad",
+    ("dashboard/app.py", "paths.runs / run_id"): "Pfad",
     ("agents/eingaben.py", "datetime.now(UTC).year + 5"): "Jahreszahl im Auftragstext (Pre-Mortem)",
     ("agents/eingaben.py", "paths.config / name"): "Pfad",
     ("agents/eingaben.py", "paths.root / a.ausgabe"): "Pfad",

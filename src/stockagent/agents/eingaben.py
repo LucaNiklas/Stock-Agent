@@ -123,6 +123,13 @@ def kennzahlen(paths: Paths, z: Zustand) -> list[dict[str, str]]:
     return out
 
 
+def kennzahlen_kurz(paths: Paths, z: Zustand) -> list[dict[str, str]]:
+    """Nur letztes Geschäftsjahr und aktueller Kurs (für A4, das vor allem Berichte liest)."""
+    jahr = _werte(paths, z).stichtag
+    endung = (f"@{jahr.year}" if jahr else "@-", "@aktuell")
+    return [k for k in kennzahlen(paths, z) if k["ref"].endswith(endung)]
+
+
 def _note(paths: Paths, z: Zustand) -> dict[str, Any]:
     conn = store.connect_read(paths.db)
     try:
@@ -324,7 +331,7 @@ def _auswertung(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
     daten.update(
         {
             "note": _note(paths, z),
-            "kennzahlen": kennzahlen(paths, z),
+            "kennzahlen": kennzahlen(paths, z) if a.agent == "A3" else kennzahlen_kurz(paths, z),
             "dokumente": _dokumente(z),
         }
     )
@@ -674,13 +681,20 @@ def _a5_werte(paths: Paths, z: Zustand, status: dict[str, dict[str, Any]]) -> di
     for an in antwort["annahmen"]:
         stufe = an["stufe"]
         if an["szenario"] == "base" and stufe == "hoch":
+            mit_stelle = {
+                c["claim_id"]
+                for c in antwort["claims"]
+                if any(e.get("doc_hash") for e in c.get("evidence", []))
+            }
             belegt = any(
-                status.get(f"A5:{cid}", {}).get("status") == "verified" for cid in an["claim_ids"]
+                cid in mit_stelle and status.get(f"A5:{cid}", {}).get("status") == "verified"
+                for cid in an["claim_ids"]
             )
             if not belegt:
                 stufe = "mittel"
                 korrekturen.append(
-                    f"base {an['groesse']}: hoch ohne geprüften Beleg, mittel gesetzt (SPEC 8.3)"
+                    f"base {an['groesse']}: hoch ohne geprüfte Berichtsstelle, mittel gesetzt "
+                    "(SPEC 8.3)"
                 )
         wahl.setdefault(an["szenario"], {})[an["groesse"]] = stufe
     conn = store.connect_read(paths.db)

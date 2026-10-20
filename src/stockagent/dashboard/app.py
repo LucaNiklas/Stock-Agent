@@ -16,6 +16,8 @@ import csv
 import io
 import json
 import re
+import shutil
+import subprocess
 import threading
 import traceback
 import uuid
@@ -31,7 +33,7 @@ from urllib.parse import parse_qs, urlparse
 
 import yaml
 
-from stockagent import bewertung, tiers, tr_checks
+from stockagent import bewertung, orchestrator, tiers, tr_checks
 from stockagent.core import sektoren
 from stockagent.data import store
 from stockagent.paths import Paths
@@ -348,6 +350,108 @@ class Aufgaben:
         return a
 
 
+# ------------------------------------------------------------------ Tiefenanalyse (Bauschritt 6)
+
+RUN_ID = re.compile(r"^[0-9T:-]+Z_[A-Z0-9]{12}$")
+# Rechte des Hintergrundlaufs: nur das CLI, Lesen, Schreiben unter runs/, Subagents. Die Rechte
+# der Subagents selbst stehen in ihrem Frontmatter (.claude/agents/).
+ERLAUBTE_WERKZEUGE = [
+    "Bash(uv run stockagent *)",
+    "Read",
+    "Grep",
+    "Write(./runs/**)",
+    "Agent",
+    "WebSearch",
+    "WebFetch",
+]
+
+
+def claude_befehl(isin: str) -> list[str]:
+    """`claude -p` im Hintergrund über Lucas Abo (SPEC 13.5). Rechte nur über die Liste oben."""
+    return [
+        shutil.which("claude") or "claude",
+        "-p",
+        f"/analyze-stock {isin}",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        *ERLAUBTE_WERKZEUGE,
+        "--max-turns",
+        "300",
+    ]
+
+
+class Analysen:
+    """Eine Tiefenanalyse zur Zeit, weitere warten in `state/analysis_queue.yaml`."""
+
+    def __init__(self, paths: Paths, starter: Any = subprocess.Popen) -> None:
+        self.paths = paths
+        self.starter = starter
+        self.lock = threading.Lock()
+        self.laufend: dict[str, Any] = {}  # ISIN -> Prozess
+
+    @property
+    def datei(self) -> Path:
+        return self.paths.root / "state" / "analysis_queue.yaml"
+
+    def warteschlange(self) -> list[str]:
+        return [str(x) for x in _yaml(self.datei).get("isins", [])]
+
+    def _aktiv(self) -> list[str]:
+        return [i for i, p in self.laufend.items() if p.poll() is None]
+
+    def starten(self, isin: str) -> dict[str, Any]:
+        with self.lock:
+            if isin in self._aktiv() or isin in self.warteschlange():
+                return {"status": "schon_geplant"}
+            if self._aktiv():
+                _yaml_schreiben(
+                    self.datei,
+                    "# Warteschlange Tiefenanalysen",
+                    {"isins": [*self.warteschlange(), isin]},
+                )
+                return {"status": "wartet", "vor_dir": len(self.warteschlange()) - 1}
+            if shutil.which("claude") is None and self.starter is subprocess.Popen:
+                return {"status": "fehler", "grund": "Claude Code (claude) nicht gefunden"}
+            log = self.paths.runs / "_dashboard"
+            log.mkdir(parents=True, exist_ok=True)
+            with (log / f"{isin}.jsonl").open("ab") as fh:
+                self.laufend[isin] = self.starter(
+                    claude_befehl(isin),
+                    cwd=self.paths.root,
+                    stdout=fh,
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.DEVNULL,
+                    start_new_session=True,  # läuft weiter, wenn Browser oder Server schließen
+                )
+            return {"status": "gestartet"}
+
+    def weiter(self) -> None:
+        """Nächsten Titel der Warteschlange starten, wenn nichts läuft."""
+        with self.lock:
+            schlange = self.warteschlange()
+            if self._aktiv() or not schlange:
+                return
+            _yaml_schreiben(self.datei, "# Warteschlange Tiefenanalysen", {"isins": schlange[1:]})
+        self.starten(schlange[0])
+
+    def stand(self, isin: str) -> dict[str, Any]:
+        self.weiter()
+        laeufe = [z for z in orchestrator.laufende(self.paths) if z.isin == isin]
+        letzter = max(laeufe, key=lambda z: z.erstellt) if laeufe else None
+        return {
+            "prozess": "läuft" if isin in self._aktiv() else None,
+            "wartet": isin in self.warteschlange(),
+            "lauf": orchestrator.fortschritt(letzter) if letzter else None,
+            "bericht": f"/bericht/{letzter.run_id}"
+            if letzter and (self.paths.runs / letzter.run_id / "report.html").exists()
+            else None,
+        }
+
+
 # ------------------------------------------------------------------ Server
 
 
@@ -407,8 +511,11 @@ def titel_detail(paths: Paths, isin: str) -> dict[str, Any]:
     }
 
 
-def handler_fuer(paths: Paths, daten: Daten, aufgaben: Aufgaben) -> type[BaseHTTPRequestHandler]:
+def handler_fuer(
+    paths: Paths, daten: Daten, aufgaben: Aufgaben, analysen: Analysen | None = None
+) -> type[BaseHTTPRequestHandler]:
     seite = files("stockagent.dashboard").joinpath("template.html").read_text("utf-8")
+    tief = analysen or Analysen(paths)
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "stockagent"
@@ -459,6 +566,15 @@ def handler_fuer(paths: Paths, daten: Daten, aufgaben: Aufgaben) -> type[BaseHTT
             elif pfad.startswith("/api/aufgabe/"):
                 a = aufgaben.alle.get(pfad.rsplit("/", 1)[1])
                 self._json(asdict(a) if a else {"fehler": "unbekannt"})
+            elif pfad.startswith("/api/analyse/"):
+                self._json(tief.stand(pfad.rsplit("/", 1)[1].upper()))
+            elif pfad.startswith("/bericht/"):
+                run_id = pfad.rsplit("/", 1)[1]
+                datei = paths.runs / run_id / "report.html"
+                if RUN_ID.match(run_id) and datei.exists():
+                    self._text(datei.read_text("utf-8"), "text/html; charset=utf-8")
+                else:
+                    self._json({"fehler": "nicht gefunden"}, HTTPStatus.NOT_FOUND)
             elif pfad == "/api/export.csv":
                 buf = io.StringIO()
                 w = csv.writer(buf, delimiter=";")
@@ -488,6 +604,8 @@ def handler_fuer(paths: Paths, daten: Daten, aufgaben: Aufgaben) -> type[BaseHTT
                     return {"note": erg.note, "grund": erg.grund}
 
                 self._json(asdict(aufgaben.starte("bewerten", isin, arbeit)))
+            elif pfad.startswith("/api/analyse/"):
+                self._json(tief.starten(isin))
             elif pfad.startswith("/api/stern/"):
                 merk.stern(isin, bool(body.get("an")))
                 daten.neu_laden()
