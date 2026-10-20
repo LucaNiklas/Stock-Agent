@@ -133,3 +133,13 @@ def test_gbx_price_in_pence_converted_to_pounds() -> None:
         Rechenweg("t", "1", "x", "t"), Reihen("x", (T,), eur, parameter=unter), T
     )
     assert k2.waehrung == "EUR" and k2.wert.quantize(Decimal("0.01")) == Decimal("28.82")
+
+
+def test_boe_gilt_yields_parsed() -> None:
+    """Bank of England IUDMNPY, echte Werte vom 14. bis 16.10.2026 (Abruf 20.10.2026)."""
+    from stockagent.data.sources import rates
+
+    raw = b"DATE,IUDMNPY\n14 Oct 2026,5.383\n15 Oct 2026,5.3092\n16 Oct 2026,5.2987\n"
+    z = rates.parse_boe(raw)
+    assert [(x.datum, x.prozent) for x in z][-1] == (date(2026, 10, 16), Decimal("5.2987"))
+    assert z[0].serie == "rf_10y_GBP"

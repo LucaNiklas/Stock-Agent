@@ -95,6 +95,7 @@ informationen:
     region: alle
     quellen:
       - {name: Bundesbank-Zinsstrukturkurve (EUR) und US-Treasury Par Yield Curve (USD), zugriff: python, modul: rates, ab_schritt: 4}
+      - {name: Bank of England IUDMNPY (GBP), zugriff: python, modul: rates, ab_schritt: 7}
 
   kapitalkosten_damodaran:
     beschreibung: Branchenbetas, implizite Risikoprämie, Rating-Aufschläge und Branchenzuordnung

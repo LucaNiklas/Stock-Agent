@@ -38,6 +38,7 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Leasing unter IFRS ohne eigene Bilanzzeile gilt als in den Finanzschulden enthalten (ACC-01). Gezahlte Zinsen unter Finanzierung mindern den FCF (ACC-04). Normalisierungsregeln mit Status in `config/accounting_adjustments.yaml`.
 - Hinterlegungsscheine: Kurs je Stammaktie über die Aktien je Schein aus dem Börsennamen oder `state/adr_verhaeltnis.yaml`.
 - Vergleichsgruppe: eigener Umsatz in USD, wenn die Firma nicht in den Frames der SEC steht.
+- ESEF-Berichte über filings.xbrl.org (Emittent `lei:<LEI>`), Emittent je ISIN über die LEI, Aktienzahl aus dem Ergebnis je Aktie, wenn keine gemeldet ist. Risikofreier Zins für GBP (Bank of England).
 
 ## 5.1 (20.10.2026, Bauschritt 6, Agentenvorlagen Version 1.0.0)
 

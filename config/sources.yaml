@@ -177,6 +177,10 @@ zinsen:
   bundesbank_url: https://api.statistiken.bundesbank.de/rest/data/BBSIS/D.I.ZST.ZI.EUR.S1311.B.A604.R10XX.R.A.A._Z._Z.A?format=csv&startPeriod={start}
   # USD: Daily Treasury Par Yield Curve, Spalte "10 Yr", eine Datei je Kalenderjahr
   treasury_url: https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/{jahr}/all?type=daily_treasury_yield_curve&field_tdr_date_value={jahr}&page&_format=csv
+  # GBP: Bank of England, Serie IUDMNPY (10 Jahre, nominal, Par Yield), täglich (Bauschritt 7)
+  boe_url: https://www.bankofengland.co.uk/boeapps/database/_iadb-fromshowcolumns.asp?csv.x=yes&Datefrom={start}&Dateto=now&SeriesCodes=IUDMNPY&CSVF=TN&UsingCodes=Y&VPD=Y&VFD=N
+  # CHF (SNB data.snb.ch, Cube rendoblid) endet im Juli 2025, DKK (api.statbank.dk) nicht
+  # erreichbar: beide vorerst ohne risikofreien Zins (ADR 0009)
   start: "2015-01-01"
   aktuell_tage: 1
 

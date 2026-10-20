@@ -154,6 +154,9 @@ class FakeWeb:
             return (FIX / "zinsen" / "bundesbank_10y.csv").read_bytes()
         if "treasury" in url:
             return (FIX / "zinsen" / "treasury_2015.csv").read_bytes()
+        if "bankofengland" in url:
+            # Echte Antwort der Bank of England, 1. bis 19.10.2026 (Abruf 20.10.2026)
+            return (FIX / "zinsen" / "boe_10y.csv").read_bytes()
         for name in ("Betas.html", "ratings.html", "wacc.html", "ERPbymonth.xlsx"):
             if url.endswith(name):
                 return (FIX / "damodaran" / name).read_bytes()
@@ -177,6 +180,7 @@ def test_update_loads_everything_once(paths: Paths) -> None:
     z = kapitalmarkt_update.zinsen_update(paths, fetcher=web, now=NOW)
     d = kapitalmarkt_update.damodaran_update(paths, fetcher=web, now=NOW)
     assert z.je_serie["rf_10y_EUR"][1] == date(2026, 10, 19)
+    assert z.je_serie["rf_10y_GBP"][1] == date(2026, 10, 16)
     assert sum("treasury" in u for u in web.urls) == 12, "eine Datei je Jahr 2015 bis 2026"
     assert d.je_datensatz["betas_us"] == (4, "January 2026")
     assert d.je_datensatz["firms"][0] == len(FIRMEN)
