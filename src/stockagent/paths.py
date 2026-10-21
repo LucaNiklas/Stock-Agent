@@ -39,5 +39,9 @@ class Paths:
         return self.root / "data" / "views"
 
     @property
+    def runs(self) -> Path:
+        return self.root / "runs"
+
+    @property
     def tr_checks(self) -> Path:
         return self.root / "state" / "tr_checks.yaml"

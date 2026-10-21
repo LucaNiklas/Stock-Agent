@@ -23,8 +23,8 @@ def test_cli_version() -> None:
 
 
 def test_cli_unbuilt_commands_say_so() -> None:
-    res = CliRunner().invoke(app, ["analyze", "US0378331005"])
-    assert res.exit_code == 2 and "Bauschritt 6" in res.stdout
+    res = CliRunner().invoke(app, ["run"])
+    assert res.exit_code == 2 and "Bauschritt 11" in res.stdout
 
 
 def test_registry_matches_metrics_yaml() -> None:

@@ -110,12 +110,20 @@ async function zeige(isin){
   h+=`<p><button class="primary" onclick="bewerten('${isin}')">${n?"Neu bewerten":"Bewerten"}</button>
   <button onclick="stern('${isin}',${!d.stern})">${d.stern?"★ Beobachtet":"☆ Beobachten"}</button>
   TR: <button onclick="tr('${isin}',true)">handelbar</button> <button onclick="tr('${isin}',false)">nicht handelbar</button> <span class="muted">(${d.tr})</span></p>
+  <p><button onclick="analyse('${isin}')">Tiefenanalyse starten</button> <span id="tief" class="muted"></span></p>
   <pre id="fortschritt"></pre><h3>Notiz</h3><textarea id="notiz">${esc(d.notiz)}</textarea><button onclick="notiz('${isin}')">Notiz speichern</button>`;
   if(d.kennzahlen.length){h+=`<h3>Alle Kennzahlen (letztes Geschäftsjahr, aktuell, TTM)</h3><table><tr><th>Kennzahl</th><th>Statistik</th><th>Wert</th><th>Anmerkung</th></tr>`+
     d.kennzahlen.map(k=>`<tr><td>${k.id}</td><td>${k.statistik}</td><td>${fmt(k.wert,k.id)}</td><td class="muted">${esc((k.grund||k.vermerke.join("; ")).slice(0,90))}</td></tr>`).join("")+`</table>
     <p class="muted">Rechenweg jeder Zahl: stockagent metrics show ${isin} --rechenweg &lt;id&gt;</p>`}
   if(d.hinweise.length)h+=`<h3>Hinweise an die Agenten</h3><ul>`+d.hinweise.map(x=>`<li>${x.regel} an ${x.an}: ${esc(x.detail)}</li>`).join("")+`</ul>`;
-  document.getElementById("panel").innerHTML=h;document.getElementById("detail").style.display="block"}
+  document.getElementById("panel").innerHTML=h;document.getElementById("detail").style.display="block";tiefStand(isin)}
+async function tiefStand(isin){const s=await api("/api/analyse/"+isin);const el=document.getElementById("tief");if(!el)return;
+  let t=s.wartet?"wartet in der Warteschlange":s.prozess?"läuft":"";
+  if(s.lauf){t+=(t?" · ":"")+`Lauf ${s.lauf.status}: `+Object.entries(s.lauf.abteilungen).map(([a,v])=>`${a} ${v.angenommen||0}/${Object.values(v).reduce((x,y)=>x+y,0)}`).join(", ")}
+  el.innerHTML=esc(t)+(s.bericht?` · <a href="${s.bericht}" target="_blank">Bericht öffnen</a>`:"");
+  if(s.prozess||s.wartet)setTimeout(()=>{if(document.getElementById("detail").style.display==="block")tiefStand(isin)},5000)}
+async function analyse(isin){const r=await api("/api/analyse/"+isin,{method:"POST"});
+  document.getElementById("tief").textContent=r.status==="fehler"?r.grund:r.status==="wartet"?"wartet":"gestartet";setTimeout(()=>tiefStand(isin),2000)}
 async function stern(isin,an){await api("/api/stern/"+isin,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({an})});zeige(isin);laden()}
 async function tr(isin,h){await api("/api/tr/"+isin,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({handelbar:h})});zeige(isin);laden()}
 async function notiz(isin){await api("/api/notiz/"+isin,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:document.getElementById("notiz").value})})}

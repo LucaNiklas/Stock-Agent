@@ -1,0 +1,10 @@
+# Version je Agentenvorlage in agents_src/ (SPEC 8.4 Umschlag `agent_version`).
+# Jede Änderung einer Vorlage: Version erhöhen und Goldstandard laufen lassen (SPEC 11.6).
+a1-datenbeschaffung: "1.0.0"
+a3-fundamental: "1.0.0"
+a4-qualitativ: "1.0.0"
+a5-bewertung: "1.0.0"
+a7-gegenposition: "1.0.0"
+j1-zahlenpruefer: "1.0.0"
+j2-belegpruefer: "1.0.0"
+a9-synthese: "1.0.0"

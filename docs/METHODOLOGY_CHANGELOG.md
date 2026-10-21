@@ -31,6 +31,12 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Kursquelle Yahoo Finance für alle Länder, Kurse wie geliefert gespeichert (SPEC 7.3).
 - Einordnung gegen den Gesamtmarkt nur, wenn es einen Lauf über alle Titel gibt (SPEC 3.3).
 
+## 5.1 (20.10.2026, Bauschritt 6, Agentenvorlagen Version 1.0.0)
+
+- Tiefenanalyse über einen Python-Zustandsautomaten mit Agenten A1, A3, A4, A5, A7, Erwiderung A3, J1, J2 und A9 (ADR 0008). Modelle aus `config/models.yaml`, Vorlagen in `agents_src/`, Versionen in `src/stockagent/agents/prompts/versions.yaml`.
+- Nur Claims mit Status `verified` (J1 und J2 bestanden) erreichen den Bericht. A5 kann die Kategorie nur senken (Base unter Kurs), Eskalationen setzen Eskaliert (HR-13).
+- J1-Toleranzen 0,5 % (match) und 2 % (Rundung), Kernkennzahlen für Eskalationen in `config/models.yaml`.
+
 ## 5.0 (19.10.2026, Bauschritt 5, `methodology_version` der Kennzahlen 1.5)
 
 - Note A bis E aus Rängen in der Vergleichsgruppe, Säulen und Gewichte aus `config/scorecards.yaml` und `config/scoring.yaml`, Kappungen nach SPEC 6.2 Nr. 6 und bei Abdeckung unter 70 % (ADR 0007).

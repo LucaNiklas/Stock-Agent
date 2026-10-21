@@ -220,15 +220,8 @@ def test_stale_peers_are_reloaded(tmp_path: Path) -> None:
     _seed(p, computed=NOW - timedelta(days=30))
     a = Attrappe()
     bewertung.bewerten(p, FIRMEN[5][0], lader=a.lader(), now=NOW)
-    assert a.abrufe == [
-        "sec 1",
-        "kurse 1",
-        "kennzahlen 1",
-        "umsatz CY2025",
-        "sec 19",
-        "kurse 19",
-        "kennzahlen 19",
-    ]
+    assert a.abrufe[:4] == ["sec 1", "kurse 1", "kennzahlen 1", "umsatz CY2025"]
+    assert a.abrufe[4:] == ["sec 1", "kurse 1", "kennzahlen 1"] * 19  # je Titel einzeln
 
 
 def test_too_small_group_and_other_scorecard(paths: Paths) -> None:

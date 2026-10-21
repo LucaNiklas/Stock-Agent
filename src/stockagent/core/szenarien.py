@@ -230,12 +230,28 @@ def _szenario_metric(r: Rechenweg, d: Reihen, t: date, szenario: str) -> Decimal
     cfg = d.parameter.get("kapitalkosten", {})
     if not cfg or "szenarien" not in cfg:
         raise EingabeFehlt("config/kapitalkosten.yaml szenarien", t.isoformat())
+    return szenario_mit_stufen(r, d, t, szenario, cfg["szenarien"][szenario])
+
+
+def szenario_mit_stufen(
+    r: Rechenweg, d: Reihen, t: date, szenario: str, wahl: dict[str, str]
+) -> Decimal:
+    """Wert je Aktie eines Szenarios mit gewählter Stufe je Größe (`niedrig`, `mittel`,
+    `hoch`). Die Stufen aus `config/kapitalkosten.yaml` oder die Wahl des Bewertungsagenten A5
+    (Bauschritt 6). Die Zahlen jeder Stufe kommen immer aus der eigenen Historie."""
+    cfg = d.parameter.get("kapitalkosten", {})
+    if not cfg:
+        raise EingabeFehlt("config/kapitalkosten.yaml", t.isoformat())
+    r.pruefe(
+        "CP-07",
+        "je Größe genau eine bekannte Stufe",
+        set(wahl) == set(GROESSEN) and set(wahl.values()) <= set(STUFEN),
+    )
     kk = kapitalkosten(r, d, t)
     end_max = d.hole("endwachstum_max", t)
     g_end = r.schritt("endwachstum", "min(rf, maximum)", rf=kk.rf, maximum=end_max)
     r.pruefe("CP-02", "WACC über dem Endwachstum", kk.wacc > g_end)
     st = stufen(r, d, t)
-    wahl = cfg["szenarien"][szenario]
     annahmen = {g: st[g][wahl[g]] for g in GROESSEN}
     jahre, ausblenden = int(cfg["jahre"]), int(cfg["ausblenden_ab_jahr"])
     s = szenario_rechnung(r, d, t, szenario, annahmen, kk, kk.wacc, g_end, jahre, ausblenden)

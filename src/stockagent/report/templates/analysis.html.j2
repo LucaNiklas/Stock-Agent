@@ -1,1 +1,71 @@
-{# Vorlage Analyse als HTML. PLATZHALTER: wird in Bauschritt 6 gebaut (docs/BAUPLAN.md). Inhalt: Dieselben 14 Abschnitte als Seite. Jede Zahl führt per Klick zum Rechenweg und zur Quelle (SPEC 13.1). #}
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Überblick {{ kopf.name }}</title>
+<style>
+:root{--bg:#fff;--fg:#1b1b1f;--muted:#6b6b76;--line:#e4e4ea;--card:#f6f6f9;--accent:#2f5bd3}
+@media (prefers-color-scheme:dark){:root{--bg:#141417;--fg:#ececf1;--muted:#9a9aa6;--line:#2c2c33;--card:#1d1d22;--accent:#8aa8ff}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,sans-serif}
+main{max-width:980px;margin:auto;padding:16px}
+h1{font-size:22px}h2{font-size:18px;margin-top:28px;border-bottom:1px solid var(--line);padding-bottom:4px}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
+.wrap{overflow-x:auto}.muted{color:var(--muted)}.urteil{font-size:18px;font-weight:600}
+blockquote{margin:4px 0 8px 16px;color:var(--muted);font-size:13px}
+.claim{margin:6px 0}
+</style></head><body><main>
+{% macro claims(liste) %}{% for c in liste %}<div class="claim">{{ c.text }}{% for b in c.belege %}{% if b.art == "dokument" %}<blockquote>Seite {{ b.seite }}: „{{ b.zitat }}“</blockquote>{% else %} <span class="muted">[{{ b.ref }}]</span>{% endif %}{% endfor %}</div>{% endfor %}{% endmacro %}
+<h1>Finanzieller Überblick: {{ kopf.name }}</h1>
+<h2>1. Kopf</h2>
+<table>
+<tr><td>ISIN</td><td>{{ kopf.isin }}</td></tr><tr><td>LEI</td><td>{{ kopf.lei }}</td></tr>
+<tr><td>Trade Republic</td><td>{{ kopf.tr }}</td></tr><tr><td>Scorecard</td><td>{{ kopf.scorecard }}</td></tr>
+<tr><td>Rechnungslegung</td><td>{{ kopf.standard }}</td></tr>
+<tr><td>Berichts-/Kurswährung</td><td>{{ kopf.berichtswaehrung }} / {{ kopf.kurswaehrung }}</td></tr>
+<tr><td>Datenstand / Geschäftsjahr</td><td>{{ kopf.datenstand }} / {{ kopf.stichtag }}</td></tr>
+<tr><td>Lauf</td><td>{{ kopf.run_id }}</td></tr><tr><td>Methodik / Register</td><td>{{ kopf.methodik }} / {{ kopf.register }}</td></tr>
+</table>
+<h2>2. Urteil</h2>
+<p class="urteil">Note {{ urteil.note }} · {{ urteil.konfidenz }} · {{ urteil.risiko }} · {{ urteil.kategorie }}</p>
+<p class="muted">Gesamtwert {{ urteil.gesamtwert }} von 100, Vergleichsgruppe {{ urteil.vergleichsgruppe }}. Die Kategorie ist eine Einordnung, keine Empfehlung (deterministisch: {{ urteil.deterministisch }}).{% if urteil.vorher %} Davor: {{ urteil.vorher }}.{% endif %}</p>
+{% if urteil.grund %}<p>Status N: {{ urteil.grund }}</p>{% endif %}
+{% for u in urteil.uebergaenge %}<p>{{ u.art }}: {{ u.grund }}</p>{% endfor %}
+<h2>3. These</h2>
+{% if these.text %}<p>{{ these.text }}</p>{% else %}<p class="muted">Nicht anwendbar: keine geprüfte These.</p>{% endif %}
+<h2>4. Geschäftsmodell und Segmente</h2>
+{% for t in geschaeftsmodell %}<h3>{{ t.thema }} ({{ t.einordnung }})</h3>{{ claims(t.claims) }}{% else %}<p class="muted">Nicht anwendbar: keine geprüften Befunde.</p>{% endfor %}
+<h2>5. Kennzahlentabelle</h2>
+<div class="wrap"><table><tr><th>Kennzahl</th>{% for j in kennzahlen.jahre %}<th>{{ j }}</th>{% endfor %}<th>TTM</th><th>aktuell</th><th>Perzentil Gruppe</th></tr>
+{% for z in kennzahlen.zeilen %}<tr><td>{{ z.name }}</td>{% for v in z.jahre %}<td>{{ v }}</td>{% endfor %}<td>{{ z.ttm }}</td><td>{{ z.aktuell }}</td><td>{{ z.gruppe }}</td></tr>{% endfor %}
+</table></div>
+<h2>6. Ertragsqualität und Bilanz</h2>
+<ul>{% for e in ertragsqualitaet.werte %}<li>{{ e.name }}: {{ e.wert }}</li>{% endfor %}</ul>
+<p>Einordnung: {{ ertragsqualitaet.einordnung }}</p>{{ claims(ertragsqualitaet.claims) }}
+<h2>7. Bewertung</h2>
+<ul>{% for k in bewertung.kennzahlen %}<li>{{ k.name }}: {{ k.wert }}</li>{% endfor %}</ul>
+<table><tr><th>Szenario</th><th>Wachstum</th><th>Marge</th><th>Investition</th><th>Working Capital</th><th>Wert je Aktie</th></tr>
+{% for s, wahl in bewertung.a5_wahl.items() %}<tr><td>{{ s }}</td><td>{{ wahl.wachstum }}</td><td>{{ wahl.marge }}</td><td>{{ wahl.investition }}</td><td>{{ wahl.working_capital }}</td><td>{{ bewertung.a5_werte.get(s, "–") }}</td></tr>{% endfor %}</table>
+{% for k in bewertung.a5_korrekturen %}<p class="muted">Korrektur: {{ k }}</p>{% endfor %}
+{{ claims(bewertung.a5_claims) }}
+{% if bewertung.sensitivitaet %}<h3>Sensitivität Base</h3><table><tr><th>WACC</th><th>Endwachstum</th><th>Wert</th></tr>{% for s in bewertung.sensitivitaet %}<tr><td>{{ s.wacc }}</td><td>{{ s.g }}</td><td>{{ s.wert }}</td></tr>{% endfor %}</table>{% endif %}
+<h2>8. Anpassungen</h2>
+<p class="muted">Normalisierungen und Währungsregeln folgen mit Bauschritt 7.</p><ul>{% for a in anpassungen %}<li>{{ a }}</li>{% else %}<li>keine</li>{% endfor %}</ul>
+<h2>9. Insider</h2><p class="muted">Nicht anwendbar: folgt mit Bauschritt 9.</p>
+<h2>10. Qualitative Befunde</h2>
+{% for t in themen %}<h3>{{ t.thema }} ({{ t.einordnung }})</h3>{{ claims(t.claims) }}{% else %}<p class="muted">Nicht anwendbar.</p>{% endfor %}
+<h2>11. Gegenposition</h2>
+{% for r in gegenposition.risiken %}<h3>Risiko {{ loop.index }}: {{ r.titel }}</h3><p>Frühindikator: {{ r.fruehindikator }}</p>{{ claims(r.claims) }}
+<p><b>Erwiderung:</b> {% if r.offen %}offen{% endif %}</p>{{ claims(r.erwiderung) }}{% else %}<p class="muted">Nicht anwendbar.</p>{% endfor %}
+{% if gegenposition.pre_mortem %}<p><b>Pre-Mortem:</b> {{ gegenposition.pre_mortem }}</p>{% endif %}
+<h2>12. Ungereimtheiten</h2>
+<ul>{% for u in ungereimtheiten %}<li>{{ u.id }}: {{ u.text }}</li>{% else %}<li>Keine gefunden.</li>{% endfor %}</ul>
+<p class="muted">Ausgeführte Prüfungen: {{ pruefungen | join("; ") }}</p>
+<h2>13. Prüfprotokoll</h2>
+<table><tr><th>Auftrag</th><th>Agent</th><th>Status</th><th>Versuche</th><th>Fehler</th></tr>
+{% for a in protokoll.auftraege %}<tr><td>{{ a.id }}</td><td>{{ a.agent }}</td><td>{{ a.status }}</td><td>{{ a.versuche }}</td><td>{{ a.fehler }}</td></tr>{% endfor %}</table>
+<p>J1: {% for k, v in protokoll.j1.items() %}{{ k }} {{ v }} {% else %}nicht gelaufen{% endfor %} · Claims: {% for k, v in protokoll.claims.items() %}{{ k }} {{ v }} {% endfor %}</p>
+<ul>{% for e in protokoll.entfernt %}<li>{{ e.auftrag }}: {{ e.grund }}</li>{% endfor %}</ul>
+<p class="muted">J3 Jury und J4 Endkontrolle folgen mit Bauschritt 10. Bis dahin prüfen nur Claude-Modelle (eingeschränkte Diversität, HR-16).</p>
+<h2>14. Grenzen und Quellen</h2>
+<ul>{% for g in grenzen.lauf %}<li>{{ g }}</li>{% endfor %}{% for g in grenzen.konfidenz %}<li>Konfidenz: {{ g }}</li>{% endfor %}{% for g in grenzen.luecken %}<li>Lücke: {{ g }}</li>{% endfor %}</ul>
+<ul>{% for q in grenzen.quellen %}<li>{{ q.typ }} {{ q.periode }} <span class="muted">{{ q.url }} {{ q.hash }}</span></li>{% endfor %}</ul>
+<p class="muted">Erstellt {{ kopf.erstellt }}. Keine Anlageberatung, keine Empfehlung.</p>
+</main></body></html>

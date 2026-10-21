@@ -36,7 +36,9 @@ Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abs
 - uv run stockagent tiers import <INDEX> <DATEI> [--stand JJJJ-MM-TT] | show
 - uv run stockagent app [--port 8765]   Dashboard (Doppelklick: Stockagent.command)
 - uv run stockagent run [--profile scheduled --yes]
-- uv run stockagent analyze <ISIN>
+- uv run stockagent analyze <ISIN>   Tiefenanalyse anlegen (in Claude Code: /analyze-stock <ISIN>)
+- uv run stockagent next <RUN> [--json] | accept <RUN> <AUFTRAG> --datei <F> | runs
+- uv run stockagent tool rechenweg|nachrechnen <ISIN> <ref> ...   Werkzeuge der Agenten
 - uv run stockagent render-agents   Agent-Dateien aus agents_src/ erzeugen
 - uv run python eval/run_eval.py   Goldstandard
 

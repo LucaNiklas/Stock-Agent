@@ -1,6 +1,5 @@
-"""Auswertung J2 Belegprüfer (SPEC 11.2).
+"""Auswertung J2 Belegprüfer (SPEC 11.2 Ebene 2).
 
-PLATZHALTER: wird in Bauschritt 6 gebaut (docs/BAUPLAN.md).
-Inhalt: Sammelt je Claim `supported`, `partially`, `not_supported`, `contradicted`, streicht
-unbelegte Aussagen, eskaliert bei `contradicted`.
+Gebaut in Bauschritt 6 in `agents/eingaben.py` (`_j2`, `claim_status`): neutrale Kennungen statt
+Herkunft, `supported` und `partially` gelten als gedeckt, `contradicted` eskaliert.
 """

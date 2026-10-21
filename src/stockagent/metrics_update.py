@@ -22,14 +22,16 @@ from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import duckdb
 import yaml
 
-from stockagent.core import hinweise, registry, trends, ttm
+from stockagent.core import hinweise, registry, szenarien, trends, ttm
 from stockagent.core.calc import Ergebnis as CalcErgebnis
+from stockagent.core.calc import Rechenweg, rechne
 from stockagent.core.hinweise import Hinweis, Kennzahlwert
 from stockagent.core.reihen import Reihen
 from stockagent.data import concepts, inputs, store
@@ -247,6 +249,39 @@ def nachrechnen_trend(
         d, issuer_id, jahre, reihen.stichtage[0], geld, tcfg, cfg.quality["ausreisser"]
     )
     return tr.get(statistik)
+
+
+def dcf_mit_stufen(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    as_of: datetime,
+    wahl: dict[str, dict[str, str]],
+    cfg: Konfiguration,
+) -> dict[str, CalcErgebnis]:
+    """DCF-Szenarien mit gewählten Stufen (Bewertungsagent A5, Bauschritt 6) mit dem letzten
+    Schlusskurs. Rechnung und Prüfpunkte wie `dcf_bear` bis `dcf_bull`."""
+    isin = isin_for_issuer(conn, issuer_id)
+    reihen = _reihen(conn, issuer_id, as_of, cfg, isin)
+    if not reihen.stichtage:
+        return {}
+    stichtag = reihen.stichtage[0]
+    aktuell = inputs.reihen_aktuell(conn, reihen, isin, as_of.date(), cfg.kurs_cfg()) or reihen
+    d = next(m for m in cfg.metrics["metrics"] if m["id"] == "dcf_base")
+    out = {}
+    for szenario, stufen in wahl.items():
+        r = Rechenweg(
+            f"dcf_{szenario}_a5",
+            str(d["version"]),
+            issuer_id,
+            stichtag.isoformat(),
+            pflicht=tuple(d["pruefpunkte"]),
+        )
+
+        def rechnung(r: Rechenweg, s: str = szenario, w: dict[str, str] = stufen) -> Decimal:
+            return szenarien.szenario_mit_stufen(r, aktuell, stichtag, s, w)
+
+        out[szenario] = rechne(r, rechnung)
+    return out
 
 
 def _waehrung(reihen: Reihen) -> str | None:
