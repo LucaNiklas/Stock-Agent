@@ -1,0 +1,43 @@
+# Indexstufe Tier 1 bis 4 (SPEC 7.9, ADR 0004). Version bei Änderung erhöhen.
+# Je Index: Land (ISO, "global" für länderübergreifende Indizes), Stufe, Quelle. Die höchste
+# zutreffende Stufe zählt (1 vor 2 vor 3), ohne Index Stufe 4. Ein Hinterlegungsschein erbt die
+# Stufe seiner Stammaktie erst, wenn Mehrfachlistings zusammengeführt sind.
+#
+# Quelle der Mitglieder (SPEC 7.9 Nr. 2): Bestandslisten von ETFs, die den Index nachbilden, oder
+# freie Veröffentlichungen. Je Index einzeln geprüft (Nutzungsbedingungen, Format, ISIN). Bis die
+# Domains freigegeben und geprüft sind: Import einer Bestandsliste mit ISIN-Spalte von Hand
+# (`stockagent tiers import <index> <datei>`).
+version: "1.0"
+
+indizes:
+  # Tier 1: Leitindex des Heimatlandes oder großer länderübergreifender Leitindex
+  dax: {name: DAX, land: DE, stufe: 1, quelle: offen}
+  sp500: {name: S&P 500, land: US, stufe: 1, quelle: offen}
+  nasdaq100: {name: Nasdaq-100, land: US, stufe: 1, quelle: offen}
+  dow: {name: Dow Jones Industrial Average, land: US, stufe: 1, quelle: offen}
+  ftse100: {name: FTSE 100, land: GB, stufe: 1, quelle: offen}
+  cac40: {name: CAC 40, land: FR, stufe: 1, quelle: offen}
+  smi: {name: SMI, land: CH, stufe: 1, quelle: offen}
+  aex: {name: AEX, land: NL, stufe: 1, quelle: offen}
+  ibex35: {name: IBEX 35, land: ES, stufe: 1, quelle: offen}
+  ftsemib: {name: FTSE MIB, land: IT, stufe: 1, quelle: offen}
+  atx: {name: ATX, land: AT, stufe: 1, quelle: offen}
+  omxs30: {name: OMXS30, land: SE, stufe: 1, quelle: offen}
+  athex_lc: {name: FTSE/Athex Large Cap, land: GR, stufe: 1, quelle: offen}
+  nikkei225: {name: Nikkei 225, land: JP, stufe: 1, quelle: offen}
+  hangseng: {name: Hang Seng, land: HK, stufe: 1, quelle: offen}
+  tsx60: {name: S&P/TSX 60, land: CA, stufe: 1, quelle: offen}
+  eurostoxx50: {name: Euro Stoxx 50, land: global, stufe: 1, quelle: offen}
+  # Tier 2: zweiter Index des Heimatmarkts oder breiter globaler Standardindex
+  mdax: {name: MDAX, land: DE, stufe: 2, quelle: offen}
+  sp400: {name: S&P MidCap 400, land: US, stufe: 2, quelle: offen}
+  ftse250: {name: FTSE 250, land: GB, stufe: 2, quelle: offen}
+  stoxx600: {name: Stoxx Europe 600, land: global, stufe: 2, quelle: offen}
+  msci_world: {name: MSCI World, land: global, stufe: 2, quelle: offen}
+  msci_acwi: {name: MSCI ACWI, land: global, stufe: 2, quelle: offen}
+  # Tier 3: Nebenwerte-Index
+  sdax: {name: SDAX, land: DE, stufe: 3, quelle: offen}
+  tecdax: {name: TecDAX, land: DE, stufe: 3, quelle: offen}
+  sp600: {name: S&P SmallCap 600, land: US, stufe: 3, quelle: offen}
+  russell2000: {name: Russell 2000, land: US, stufe: 3, quelle: offen}
+  msci_acwi_small: {name: MSCI ACWI Small Cap, land: global, stufe: 3, quelle: offen}

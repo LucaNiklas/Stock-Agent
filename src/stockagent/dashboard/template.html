@@ -1,1 +1,128 @@
-<!-- HTML-Vorlage des Dashboards. PLATZHALTER: wird in Bauschritt 5 gebaut (docs/BAUPLAN.md). Inhalt: Seitengerüst mit Filtern, Tabelle, Hell- und Dunkelmodus, Notenzerlegung. Baut auf `report/templates/universe.html` auf. -->
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stockagent</title>
+<style>
+:root{--bg:#fff;--fg:#1b1b1f;--muted:#6b6b76;--line:#e4e4ea;--card:#f6f6f9;--accent:#2f5bd3;
+--A:#1d7a46;--B:#4c9a2a;--C:#8a8a2a;--D:#b46a1d;--E:#b3261e;--N:#7a7a85}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#141417;--fg:#ececf1;--muted:#9a9aa6;
+--line:#2c2c33;--card:#1d1d22;--accent:#8aa8ff;--A:#5fcf8d;--B:#9bd36b;--C:#d2d26b;--D:#f0a35e;--E:#ff8a80;--N:#9a9aa6}}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,sans-serif}
+header{padding:16px;max-width:1280px;margin:auto}
+h1{font-size:20px;margin:0}
+.muted{color:var(--muted)}
+#suche{display:flex;gap:8px;margin-top:12px}
+#suche input{flex:1;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+button{font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);cursor:pointer}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+#chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px 10px;cursor:pointer}
+.layout{display:grid;grid-template-columns:240px 1fr;gap:16px;max-width:1280px;margin:auto;padding:0 16px 32px}
+@media (max-width:800px){.layout{grid-template-columns:1fr}}
+aside details{margin-bottom:8px}
+aside summary{font-weight:600;cursor:pointer}
+aside label{display:flex;justify-content:space-between;gap:6px;padding:2px 0;cursor:pointer}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--bg)}
+tr.row:hover{background:var(--card);cursor:pointer}
+.note{display:inline-block;min-width:22px;text-align:center;border-radius:4px;color:#fff;font-weight:700;padding:0 4px}
+.wrap{overflow-x:auto}
+#detail{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none}
+#detail .panel{background:var(--bg);max-width:900px;margin:4vh auto;max-height:92vh;overflow:auto;border-radius:12px;padding:20px}
+.bar{height:8px;background:var(--card);border-radius:4px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.grid2{grid-template-columns:1fr}}
+textarea{width:100%;min-height:60px;font:inherit;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px}
+pre{white-space:pre-wrap;background:var(--card);padding:8px;border-radius:8px;max-height:200px;overflow:auto}
+</style></head><body>
+<header>
+<h1>Stockagent</h1>
+<div class="muted" id="abdeckung">lädt …</div>
+<form id="suche"><input id="q" placeholder="Name, ISIN oder etwa: Tier 1 Aktien aus Deutschland, Branche Industrie" aria-label="Suche">
+<button class="primary">Suchen</button></form>
+<div id="chips"></div>
+<div><a id="export" href="/api/export.csv">Liste als CSV</a> · <label><input type="checkbox" id="nurstern"> nur Beobachtungsliste</label>
+· <label><input type="checkbox" id="nurbewertet"> nur bewertete</label></div>
+</header>
+<div class="layout">
+<aside id="filter"></aside>
+<main><div class="muted" id="anzahl"></div><div class="wrap"><table id="tab"><thead><tr>
+<th></th><th>Name</th><th>Note</th><th>K</th><th>R</th><th>Kategorie</th><th>Tier</th><th>Branche</th><th>Land</th><th>TR</th><th></th>
+</tr></thead><tbody></tbody></table></div></main>
+</div>
+<div id="detail"><div class="panel" id="panel"></div></div>
+<script>
+const NAMEN={tier:"Indexstufe",land:"Land",region:"Region",branche:"Branche",groesse:"Größe",note:"Note",konfidenz:"Konfidenz",
+risiko:"Risiko",kategorie:"Kategorie",tr:"Trade Republic",datenlage:"Datenlage",art:"Art"};
+let F=Object.fromEntries(new URLSearchParams(location.search));
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const noteHtml=n=>n?`<span class="note" style="background:var(--${n})">${n}</span>`:"";
+async function api(p,o){const r=await fetch(p,o);return r.json()}
+function setF(k,v){if(v===undefined||v===""||F[k]===v)delete F[k];else F[k]=v;laden()}
+async function laden(){
+  history.replaceState(null,"","?"+new URLSearchParams(F));
+  document.getElementById("export").href="/api/export.csv?"+new URLSearchParams(F);
+  const d=await api("/api/liste?"+new URLSearchParams(F));
+  document.getElementById("abdeckung").textContent=`${d.gesamt.toLocaleString("de")} Aktien, davon ${d.bewertet} bewertet`+(d.stand?` (zuletzt ${d.stand})`:"")+". Unbewertete haben den Knopf „Bewerten“.";
+  document.getElementById("anzahl").textContent=`${d.anzahl.toLocaleString("de")} Treffer`+(d.anzahl>d.zeilen.length?`, angezeigt ${d.zeilen.length}`:"");
+  document.getElementById("chips").innerHTML=Object.entries(F).map(([k,v])=>`<span class="chip" data-k="${k}">${esc(NAMEN[k]||k)}: ${esc(v)} ✕</span>`).join("");
+  document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>setF(c.dataset.k));
+  const a=document.getElementById("filter");a.innerHTML="";
+  for(const [k,werte] of Object.entries(d.facetten)){
+    const det=document.createElement("details");det.open=["tier","note","region","branche"].includes(k);
+    det.innerHTML=`<summary>${NAMEN[k]}</summary>`+werte.slice(0,25).map(([w,n])=>`<label data-w="${esc(w)}"><span>${F[k]===w?"● ":""}${esc(w||"(leer)")}</span><span class="muted">${n}</span></label>`).join("");
+    det.querySelectorAll("label").forEach(l=>l.onclick=()=>setF(k,l.dataset.w));a.appendChild(det)}
+  const tb=document.querySelector("#tab tbody");
+  tb.innerHTML=d.zeilen.map(z=>`<tr class="row" data-isin="${z.isin}"><td>${z.stern?"★":"☆"}</td><td>${esc(z.name)}<div class="muted">${z.isin}</div></td>
+  <td>${noteHtml(z.note)}</td><td>${esc(z.konfidenz)}</td><td>${esc(z.risiko)}</td><td>${esc(z.kategorie)}</td><td>${z.tier}</td>
+  <td>${esc(z.branche)}</td><td>${esc(z.land)}</td><td>${z.tr==="bestaetigt"?"✓":z.tr==="nicht_handelbar"?"✗":"?"}</td>
+  <td>${z.datenlage==="SEC"&&!z.note?`<button data-b="${z.isin}">Bewerten</button>`:""}</td></tr>`).join("");
+  tb.querySelectorAll("tr.row").forEach(r=>r.onclick=e=>{if(e.target.dataset.b)return;zeige(r.dataset.isin)});
+  tb.querySelectorAll("button[data-b]").forEach(b=>b.onclick=()=>bewerten(b.dataset.b,b));
+}
+async function bewerten(isin,knopf){
+  const a=await api("/api/bewerten/"+isin,{method:"POST"});
+  if(knopf){knopf.disabled=true;knopf.textContent="läuft …"}
+  const t=setInterval(async()=>{const s=await api("/api/aufgabe/"+a.id);
+    if(knopf)knopf.textContent=s.meldungen.length?s.meldungen[s.meldungen.length-1].slice(0,40):"läuft …";
+    const p=document.getElementById("fortschritt");if(p)p.textContent=s.meldungen.join("\n");
+    if(s.status!=="läuft"){clearInterval(t);laden();if(document.getElementById("detail").style.display==="block")zeige(isin)}},2000)}
+function fmt(w,id){if(w===null||w===undefined)return"–";const x=Number(w);
+  if(/margin|yield|roic|roe|roa|wacc|growth|cagr|change|safety/.test(id))return(x*100).toFixed(1)+" %";
+  if(Math.abs(x)>=1e6)return(x/1e6).toLocaleString("de",{maximumFractionDigits:0})+" Mio.";
+  return x.toLocaleString("de",{maximumFractionDigits:2})}
+async function zeige(isin){
+  const d=await api("/api/titel/"+isin);const n=d.note,det=d.detail;
+  let h=`<button onclick="document.getElementById('detail').style.display='none'" style="float:right">Schließen</button>
+  <h2>${esc(d.name)}</h2><div class="muted">${d.isin} · ${esc(d.land)}${d.kurs?` · Kurs ${d.kurs.wert.slice(0,10)} ${d.kurs.waehrung} am ${d.kurs.datum}`:""}</div>`;
+  if(n&&n.grade!=="N"){h+=`<p style="font-size:18px">${noteHtml(n.grade)} · ${n.konfidenz} · ${n.risiko} · ${esc(n.kategorie)} <span class="muted">(Gesamtwert ${Number(n.score).toFixed(1)}, ${esc(n.branche||"")})</span></p>`;
+    h+=`<p class="muted">${esc(det.kategorie_grund)}. Vergleichsgruppe: ${det.gruppe.length} Titel (${esc(n.peer_level)}).</p><div class="grid2">`;
+    for(const [s,w] of Object.entries(det.saeulen)){h+=`<div>${s}: ${w===null?"–":Number(w).toFixed(0)}<div class="bar"><i style="width:${w||0}%"></i></div></div>`}
+    h+=`</div><h3>Kennzahlen in der Vergleichsgruppe</h3><table><tr><th>Säule</th><th>Kennzahl</th><th>Wert</th><th>Perzentil</th></tr>`+
+    det.raenge.map(r=>`<tr><td>${r.saeule}</td><td>${r.kennzahl} (${r.statistik})</td><td>${fmt(r.wert,r.kennzahl)}</td><td>${r.perzentil===null?"fehlt":Number(r.perzentil).toFixed(0)}</td></tr>`).join("")+`</table>`;
+    const b=det.bewertungsbedingung;h+=`<p>Bewertungsbedingung: <b>${b.erfuellt?"erfüllt":"nicht erfüllt"}</b> (implizites minus historisches Wachstum ${fmt(b.growth_gap,"growth")}, Abschlag zu den Multiples der Gruppe ${fmt(b.multiples_abschlag,"safety")}${b.kurs_ueber_bull?", Kurs über Bull-Szenario":""})</p>`;
+    if(det.kappungen.length)h+=`<p>Kappungen: ${det.kappungen.join(", ")}</p>`;
+    h+=`<p class="muted">${det.konfidenz_gruende.map(esc).join("<br>")}</p>`;
+  }else if(n){h+=`<p>${noteHtml("N")} Nicht bewertbar: ${esc(n.grund)}</p>`}
+  else{h+=`<p>Noch nicht bewertet.</p>`}
+  h+=`<p><button class="primary" onclick="bewerten('${isin}')">${n?"Neu bewerten":"Bewerten"}</button>
+  <button onclick="stern('${isin}',${!d.stern})">${d.stern?"★ Beobachtet":"☆ Beobachten"}</button>
+  TR: <button onclick="tr('${isin}',true)">handelbar</button> <button onclick="tr('${isin}',false)">nicht handelbar</button> <span class="muted">(${d.tr})</span></p>
+  <pre id="fortschritt"></pre><h3>Notiz</h3><textarea id="notiz">${esc(d.notiz)}</textarea><button onclick="notiz('${isin}')">Notiz speichern</button>`;
+  if(d.kennzahlen.length){h+=`<h3>Alle Kennzahlen (letztes Geschäftsjahr, aktuell, TTM)</h3><table><tr><th>Kennzahl</th><th>Statistik</th><th>Wert</th><th>Anmerkung</th></tr>`+
+    d.kennzahlen.map(k=>`<tr><td>${k.id}</td><td>${k.statistik}</td><td>${fmt(k.wert,k.id)}</td><td class="muted">${esc((k.grund||k.vermerke.join("; ")).slice(0,90))}</td></tr>`).join("")+`</table>
+    <p class="muted">Rechenweg jeder Zahl: stockagent metrics show ${isin} --rechenweg &lt;id&gt;</p>`}
+  if(d.hinweise.length)h+=`<h3>Hinweise an die Agenten</h3><ul>`+d.hinweise.map(x=>`<li>${x.regel} an ${x.an}: ${esc(x.detail)}</li>`).join("")+`</ul>`;
+  document.getElementById("panel").innerHTML=h;document.getElementById("detail").style.display="block"}
+async function stern(isin,an){await api("/api/stern/"+isin,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({an})});zeige(isin);laden()}
+async function tr(isin,h){await api("/api/tr/"+isin,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({handelbar:h})});zeige(isin);laden()}
+async function notiz(isin){await api("/api/notiz/"+isin,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:document.getElementById("notiz").value})})}
+document.getElementById("suche").onsubmit=async e=>{e.preventDefault();const t=document.getElementById("q").value;
+  const f=await api("/api/freitext?text="+encodeURIComponent(t));F=f;laden()};
+document.getElementById("nurstern").onchange=e=>setF("stern",e.target.checked?"1":"");
+document.getElementById("nurbewertet").onchange=e=>setF("bewertet",e.target.checked?"1":"");
+document.getElementById("detail").onclick=e=>{if(e.target.id==="detail")e.target.style.display="none"};
+laden();
+</script></body></html>

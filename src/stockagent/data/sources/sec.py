@@ -376,6 +376,38 @@ def accounting_standard(standards: Counter[str]) -> str | None:
 Fetcher = Callable[..., bytes]
 
 
+@dataclass(frozen=True)
+class FrameRow:
+    """Ein Wert aus der Frames-Schnittstelle der SEC: dieselbe Größe für alle Melder in einem
+    Kalenderzeitraum (etwa CY2025). Gebraucht für die Auswahl der Vergleichsgruppe nach Umsatz."""
+
+    cik: str
+    name: str
+    wert: Decimal
+    start: date | None
+    ende: date
+    accession: str
+
+
+def parse_frame(raw: bytes) -> list[FrameRow]:
+    try:
+        body = json.loads(raw)
+        data = body["data"]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise SecFormatError("Frames-Antwort der SEC ohne Daten") from exc
+    return [
+        FrameRow(
+            cik10(d["cik"]),
+            str(d.get("entityName") or ""),
+            Decimal(str(d["val"])),
+            _date(d.get("start")),
+            date.fromisoformat(d["end"]),
+            str(d.get("accn") or ""),
+        )
+        for d in data
+    ]
+
+
 class RateLimiter:
     def __init__(
         self,
@@ -440,6 +472,13 @@ class SecClient:
             source_url=url,
             report_forms=frozenset(self.cfg["report_forms"]),
         )
+
+    def frame(self, concept: str, zeitraum: str) -> tuple[list[FrameRow], rawstore.RawRef]:
+        """Werte eines Konzepts für alle Melder, etwa ("us-gaap:Revenues", "CY2025")."""
+        taxonomie, name = concept.split(":")
+        url = self.cfg["frames_url"].format(taxonomie=taxonomie, konzept=name, zeitraum=zeitraum)
+        content, ref = self.get(url)
+        return parse_frame(content), ref
 
     def filing_url(self, cik: str, accession: str, name: str | None = None) -> str:
         values = {"cik_int": int(cik10(cik)), "accession_nodash": accession.replace("-", "")}

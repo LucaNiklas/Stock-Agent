@@ -1,7 +1,70 @@
-# Gewichte und Schwellen der Bewertungsskala (SPEC 6).
-# PLATZHALTER: wird in Bauschritt 5 gebaut (docs/BAUPLAN.md).
-#
-# Inhalt: Säulengewichte (Qualität 25, Bewertung 25, Stabilität 15, Wachstum 15, Kapitalallokation
-#   10, Insider 10 Prozent), Kappungsgrenzen, Notenschwellen A bis E, Bedingungen für K1 bis K4 und
-#   R1 bis R5, Kategorien, Hysterese, Mindestgröße der Vergleichsgruppe (15),
-#   `min_discount_to_multiples`, Überprüfungskriterium der Notenkontrolle.
+# Gewichte und Schwellen der Bewertungsskala (SPEC 6). Version bei Änderung erhöhen und im
+# METHODOLOGY_CHANGELOG eintragen. Nie an dem Zeitraum anpassen, auf dem sie getestet werden
+# (SPEC 6.5, 14.4).
+version: "1.0"
+
+saeulen_gewichte:
+  qualitaet: "0.25"
+  bewertung: "0.25"
+  stabilitaet: "0.15"
+  wachstum: "0.15"
+  kapitalallokation: "0.10"
+  insider: "0.10"
+
+noten:   # Untergrenze des Gesamtwerts je Note (0 bis 100)
+  A: 80
+  B: 65
+  C: 50
+  D: 35
+  E: 0
+
+kappung:   # Höchstwert bei Bedingung (SPEC 6.2 Nr. 6)
+  stopp_flag: 49
+  altman_gefahr: 64
+  fcf_negativ_und_verschuldet: 49
+  abdeckung_gering: 64
+  beneish_ueber_schwelle: 64
+abdeckung_mindest: "0.70"
+fcf_negativ_jahre: 3
+verschuldung_ebitda_max: 4
+
+vergleichsgruppe:
+  mindest: 15
+  hoechst: 50
+  erneuern_tage: 7     # Kennzahlen und Kurse der Vergleichsgruppe jünger als das: nicht neu laden
+  regionen:            # Land des Hauptsitzes (ISO) -> Region (SPEC 6.2 Nr. 1)
+    nordamerika: [US, CA]
+    europa: [DE, AT, CH, FR, NL, BE, LU, IT, ES, PT, IE, GB, DK, SE, NO, FI, IS, PL, CZ, HU, GR, SI, SK, EE, LV, LT, RO, BG, HR, MT, CY, LI, MC, JE, GG, IM, BM]
+    asien_pazifik: [JP, AU, NZ, HK, SG, KR, TW]
+    schwellenlaender: [CN, IN, BR, MX, ZA, TR, ID, TH, MY, PH, CL, PE, CO, AR, SA, AE, QA, KW, EG, IL, RU]
+
+groessenklassen:   # Börsenwert in EUR (SPEC 3.1), Untergrenze je Klasse
+  mega: 200000000000
+  large: 10000000000
+  mid: 2000000000
+  small: 300000000
+  micro: 50000000
+  nano: 0
+
+konfidenz:   # SPEC 6.3, alle Bedingungen einer Stufe müssen erfüllt sein
+  K1: {jahre: 8, abdeckung: "0.90", groesse_mindestens: small}
+  K2: {jahre: 5, abdeckung: "0.80", groesse_mindestens: small}
+  K3: {jahre: 3, abdeckung: "0.70"}
+
+risiko:   # SPEC 6.4. Schwellen für Stufe 2, 3, 4, 5 je Eingang (darunter Stufe 1). Bis es einen
+  # Lauf über das ganze Universum gibt, feste Schwellen statt Quintile (ADR 0007).
+  volatilitaet_3j: ["0.18", "0.25", "0.35", "0.50"]
+  drawdown_5j: ["0.25", "0.35", "0.50", "0.65"]
+  verschuldung_ebitda: ["0.5", "1.5", "3", "4.5"]
+  amihud: ["0.0000000001", "0.000000001", "0.00000001", "0.0000001"]   # Rendite je EUR Umsatz
+  ebit_marge_streuung: ["0.02", "0.04", "0.07", "0.12"]
+  groesse: {mega: 1, large: 2, mid: 3, small: 4, micro: 5, nano: 5}
+
+bewertungsbedingung:
+  min_discount_to_multiples: "0.15"   # SPEC 3.6
+kategorie:
+  hysterese_laeufe: 2   # SPEC 9.5: A oder B in zwei aufeinanderfolgenden Läufen
+
+notenkontrolle:   # SPEC 14.4, vorab festgelegt
+  monate: 24
+  kriterium: "Folgerenditen nach Note monoton (A > B > C), Spearman zwischen Note und 12-Monats-Rendite positiv"

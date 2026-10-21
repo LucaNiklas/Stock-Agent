@@ -31,6 +31,15 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Kursquelle Yahoo Finance für alle Länder, Kurse wie geliefert gespeichert (SPEC 7.3).
 - Einordnung gegen den Gesamtmarkt nur, wenn es einen Lauf über alle Titel gibt (SPEC 3.3).
 
+## 5.0 (19.10.2026, Bauschritt 5, `methodology_version` der Kennzahlen 1.5)
+
+- Note A bis E aus Rängen in der Vergleichsgruppe, Säulen und Gewichte aus `config/scorecards.yaml` und `config/scoring.yaml`, Kappungen nach SPEC 6.2 Nr. 6 und bei Abdeckung unter 70 % (ADR 0007).
+- Vergleichsgruppe: Umsatz aller SEC-Melder aus den XBRL Frames, stufenweise Erweiterung von der Unterbranche in der Region bis zur Scorecard weltweit, höchstens 50 Titel mit dem ähnlichsten Umsatz.
+- Neue Kennzahlen `growth_gap` (implizites Wachstum minus Umsatz-CAGR 5 Jahre) und `margin_of_safety` (Base-DCF je Aktie zum Kurs).
+- Risikoklasse R1 bis R5 über feste Schwellen statt Quintile, bis es einen Universumslauf gibt.
+- Konfidenz K1 bis K4 nach SPEC 6.3, Kategorie nach SPEC 6.5 mit Hysterese über zwei Läufe.
+- SIC 2840 bis 2844 nicht als Zykliker.
+
 ## 4.9 (19.10.2026, Bauschritt 4 Teil 3b, `methodology_version` der Kennzahlen 1.4)
 
 - DCF in drei Szenarien (`dcf_bear`, `dcf_base`, `dcf_bull`, Wert je Aktie): Umsatzwachstum, EBIT-Marge, Netto-Investitionsquote und Working-Capital-Quote je in einer Stufe aus der eigenen Historie (25. Perzentil, Median, 75. Perzentil der letzten 10 Jahre), Zuordnung der Stufen in `config/kapitalkosten.yaml`. Wachstum aus rollierenden 3-Jahres-Raten, ab Jahr 6 linear zum Endwachstum. Endwert nach Gordon, Brücke zum Eigenkapital wie beim Unternehmenswert. Nicht aussagekräftig, wenn die Marge nach Steuern und Investitionen nicht positiv ist.

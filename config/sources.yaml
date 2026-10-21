@@ -30,6 +30,8 @@ sec:
   tickers_url: https://www.sec.gov/files/company_tickers_exchange.json
   submissions_url: https://data.sec.gov/submissions/CIK{cik}.json
   companyfacts_url: https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json
+  # Ein Konzept für alle Melder in einem Kalenderjahr (Vergleichsgruppe nach Umsatz, Schritt 5)
+  frames_url: https://data.sec.gov/api/xbrl/frames/{taxonomie}/{konzept}/USD/{zeitraum}.json
   filing_index_url: https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_nodash}/index.json
   filing_file_url: https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession_nodash}/{name}
   max_requests_per_s: 8     # die SEC erlaubt höchstens 10

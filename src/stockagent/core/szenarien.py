@@ -246,9 +246,16 @@ def _szenario_metric(r: Rechenweg, d: Reihen, t: date, szenario: str) -> Decimal
         )
     if szenario == "base":
         _sensitivitaet(r, d, t, annahmen, kk, g_end, (jahre, ausblenden), cfg, s)
-    # Vergleich mit dem Kurs in Berichtswährung, als Schritt für die Anzeige
+    # Vergleich mit dem Kurs in Berichtswährung (Sicherheitsmarge, SPEC 6.2 Säule Bewertung)
     r.schritt("kurs_vergleich", "wert / kurs - 1", wert=s.je_aktie, kurs=kurs(r, d, t))
     return s.je_aktie
+
+
+@metric("margin_of_safety")
+def margin_of_safety(r: Rechenweg, d: Reihen, t: date) -> Decimal:
+    """Wert je Aktie im Base-Szenario relativ zum Kurs: positiv = Kurs unter dem Base-Wert."""
+    _szenario_metric(r, d, t, "base")
+    return next(Decimal(s.ergebnis) for s in r.schritte if s.name == "kurs_vergleich")
 
 
 def _wert_schnell(

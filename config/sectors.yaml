@@ -1,5 +1,81 @@
-# Branchenliste und Abbildung (SPEC 7.8, 9.7).
-# PLATZHALTER: wird in Bauschritt 5 gebaut (docs/BAUPLAN.md).
-#
-# Inhalt: 11 Hauptbranchen mit Unterbranchen und deutscher Bezeichnung, Abbildung SIC- und
-#   NACE-Bereiche auf diese Branchen, Abbildung Wikidata-Branchen auf NACE.
+# Branchenliste und Abbildung (SPEC 7.8, 9.7). Version bei Änderung erhöhen.
+# 11 Hauptbranchen nach der Gliederung von GICS, deutsche Namen, je Hauptbranche Unterbranchen
+# mit SIC-Bereichen (4-stellige SIC-Codes der SEC, Bereiche einschließlich). Passen mehrere
+# Bereiche, zählt der engste (etwa 2840 bis 2844 Körperpflege vor 2840 bis 2899 Chemie). NACE (Europa) folgt mit
+# Schritt 7, Wikidata für Titel ohne SEC-Code mit Lucas Freigabe der Domain.
+version: "1.0"
+
+hauptbranchen:
+  energie:
+    name: Energie
+    unter:
+      oel_gas: {name: Öl und Gas, sic: [[1300, 1389], [2900, 2999], [4610, 4619], [4922, 4925]]}
+      kohle: {name: Kohle und Brennstoffe, sic: [[1200, 1299]]}
+  grundstoffe:
+    name: Grundstoffe
+    unter:
+      chemie: {name: Chemie, sic: [[2800, 2829], [2840, 2899]]}
+      metalle_bergbau: {name: Metalle und Bergbau, sic: [[1000, 1099], [1400, 1499], [3300, 3399]]}
+      baustoffe: {name: Baustoffe, sic: [[3200, 3299]]}
+      papier_verpackung: {name: Papier und Verpackung, sic: [[2400, 2499], [2600, 2699], [3411, 3412], [3080, 3089]]}
+  industrie:
+    name: Industrie
+    unter:
+      luftfahrt_verteidigung: {name: "Luft- und Raumfahrt, Verteidigung", sic: [[3720, 3729], [3760, 3769], [3812, 3812]]}
+      maschinenbau: {name: Maschinen und Anlagen, sic: [[3500, 3569], [3580, 3599]]}
+      elektrotechnik: {name: Elektrische Ausrüstung, sic: [[3600, 3629], [3640, 3649], [3690, 3699]]}
+      bau: {name: Bau und Ingenieurwesen, sic: [[1500, 1799]]}
+      transport: {name: Transport und Logistik, sic: [[4000, 4299], [4400, 4599], [4700, 4789]]}
+      dienstleistungen: {name: Gewerbliche Dienstleistungen, sic: [[7300, 7369], [7380, 7389], [8700, 8748]]}
+      mischkonzerne: {name: Mischkonzerne, sic: [[3990, 3999]]}
+  zykl_konsum:
+    name: Zyklischer Konsum
+    unter:
+      auto: {name: Automobil und Zulieferer, sic: [[3711, 3716], [3714, 3714], [3750, 3751], [5010, 5015], [5500, 5599]]}
+      bekleidung: {name: "Bekleidung, Schuhe und Luxus", sic: [[2200, 2399], [3020, 3021], [3100, 3199], [3910, 3914]]}
+      einzelhandel: {name: Einzelhandel, sic: [[5200, 5399], [5600, 5999]]}
+      freizeit_gastgewerbe: {name: "Hotels, Restaurants, Freizeit", sic: [[5800, 5899], [7000, 7099], [7900, 7999], [3940, 3949]]}
+      haushaltsgeraete: {name: Haushaltswaren und Möbel, sic: [[2500, 2599], [3630, 3639], [3650, 3652]]}
+      wohnungsbau: {name: Wohnungsbau, sic: [[1520, 1531]]}
+  basiskonsum:
+    name: Basiskonsum
+    unter:
+      lebensmittel_getraenke: {name: Lebensmittel und Getränke, sic: [[2000, 2099], [100, 999]]}
+      tabak: {name: Tabak, sic: [[2100, 2199]]}
+      haushalt_koerperpflege: {name: Haushalts- und Körperpflege, sic: [[2840, 2844]]}
+      lebensmittelhandel: {name: Lebensmittel- und Drogeriehandel, sic: [[5400, 5499], [5140, 5149], [5912, 5912]]}
+  gesundheit:
+    name: Gesundheit
+    unter:
+      pharma: {name: Pharma, sic: [[2833, 2834], [2836, 2836]]}
+      biotech: {name: Biotechnologie, sic: [[2835, 2835], [8731, 8731]]}
+      medizintechnik: {name: Medizintechnik, sic: [[3840, 3851], [3826, 3826]]}
+      gesundheitsdienste: {name: Gesundheitsdienste, sic: [[8000, 8099], [6324, 6324], [5122, 5122]]}
+  finanzen:
+    name: Finanzen
+    unter:
+      banken: {name: Banken, sic: [[6020, 6099]]}
+      versicherungen: {name: Versicherungen, sic: [[6300, 6411]]}
+      finanzdienstleister: {name: Finanzdienstleister, sic: [[6100, 6299], [6700, 6797], [6799, 6799]]}
+  it:
+    name: Informationstechnik
+    unter:
+      halbleiter: {name: Halbleiter, sic: [[3674, 3674], [3559, 3559]]}
+      hardware: {name: Hardware und Geräte, sic: [[3570, 3579], [3660, 3669], [3670, 3673], [3675, 3679], [3820, 3829]]}
+      software: {name: Software und IT-Dienste, sic: [[7370, 7379]]}
+  kommunikation:
+    name: Kommunikation
+    unter:
+      telekom: {name: Telekommunikation, sic: [[4800, 4829], [4890, 4899]]}
+      medien: {name: Medien und Unterhaltung, sic: [[2700, 2799], [4830, 4841], [7800, 7899]]}
+      internet: {name: Internet und Werbung, sic: [[7310, 7319]]}
+  versorger:
+    name: Versorger
+    unter:
+      strom: {name: Strom, sic: [[4900, 4921], [4930, 4939]]}
+      gas_wasser: {name: Gas und Wasser, sic: [[4940, 4991]]}
+  immobilien:
+    name: Immobilien
+    unter:
+      reits: {name: REITs, sic: [[6798, 6798]]}
+      immobilien: {name: Immobilienunternehmen, sic: [[6500, 6553]]}
