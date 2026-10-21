@@ -12,8 +12,11 @@ vorher durch 100 geteilt (SPEC 5.2 Nr. 10).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import bisect
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
+from datetime import date
+from decimal import Decimal
 
 from stockagent.core.calc import (
     Eingabe,
@@ -86,3 +89,10 @@ def umrechnen(
         waehrung=ziel,
         quelle=f"{wert.quelle}, umgerechnet {quelle_waehrung} -> {ziel} (EZB)",
     )
+
+
+def referenzkurs_am(daten: Sequence[date], werte: Sequence[Decimal], tag: date) -> Decimal | None:
+    """Referenzkurs am Tag oder am letzten Kurstag davor aus einer sortierten Reihe (wie
+    `store.fx_on_or_before`, für viele Tage am Stück). None vor dem ersten Kurs."""
+    i = bisect.bisect_right(daten, tag)
+    return werte[i - 1] if i else None
