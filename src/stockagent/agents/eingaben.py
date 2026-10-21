@@ -1102,6 +1102,8 @@ def entscheidung(paths: Paths, z: Zustand) -> dict[str, Any]:
     if kategorie == "Attraktiv" and base is not None and kurs and Decimal(base) < kurs.close:
         kategorie = "Beobachten"
         uebergaenge.append({"art": "downgrade", "grund": "Base-Szenario von A5 unter dem Kurs"})
+    # Stand ohne Eskalation: dahin führt Lucas Freigabe zurück, nie höher (HR-13)
+    vor_eskalation = kategorie
     if eskalationen:
         kategorie = "Eskaliert"
         uebergaenge.append({"art": "escalate", "grund": "; ".join(eskalationen[:5])})
@@ -1110,6 +1112,7 @@ def entscheidung(paths: Paths, z: Zustand) -> dict[str, Any]:
         "note": note,
         "kategorie_deterministisch": start,
         "kategorie": kategorie,
+        "kategorie_vor_eskalation": vor_eskalation,
         "uebergaenge": uebergaenge,
         "eskalationen": eskalationen,
         "a5": a5,

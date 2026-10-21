@@ -638,7 +638,11 @@ def _abschliessen(paths: Paths, z: Zustand, now: datetime) -> None:
     befunde = final_check.pruefen(md, entscheidung, bericht.kontext(paths, z, entscheidung))
     entscheidung["j4"] = [{"pruefung": b.pruefung, "text": b.text} for b in befunde]
     if befunde:
-        entscheidung["eskalationen"].extend(f"J4 {b.pruefung}: {b.text}" for b in befunde)
+        j4 = [f"J4 {b.pruefung}: {b.text}" for b in befunde]
+        entscheidung["eskalationen"].extend(j4)
+        if entscheidung["kategorie"] != "Eskaliert":
+            entscheidung["kategorie"] = "Eskaliert"
+            entscheidung["uebergaenge"].append({"art": "escalate", "grund": "; ".join(j4[:5])})
     (ordner / "decision.json").write_text(
         json.dumps(entscheidung, ensure_ascii=False, indent=2, default=str), "utf-8"
     )

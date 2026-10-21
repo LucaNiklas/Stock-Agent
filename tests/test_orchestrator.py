@@ -719,3 +719,54 @@ def test_insider_agent_a6_with_form4_documents(paths: Paths) -> None:
     assert _ids(orchestrator.naechste(paths, run, now=NOW)) == ["A7"]
     a7_daten = json.loads((paths.runs / run / "eingaben" / "A7.json").read_text())["daten"]
     assert any(c["schluessel"].startswith("A6:") for c in a7_daten["claims_der_auswertung"])
+
+
+def test_escalation_queue_and_lucas_decision(paths: Paths) -> None:
+    """SPEC 11.5: Eskalierte Fälle mit Streitpunkten, Lucas Entscheidung in state/decisions.yaml.
+    Freigeben führt auf die Kategorie vor der Eskalation zurück, nie höher (HR-13)."""
+    import threading
+    from http.client import HTTPConnection
+
+    import yaml
+
+    from stockagent import eskalationen
+    from stockagent.dashboard import app as dashboard
+
+    z = orchestrator.anlegen(paths, APPLE_ISIN, lader=_lader(), now=NOW)
+    _durchlaufen(paths, z.run_id, j2_urteil="contradicted", jury=(5, 2, 4))
+    faelle = eskalationen.faelle(paths)
+    assert [f.run_id for f in faelle] == [z.run_id]
+    arten = [s.art for s in faelle[0].streitpunkte]
+    assert "J2" in arten and "J3" in arten
+    j2 = next(s for s in faelle[0].streitpunkte if s.art == "J2")
+    assert j2.werte["belege"][0]["zitat"]  # beide Seiten: Aussage und Zitat aus der Quelle
+    assert faelle[0].kategorie_vor_eskalation == "Beobachten"
+
+    with pytest.raises(eskalationen.EskalationFehler):
+        eskalationen.entscheiden(paths, z.run_id, "aufwerten", "")
+
+    srv = dashboard.server(paths, 0)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        c = HTTPConnection("127.0.0.1", srv.server_address[1])
+        c.request("GET", "/api/eskalationen")
+        assert json.loads(c.getresponse().read())[0]["run_id"] == z.run_id
+        body = json.dumps({"entscheidung": "freigeben", "notiz": "Zitat geprüft, passt."})
+        c.request(
+            "POST",
+            f"/api/entscheiden/{z.run_id}",
+            body=body,
+            headers={"Content-Type": "application/json"},
+        )
+        assert json.loads(c.getresponse().read()) == {"ok": True, "kategorie": "Beobachten"}
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
+    gespeichert = yaml.safe_load((paths.root / "state" / "decisions.yaml").read_text())
+    e = gespeichert["entscheidungen"][z.run_id]
+    assert (e["human_decision"], e["human_note"]) == ("freigeben", "Zitat geprüft, passt.")
+    ent = json.loads((paths.runs / z.run_id / "decision.json").read_text())
+    assert ent["kategorie"] == "Eskaliert" and ent["luca"]["kategorie"] == "Beobachten"
+    assert eskalationen.faelle(paths) == []
+    assert len(eskalationen.faelle(paths, alle=True)) == 1
