@@ -32,7 +32,14 @@ from stockagent.core.anzeige import formatiere
 from stockagent.data import store
 from stockagent.paths import Paths
 from stockagent.platzhalter import Werte, refs_im_text
-from stockagent.schemas.agents import THEMEN, AgentAntwort, J1Antwort, J2Antwort, J3Antwort
+from stockagent.schemas.agents import (
+    THEMEN,
+    AgentAntwort,
+    F1Antwort,
+    J1Antwort,
+    J2Antwort,
+    J3Antwort,
+)
 
 if TYPE_CHECKING:
     from stockagent.orchestrator import Auftrag, Zustand
@@ -48,6 +55,8 @@ STATISTIKEN = (
     "perzentil_historie",
 )
 AUSWERTUNG = ("A3", "A4", "A5", "A6", "A7", "A3E")
+# Claims, die J1 und J2 prüfen: Auswertung und Forensik
+GEPRUEFT = (*AUSWERTUNG, "F1")
 ORDNUNG = ["Nicht bewertbar", "Unattraktiv", "Neutral", "Beobachten", "Attraktiv"]
 LEITFRAGEN = {
     "geschaeftsmodell": "Womit verdient das Unternehmen Geld, wie wiederkehrend sind die Umsätze?",
@@ -75,6 +84,7 @@ SCHEMA = {
     "J1": "J1Antwort",
     "J2": "J2Antwort",
     "A9": "A9Antwort",
+    "F1": "F1Antwort",
     "J3_1": "J3Antwort",
     "J3_2": "J3Antwort",
     "J3_3": "J3Antwort",
@@ -288,6 +298,8 @@ def bauen(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
         return _a9(paths, z, a)
     if a.agent in JURY:
         return _j3(paths, z, a)
+    if a.agent == "F1":
+        return _f1(paths, z, a)
     raise ValueError(f"unbekannter Agent {a.agent}")
 
 
@@ -524,7 +536,7 @@ def _a3e(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
 
 
 def _alle_claims(paths: Paths, z: Zustand) -> list[dict[str, Any]]:
-    return _claims_von(paths, z, AUSWERTUNG)
+    return _claims_von(paths, z, GEPRUEFT)
 
 
 def _refs(c: dict[str, Any]) -> list[str]:
@@ -601,6 +613,63 @@ def _j2(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
             ]
         }
     }
+
+
+def forensik_hinweise(paths: Paths, z: Zustand) -> list[dict[str, Any]]:
+    """Warnsignale der Berechnung an F1 (H-01 Beneish, H-04 Sloan, config/hinweise.yaml)."""
+    return _hinweise(paths, z, "F1")
+
+
+def _f1(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
+    return _kopf(
+        z,
+        a,
+        "Jedes Warnsignal im Anhang der Berichte prüfen: bestaetigt (der Bericht zeigt eine "
+        "Ursache, die das Signal stützt), entkraeftet (der Bericht erklärt die Zahl ohne "
+        "Ergebnissteuerung, etwa eine Übernahme oder eine Umstellung) oder offen. Je Befund "
+        "mindestens ein Claim mit wörtlichem Zitat.",
+        [LESEN, "Bash nur für: uv run stockagent tool rechenweg <ISIN> <ref>."],
+        [
+            *NICHT,
+            "Nur bestätigen, entkräften oder offen lassen. Keine Note, keine Einordnung des "
+            "ganzen Unternehmens.",
+            "Entkräften nur mit Beleg aus dem Bericht. Ohne passende Stelle: offen.",
+        ],
+    ) | {
+        "daten": {
+            "warnsignale": forensik_hinweise(paths, z),
+            "kennzahlen": kennzahlen(paths, z),
+            "dokumente": _dokumente(z),
+        }
+    }
+
+
+def forensik_urteil(
+    paths: Paths, z: Zustand, status: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Ergebnis von F1 je Warnsignal. Entkräftet zählt nur, wenn alle Claims des Befunds
+    geprüft sind (J1, J2). Ohne Antwort bleibt jedes Signal offen."""
+    hinweise = forensik_hinweise(paths, z)
+    antwort = ausgabe(paths, z, "F1") or {}
+    je = {b["hinweis"]: b for b in antwort.get("befunde", [])}
+    out = []
+    for h in hinweise:
+        b = je.get(h["regel"])
+        urteil = b["urteil"] if b else "offen"
+        belegt = bool(b) and all(
+            status.get(f"F1:{cid}", {}).get("status") == "verified" for cid in b["claim_ids"]
+        )
+        out.append(
+            {
+                "hinweis": h["regel"],
+                "kennzahl": h["kennzahl"],
+                "anlass": h["anlass"],
+                "urteil": urteil,
+                "wirksam": urteil if (urteil != "entkraeftet" or belegt) else "offen",
+                "claim_ids": b["claim_ids"] if b else [],
+            }
+        )
+    return out
 
 
 def _a9(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
@@ -834,6 +903,20 @@ def zusatzpruefung(
             return [*fehlt, *fremd]
 
         return j2
+    if a.agent == "F1":
+        regeln = {h["regel"] for h in forensik_hinweise(paths, z)}
+
+        def f1(antwort: AgentAntwort) -> list[str]:
+            assert isinstance(antwort, F1Antwort)
+            da = [b.hinweis for b in antwort.befunde]
+            fehlt = [
+                f"Vollständigkeit: Warnsignal {r} fehlt" for r in sorted(regeln) if r not in da
+            ]
+            fremd = [f"Vollständigkeit: {r} ist kein Warnsignal" for r in da if r not in regeln]
+            doppelt = [f"Vollständigkeit: {r} doppelt" for r in sorted(set(da)) if da.count(r) > 1]
+            return [*fehlt, *fremd, *doppelt]
+
+        return f1
     if a.agent in JURY:
         bekannt = _fall_schluessel(jury_fall(paths, z))
 
@@ -899,7 +982,7 @@ def claim_status(paths: Paths, z: Zustand) -> dict[str, dict[str, Any]]:
     kennung = {c["schluessel"]: k for k, c in _j2_liste(paths, z)} if j2_antwort else {}
     j2 = {u["claim"]: u for u in (j2_antwort or {}).get("urteile", [])}
     out: dict[str, dict[str, Any]] = {}
-    for slot in AUSWERTUNG:
+    for slot in GEPRUEFT:
         antwort = ausgabe(paths, z, slot)
         for c in (antwort or {}).get("claims", []):
             key = f"{slot}:{c['claim_id']}"
@@ -994,6 +1077,14 @@ def entscheidung(paths: Paths, z: Zustand) -> dict[str, Any]:
         if u["urteil"] == "contradicted"
     ]
     eskalationen += [f"Auftrag {a.id} eskaliert" for a in z.auftraege if a.status == "eskaliert"]
+    # SPEC 11.5: Forensik-Flag ohne Entkräftung eskaliert. Die Kappung der Note bleibt auch
+    # nach Entkräftung (HR-13, Frage an Luca in docs/STATUS.md)
+    forensik = forensik_urteil(paths, z, status)
+    eskalationen += [
+        f"F1 Forensik: {f['hinweis']} ({f['kennzahl']}) {f['wirksam']}"
+        for f in forensik
+        if f["wirksam"] != "entkraeftet"
+    ]
     jury = jury_urteil(paths, z)
     if jury is not None and jury["status"] == "escalated":
         eskalationen.append("J3 Jury: " + "; ".join(jury["gruende"]))
@@ -1028,4 +1119,5 @@ def entscheidung(paths: Paths, z: Zustand) -> dict[str, Any]:
         "claims": status,
         "j1": j1,
         "jury": jury,
+        "forensik": forensik,
     }

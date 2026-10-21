@@ -308,6 +308,26 @@ class J2Antwort(AgentAntwort):
         return self
 
 
+class F1Befund(_Strict):
+    hinweis: str = Field(pattern=r"^H-\d{2}$")  # Regel aus config/hinweise.yaml
+    urteil: Literal["bestaetigt", "entkraeftet", "offen"]
+    claim_ids: list[str] = Field(min_length=1)
+
+
+class F1Antwort(AgentAntwort):
+    """F1 Forensik: Warnsignal der Berechnung im Anhang bestätigen oder entkräften (SPEC 8.3)."""
+
+    befunde: list[F1Befund] = Field(min_length=1, max_length=6)
+
+    @model_validator(mode="after")
+    def _ids(self) -> F1Antwort:
+        bekannt = {c.claim_id for c in self.claims}
+        fremd = [i for b in self.befunde for i in b.claim_ids if i not in bekannt]
+        if fremd:
+            raise ValueError(f"Befund verweist auf unbekannte Claims: {fremd}")
+        return self
+
+
 Kriterium = Literal[
     "faktentreue",
     "vollstaendigkeit",
@@ -352,6 +372,7 @@ ANTWORTEN: dict[str, type[AgentAntwort]] = {
     "A9": A9Antwort,
     "J1": J1Antwort,
     "J2": J2Antwort,
+    "F1": F1Antwort,
     "J3_1": J3Antwort,
     "J3_2": J3Antwort,
     "J3_3": J3Antwort,

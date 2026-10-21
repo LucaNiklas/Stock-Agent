@@ -343,6 +343,9 @@ def kontext(paths: Paths, z: Zustand, ent: dict[str, Any]) -> dict[str, Any]:
             ],
             "einordnung": (a3 or {}).get("ertragsqualitaet", "unknown"),
             "claims": geprueft("A3"),
+            "forensik": [
+                {**f, "claims": geprueft("F1", f["claim_ids"])} for f in ent.get("forensik", [])
+            ],
         },
         "bewertung": {
             "kennzahlen": [

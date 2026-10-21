@@ -427,10 +427,11 @@ def _durchlaufen(
     run: str,
     j2_urteil: str = "supported",
     jury: tuple[int, int, int] = (4, 4, 4),
+    f1: str | None = None,
 ) -> None:
     _a1_erledigen(paths, run)
-    for text in (a3(run), a4(run)):
-        orchestrator.annehmen(paths, run, text, now=NOW)
+    for text in (a3(run), a4(run), *([f1] if f1 else [])):
+        assert orchestrator.annehmen(paths, run, text, now=NOW).angenommen
     for schritt in (a5, a7, a3e):
         orchestrator.naechste(paths, run, now=NOW)
         assert orchestrator.annehmen(paths, run, schritt(run), now=NOW).angenommen
@@ -457,6 +458,59 @@ def test_divided_jury_escalates(paths: Paths) -> None:
     assert ent["jury"]["status"] == "escalated"
     assert any("Jury uneinig (Spannweite 3)" in g for g in ent["jury"]["gruende"])
     assert any(e.startswith("J3 Jury:") for e in ent["eskalationen"])
+
+
+def _beneish_hinweis(paths: Paths) -> None:
+    conn = store.connect(paths.db)
+    try:
+        conn.execute(
+            "INSERT INTO hinweise VALUES ('test', ?, 'H-01', 'F1', 'Prüfung', 'Beneish über der "
+            "Schwelle', 'beneish_m_score', DATE '2025-09-27', 'M-Score -1,5', 'offen', ?)",
+            [ISSUER, NOW],
+        )
+    finally:
+        conn.close()
+
+
+def f1(run: str, urteil: str) -> str:
+    return antwort(
+        run,
+        "F1",
+        claims=[
+            _claim(
+                "c-0001",
+                "Der Prüfer nennt unsichere Steuerpositionen als Schwerpunkt.",
+                [_beleg_doc(3, "Critical Audit Matter. Uncertain Tax Positions.")],
+            )
+        ],
+        befunde=[{"hinweis": "H-01", "urteil": urteil, "claim_ids": ["c-0001"]}],
+    )
+
+
+@pytest.mark.parametrize(
+    ("urteil", "j2_urteil", "wirksam"),
+    [
+        ("entkraeftet", "supported", "entkraeftet"),
+        ("entkraeftet", "not_supported", "offen"),  # Beleg nicht gedeckt: Signal bleibt offen
+        ("bestaetigt", "supported", "bestaetigt"),
+    ],
+)
+def test_forensics_f1_on_beneish_hint(
+    paths: Paths, urteil: str, j2_urteil: str, wirksam: str
+) -> None:
+    """F1 nur bei Warnsignal, neben A3 und A4, vor J1 und J2. Nicht entkräftet: eskaliert
+    (SPEC 11.5). Die Kappung der Note bleibt in jedem Fall (HR-13)."""
+    _beneish_hinweis(paths)
+    z = orchestrator.anlegen(paths, APPLE_ISIN, lader=_lader(), now=NOW)
+    assert [a.id for a in z.auftraege if a.id in ("F1", "J1")] == ["F1", "J1"]
+    assert z.auftrag("J1").deps == ["A3E", "F1"]
+    _durchlaufen(paths, z.run_id, j2_urteil=j2_urteil, f1=f1(z.run_id, urteil))
+    ent = json.loads((paths.runs / z.run_id / "decision.json").read_text())
+    assert ent["forensik"][0]["wirksam"] == wirksam
+    eskaliert = any(e.startswith("F1 Forensik: H-01") for e in ent["eskalationen"])
+    assert eskaliert == (wirksam != "entkraeftet")
+    bericht = (paths.runs / z.run_id / "report.md").read_text()
+    assert f"**Forensik H-01 (beneish_m_score): {wirksam}**" in bericht
 
 
 def test_contradicted_claim_escalates(paths: Paths) -> None:

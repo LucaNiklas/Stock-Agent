@@ -44,6 +44,7 @@ tiefenanalyse:
     J1: {vorlage: j1-zahlenpruefer, modell_von: J1_zahlen}
     J2: {vorlage: j2-belegpruefer, modell_von: J2_belege}
     A9: {vorlage: a9-synthese, modell_von: A9_synthese}
+    F1: {vorlage: f1-forensik, modell_von: F1_forensik}
     # Jury (SPEC 11.2 Ebene 3): eine Vorlage, je Richter eine Agent-Datei mit eigenem Modell aus
     # J3_jury (Platz 1 bis 3). Ist extern nicht aktiv, nimmt Platz 3 J3_jury_rueckfall_extern.
     J3_1: {vorlage: j3-jury-1, quelle: j3-jury, modell_von: J3_jury, richter: 1}
@@ -63,6 +64,7 @@ aufwand:
     j2-belegpruefer: 40
     a9-synthese: 10
     j3-jury: 15
+    f1-forensik: 30
   max_tiefenanalysen_gleichzeitig: 3   # HR-18 max_deep_analyses_per_run
   max_auftraege_je_lauf: 20            # alle Agentenaufträge einer Tiefenanalyse zusammen
   max_parallel: 3                      # gleichzeitige Aufträge, die `stockagent next` nennt

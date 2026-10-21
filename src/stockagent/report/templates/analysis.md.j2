@@ -75,6 +75,13 @@ Segmentzahlen aus den XBRL-Daten folgen mit der Segmentauswertung (SPEC 3.3).
 Einordnung der Ertragsqualität: {{ ertragsqualitaet.einordnung }}
 
 {{ claims(ertragsqualitaet.claims) }}
+{% for f in ertragsqualitaet.forensik %}
+**Forensik {{ f.hinweis }} ({{ f.kennzahl }}): {{ f.wirksam }}**{% if f.wirksam != f.urteil %} (F1 meldete {{ f.urteil }}, ohne geprüften Beleg zählt das Signal als offen){% endif %}
+
+{{ f.anlass }}
+
+{{ claims(f.claims) }}
+{% endfor %}
 
 ## 7. Bewertung
 

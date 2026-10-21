@@ -14,7 +14,8 @@ Python legt den Plan fest, Claude Code führt nur aus:
 Plan je Lauf (Abhängigkeiten über Fächer, ein Fach kann nach einer Nachforderung einen zweiten
 Auftrag bekommen):
 
-    A1 je Hinweis an A1 -> A3, A4 (und A6 bei Insidergeschäften) -> A5 -> A7 -> A3E (Erwiderung)
+    A1 je Hinweis an A1 -> A3, A4 (und A6 bei Insidergeschäften, F1 bei Forensik-Hinweisen)
+    -> A5 -> A7 -> A3E (Erwiderung)
     -> J1, J2 -> A9 -> J3 (drei Richter) -> Bericht mit J4 Endkontrolle
 
 Jede Abteilung bekommt nur die Übergabe der vorigen als Eingabe (SPEC 8.1). Prüfer arbeiten
@@ -54,6 +55,7 @@ ABTEILUNG = {
     "J1": "Prüfung",
     "J2": "Prüfung",
     "A9": "Bericht",
+    "F1": "Prüfung",
     "J3_1": "Prüfung",
     "J3_2": "Prüfung",
     "J3_3": "Prüfung",
@@ -315,6 +317,8 @@ def anlegen(
     finally:
         conn.close()
     a1 = [f"A1_h{i}" for i, _ in enumerate(hinweise_a1[:2], start=1)]
+    # F1 nur bei einem Warnsignal der Berechnung (SPEC 8.3, config/hinweise.yaml)
+    f1 = ["F1"] if eingaben.forensik_hinweise(paths, z) else []
     # A6 nur, wenn es Geschäfte am offenen Markt in den letzten 24 Monaten gibt (SPEC 8.3)
     a6 = ["A6"] if eingaben.insider_meldungen(paths, z) else []
     plan = [Auftrag(x, x, "A1", zweck=hinweise_a1[i].detail) for i, x in enumerate(a1)]
@@ -325,8 +329,10 @@ def anlegen(
         *[Auftrag("A6", "A6", "A6", deps=a1) for _ in a6],
         Auftrag("A7", "A7", "A7", deps=["A5", *a6]),
         Auftrag("A3E", "A3E", "A3E", deps=["A7"]),
-        Auftrag("J1", "J1", "J1", deps=["A3E"]),
-        Auftrag("J2", "J2", "J2", deps=["A3E"]),
+        *[Auftrag("F1", "F1", "F1", deps=a1) for _ in f1],
+        # F1 vor J1 und J2: auch die Aussagen der Forensik werden nachgerechnet und belegt
+        Auftrag("J1", "J1", "J1", deps=["A3E", *f1]),
+        Auftrag("J2", "J2", "J2", deps=["A3E", *f1]),
         Auftrag("A9", "A9", "A9", deps=["J1", "J2"]),
         # Jury (SPEC 11.2 Ebene 3): drei Richter unabhängig, nach der These
         *[Auftrag(j, j, j, deps=["A9"]) for j in eingaben.JURY],
