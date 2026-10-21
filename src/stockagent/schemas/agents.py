@@ -185,6 +185,37 @@ class Risiko(_Strict):
     claim_ids: list[str] = Field(min_length=1)
 
 
+MUSTER = Literal[
+    "kauf_nach_kursrueckgang",
+    "kauf_vor_bericht",
+    "cluster_kauf",
+    "grosser_kauf_relativ",
+    "verkauf_mehrerer",
+    "routine_handel",
+    "handelsplan",
+    "sonstiges",
+]
+
+
+class InsiderBefund(_Strict):
+    muster: MUSTER
+    claim_ids: list[str] = Field(min_length=1)
+
+
+class A6Antwort(AgentAntwort):
+    """A6 Insider-Analyse (SPEC 8.3): ordnet das deterministische Signal aus core/insider.py mit
+    Kontext ein (etwa Kauf nach Kurseinbruch). Ändert weder Säule noch Note (HR-13)."""
+
+    einordnung: Literal["stark_positiv", "positiv", "neutral", "negativ", "kein_signal", "unknown"]
+    befunde: list[InsiderBefund] = Field(default_factory=list, max_length=6)
+
+    @model_validator(mode="after")
+    def _refs(self) -> A6Antwort:
+        for i, b in enumerate(self.befunde, start=1):
+            self._verweise(b.claim_ids, f"befunde[{i}]")
+        return self
+
+
 class A7Antwort(AgentAntwort):
     """A7 Gegenposition mit Pre-Mortem: die drei realistischsten Wege des Scheiterns."""
 
@@ -282,6 +313,7 @@ ANTWORTEN: dict[str, type[AgentAntwort]] = {
     "A3": A3Antwort,
     "A4": A4Antwort,
     "A5": A5Antwort,
+    "A6": A6Antwort,
     "A7": A7Antwort,
     "A3E": ErwiderungAntwort,
     "A9": A9Antwort,

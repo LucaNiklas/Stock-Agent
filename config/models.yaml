@@ -38,6 +38,7 @@ tiefenanalyse:
     A3: {vorlage: a3-fundamental, modell_von: A3_fundamental}
     A4: {vorlage: a4-qualitativ, modell_von: A4_qualitativ}
     A5: {vorlage: a5-bewertung, modell_von: A5_bewertung}
+    A6: {vorlage: a6-insider, modell_von: A6_insider}
     A7: {vorlage: a7-gegenposition, modell_von: A7_gegenposition}
     A3E: {vorlage: a3-fundamental, modell_von: A3_fundamental}
     J1: {vorlage: j1-zahlenpruefer, modell_von: J1_zahlen}
@@ -51,6 +52,7 @@ aufwand:
     a3-fundamental: 40
     a4-qualitativ: 40
     a5-bewertung: 25
+    a6-insider: 10
     a7-gegenposition: 30
     j1-zahlenpruefer: 60
     j2-belegpruefer: 40

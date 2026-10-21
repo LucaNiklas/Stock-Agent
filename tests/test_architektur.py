@@ -67,7 +67,6 @@ ERLAUBT: dict[tuple[str, str], str] = {
     ): "Anzahl Titel in der Warteschlange davor",
     ("dashboard/app.py", "self.paths.runs / letzter.run_id"): "Pfad",
     ("dashboard/app.py", "paths.runs / run_id"): "Pfad",
-    ("agents/eingaben.py", "datetime.now(UTC).year + 5"): "Jahreszahl im Auftragstext (Pre-Mortem)",
     ("agents/eingaben.py", "paths.config / name"): "Pfad",
     ("agents/eingaben.py", "paths.root / a.ausgabe"): "Pfad",
     ("agents/runner.py", "a + 15"): "höchstens 15 Jahre in einem Bereich",

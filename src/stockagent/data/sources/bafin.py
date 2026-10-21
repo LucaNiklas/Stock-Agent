@@ -1,6 +1,7 @@
 """Insidergeschäfte Deutschland (SPEC 7.3).
 
-PLATZHALTER: wird in Bauschritt 9 gebaut (docs/BAUPLAN.md).
-Inhalt: BaFin-Datenbank Geschäfte von Führungskräften, höflich mit Pausen und Cache, robots.txt
-beachten. Meldeschwelle 50.000 EUR seit 2026 beachten.
+NICHT GEBAUT (Bauschritt 9, ADR 0012): `portal.mvp.bafin.de` ist in dieser Umgebung gesperrt.
+Ohne echte Antwort der BaFin-Datenbank „Geschäfte von Führungskräften“ wird kein Leser gebaut,
+der das Format raten müsste. Sobald die Domain freigegeben ist: höflich mit Pausen und Cache,
+robots.txt beachten, Meldeschwellen aus config/insider_thresholds.yaml.
 """

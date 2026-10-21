@@ -1,5 +1,44 @@
-# Meldeschwellen je Land (SPEC 3.8 Nr. 9).
-# PLATZHALTER: wird in Bauschritt 9 gebaut (docs/BAUPLAN.md).
-#
-# Inhalt: Schwelle in EUR je Land mit Gültigkeit ab Datum und Quelle (Deutschland 50.000 EUR ab
-#   2026, EU-Standard 20.000 EUR).
+# Insider-Signal (SPEC 3.8, Bauschritt 9, ADR 0012). Version bei Änderung erhöhen und im
+# METHODOLOGY_CHANGELOG eintragen. Vorab festgelegt, nicht an Renditen angepasst.
+version: "1.0"
+
+# Meldeschwellen je Land in EUR (SPEC 3.8 Nr. 9): Geschäfte darunter müssen nicht gemeldet
+# werden, ihr Fehlen ist kein Signal. USA: jedes Geschäft ist meldepflichtig (Form 4).
+# Für Deutschland und die EU gelten sie, sobald die BaFin-Daten angebunden sind
+# (portal.mvp.bafin.de ist in dieser Umgebung gesperrt, ADR 0012).
+meldeschwellen:
+  DE:
+    - {ab: "2020-01-01", eur: 20000, quelle: "MAR Art. 19 Abs. 8, BaFin-Allgemeinverfügung 2019"}
+    - {ab: "2026-01-01", eur: 50000, quelle: "SPEC 3.8 Nr. 9 (EU Listing Act, nationale Anhebung)"}
+  EU:
+    - {ab: "2020-01-01", eur: 20000, quelle: "MAR Art. 19 Abs. 8"}
+
+signal:
+  fenster_tage: 365          # Geschäfte der letzten 12 Monate (älter wiegen nach Abklingen kaum)
+  historie_jahre: 3          # Cohen, Malloy, Pomorski (2012): drei Vorjahre für die Einordnung
+  halbwertszeit_tage: 90     # SPEC 3.8 Nr. 8
+  klassen:                   # Gewicht je Einordnung (SPEC 3.8 Nr. 4)
+    opportunistisch: "1"
+    unklar: "0.5"            # weniger als drei Jahre Historie
+    routine: "0"             # gleicher Kalendermonat in jedem der drei Vorjahre oder Handelsplan
+  rollen:                    # SPEC 3.8 Nr. 6
+    ceo: "1.0"
+    cfo: "1.0"
+    officer: "0.8"
+    director: "0.6"
+    ten_percent: "0.5"       # Großaktionäre ohne Amt, wie eng verbundene Personen
+    other: "0.5"
+  cluster:                   # SPEC 3.8 Nr. 5
+    personen: 3
+    tage: 60
+    faktor: "2"
+  verkauf:                   # SPEC 3.8 Nr. 2: nur Verkäufe mehrerer Insider zählen
+    personen: 3
+    tage: 60
+    faktor: "0.5"            # schwächer als Käufe
+  groesse:                   # SPEC 3.8 Nr. 7: Kauf relativ zum bisherigen Eigenbestand
+    voll_ab: "0.10"          # ab 10 % Aufstockung volles Gewicht
+    mindestfaktor: "0.5"     # kleine Aufstockung halbes Gewicht, Bestand unbekannt volles
+  saeule:                    # Säule Insider 0 bis 100, 50 = kein Signal
+    neutral: 50
+    je_einheit: 20           # ein frischer opportunistischer CEO-Kauf mit voller Größe = 70

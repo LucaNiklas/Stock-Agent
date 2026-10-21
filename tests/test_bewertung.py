@@ -181,6 +181,7 @@ class Attrappe:
             kennzahlen=lambda p, i: self.abrufe.append(f"kennzahlen {len(i)}"),
             umsatz=umsatz,
             esef=lambda p, i: self.abrufe.append(f"esef {len(i)}"),
+            insider=lambda p, i: None,  # Insider prüft tests/test_insider.py
         )
 
 

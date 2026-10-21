@@ -14,7 +14,8 @@ Python legt den Plan fest, Claude Code führt nur aus:
 Plan je Lauf (Abhängigkeiten über Fächer, ein Fach kann nach einer Nachforderung einen zweiten
 Auftrag bekommen):
 
-    A1 je Hinweis an A1 -> A3, A4 -> A5 -> A7 -> A3E (Erwiderung) -> J1, J2 -> A9 -> Bericht
+    A1 je Hinweis an A1 -> A3, A4 (und A6 bei Insidergeschäften) -> A5 -> A7 -> A3E (Erwiderung)
+    -> J1, J2 -> A9 -> Bericht
 
 Jede Abteilung bekommt nur die Übergabe der vorigen als Eingabe (SPEC 8.1). Prüfer arbeiten
 blind (HR-14). Konfiguration wird beim Anlegen gehasht und bei jedem Schritt verglichen (HR-11).
@@ -47,6 +48,7 @@ ABTEILUNG = {
     "A3": "Auswertung",
     "A4": "Auswertung",
     "A5": "Auswertung",
+    "A6": "Auswertung",
     "A7": "Auswertung",
     "A3E": "Auswertung",
     "J1": "Prüfung",
@@ -310,12 +312,15 @@ def anlegen(
     finally:
         conn.close()
     a1 = [f"A1_h{i}" for i, _ in enumerate(hinweise_a1[:2], start=1)]
+    # A6 nur, wenn es Geschäfte am offenen Markt in den letzten 24 Monaten gibt (SPEC 8.3)
+    a6 = ["A6"] if eingaben.insider_meldungen(paths, z) else []
     plan = [Auftrag(x, x, "A1", zweck=hinweise_a1[i].detail) for i, x in enumerate(a1)]
     plan += [
         Auftrag("A3", "A3", "A3", deps=a1),
         Auftrag("A4", "A4", "A4", deps=a1),
         Auftrag("A5", "A5", "A5", deps=["A3", "A4"]),
-        Auftrag("A7", "A7", "A7", deps=["A5"]),
+        *[Auftrag("A6", "A6", "A6", deps=a1) for _ in a6],
+        Auftrag("A7", "A7", "A7", deps=["A5", *a6]),
         Auftrag("A3E", "A3E", "A3E", deps=["A7"]),
         Auftrag("J1", "J1", "J1", deps=["A3E"]),
         Auftrag("J2", "J2", "J2", deps=["A3E"]),

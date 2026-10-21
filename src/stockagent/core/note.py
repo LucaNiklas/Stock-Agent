@@ -52,6 +52,11 @@ class NotenErgebnis:
 def _perzentil(
     r: Rechenweg, name: str, wert: Decimal, gruppe: Sequence[Decimal], richtung: str
 ) -> Decimal:
+    if richtung == "absolut":
+        # Fester Wert 0 bis 100 ohne Rang in der Gruppe (Säule Insider, SPEC 3.8, ADR 0012)
+        p = r.schritt(f"wert_{name}", "x", x=wert)
+        r.pruefe("CP-07", f"{name}: Wert zwischen 0 und 100", 0 <= p <= 100)
+        return p
     kleiner = sum(1 for g in gruppe if g < wert)
     gleich = sum(1 for g in gruppe if g == wert)
     p = r.schritt(
@@ -84,6 +89,13 @@ def note(
     def rechnung(r: Rechenweg) -> Decimal:
         gewichte = {k: Decimal(str(v)) for k, v in scoring["saeulen_gewichte"].items()}
         r.pruefe("CP-07", "Säulengewichte ergeben 1", sum(gewichte.values()) == 1)
+        if "insider_max_weight" in scoring:
+            # SPEC 3.8 Nr. 10: das Insider-Signal kann eine schwache Aktie nicht hochziehen
+            r.pruefe(
+                "CP-07",
+                "Gewicht Insider höchstens insider_max_weight",
+                gewichte.get("insider", Decimal(0)) <= Decimal(str(scoring["insider_max_weight"])),
+            )
         saeulen: dict[str, Decimal | None] = {}
         definiert = vorhanden = Decimal(0)
         for saeule, kennzahlen in scorecard["saeulen"].items():
@@ -99,7 +111,10 @@ def note(
                 p = _perzentil(r, name, eigen, [*werte, eigen], str(k["richtung"]))
                 perz[name] = p
                 out.raenge.append(Kennzahlrang(key[0], key[1], saeule, eigen, p, len(werte) + 1))
-            if kennzahlen:
+            # Säule nur aus festen Werten (Insider) ohne Wert: kein Mangel an Daten, sondern kein
+            # Signal. Sie zählt dann nicht zur Abdeckung, ihr Gewicht geht auf die anderen Säulen
+            nur_signal = all(str(k["richtung"]) == "absolut" for k in kennzahlen)
+            if kennzahlen and not (nur_signal and not perz):
                 g = gewichte[saeule]
                 definiert = r.schritt(f"definiert_{saeule}", "d + g", d=definiert, g=g)
                 vorhanden = r.schritt(

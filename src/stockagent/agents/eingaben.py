@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 import yaml
 
 from stockagent import metrics_update
-from stockagent.core import pruefung
+from stockagent.core import insider, pruefung
 from stockagent.core.anzeige import formatiere
 from stockagent.data import store
 from stockagent.paths import Paths
@@ -46,7 +46,7 @@ STATISTIKEN = (
     "veraenderung_vj",
     "perzentil_historie",
 )
-AUSWERTUNG = ("A3", "A4", "A5", "A7", "A3E")
+AUSWERTUNG = ("A3", "A4", "A5", "A6", "A7", "A3E")
 ORDNUNG = ["Nicht bewertbar", "Unattraktiv", "Neutral", "Beobachten", "Attraktiv"]
 LEITFRAGEN = {
     "geschaeftsmodell": "Womit verdient das Unternehmen Geld, wie wiederkehrend sind die Umsätze?",
@@ -68,6 +68,7 @@ SCHEMA = {
     "A3": "A3Antwort",
     "A4": "A4Antwort",
     "A5": "A5Antwort",
+    "A6": "A6Antwort",
     "A7": "A7Antwort",
     "A3E": "ErwiderungAntwort",
     "J1": "J1Antwort",
@@ -153,6 +154,8 @@ def _note(paths: Paths, z: Zustand) -> dict[str, Any]:
         "gruppe_titel": len(detail.get("gruppe", [])),
         "raenge": detail.get("raenge", []),
         "saeulen": detail.get("saeulen", {}),
+        "insider": {k: v for k, v in (detail.get("insider") or {}).items() if k != "rechenweg"},
+        "horizonte": detail.get("horizonte", {}),
         "kappungen": detail.get("kappungen", []),
         "konfidenz_gruende": detail.get("konfidenz_gruende", []),
         "bewertungsbedingung": {
@@ -266,6 +269,8 @@ def bauen(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
         return _auswertung(paths, z, a)
     if a.agent == "A5":
         return _a5(paths, z, a)
+    if a.agent == "A6":
+        return _a6(paths, z, a)
     if a.agent == "A7":
         return _a7(paths, z, a)
     if a.agent == "A3E":
@@ -415,19 +420,77 @@ def _a5(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
     }
 
 
+INSIDER_JAHRE = 2  # SPEC 8.3 A6: Geschäfte der letzten 24 Monate
+
+
+def insider_meldungen(paths: Paths, z: Zustand) -> list[dict[str, Any]]:
+    """Form-4-Meldungen der letzten 24 Monate mit Geschäften am offenen Markt, je Meldung die
+    gespeicherte Textseite (Beleg: doc_hash, Seite 1, wörtliches Zitat)."""
+    # Zum Zeitpunkt des Laufs (HR-07), nicht zur Uhrzeit des Aufrufs
+    stand = datetime.fromisoformat(z.erstellt)
+    seit = insider.fenster_beginn(stand.date(), INSIDER_JAHRE)
+    conn = store.connect_read(paths.db)
+    try:
+        rows = [
+            r
+            for r in store.load_insider(conn, z.issuer_id, stand)
+            if r.offener_markt and r.handelstag >= seit
+        ]
+        out = []
+        for acc in dict.fromkeys(r.accession for r in rows):
+            d = conn.execute(
+                "SELECT doc_hash FROM documents WHERE doc_id = ?", [f"form4:{acc}"]
+            ).fetchone()
+            if d is None:
+                continue
+            out.append(
+                {
+                    "doc_hash": d[0],
+                    "seite": 1,
+                    "text": store.page_text(conn, str(d[0]), 1) or "",
+                }
+            )
+        return out
+    finally:
+        conn.close()
+
+
+def _a6(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
+    note = _note(paths, z)
+    return _kopf(
+        z,
+        a,
+        "Das Insider-Signal einordnen (SPEC 3.8, 8.3 A6): Welche Muster zeigen die Geschäfte am "
+        "offenen Markt (etwa Kauf nach Kursrückgang, mehrere Käufer, Kauf vor einem Bericht, "
+        "routinemäßiger Handel, Handelsplan)? Signal und Säule rechnet Python, du ordnest ein.",
+        ["Keine Werkzeuge nötig: die Textseite jeder Meldung steht in den Daten."],
+        [
+            *NICHT,
+            "Beleg je Aussage: doc_hash der Meldung, Seite 1, wörtliches Zitat aus ihrem Text.",
+            "Keine Zahlen im Freitext (HR-01). Die Einordnung ändert weder Säule noch Note.",
+        ],
+    ) | {
+        "daten": {
+            "signal": note.get("insider"),
+            "meldungen": insider_meldungen(paths, z),
+            "kurs_momentum": [r for r in note.get("raenge", []) if r.get("saeule") == "momentum"],
+        }
+    }
+
+
 def _a7(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
-    jahr = datetime.now(UTC).year + 5
     return _kopf(
         z,
         a,
         "Die stärkste belegte Gegenposition: die drei realistischsten Wege, wie ein Investment "
-        f"über 5 bis 10 Jahre scheitert. Pre-Mortem: Es ist {jahr}, die Aktie hat die Hälfte "
-        "verloren. Was ist passiert? Je Risiko ein beobachtbarer Frühindikator.",
+        "bei einer Haltedauer von einigen Monaten bis etwa 5 Jahren scheitert (SPEC 2.1a). "
+        "Pre-Mortem: In zwei Jahren hat die Aktie 40 Prozent verloren. Was ist passiert? Je "
+        "Risiko ein beobachtbarer Frühindikator.",
         [LESEN, "Bash nur für: uv run stockagent tool rechenweg <ISIN> <ref>."],
         [*NICHT, "Nicht ablehnen um jeden Preis. Jede Aussage mit Kennzahl-Referenz oder Beleg."],
     ) | {
         "daten": {
-            "claims_der_auswertung": _claims_von(paths, z, ("A3", "A4", "A5")),
+            "claims_der_auswertung": _claims_von(paths, z, ("A3", "A4", "A5", "A6")),
             "kennzahlen": kennzahlen(paths, z),
             "note": _note(paths, z),
             "dokumente": _dokumente(z),

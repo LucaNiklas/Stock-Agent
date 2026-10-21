@@ -10,6 +10,7 @@ saeulen_gewichte:
   wachstum: "0.15"
   kapitalallokation: "0.10"
   insider: "0.10"
+insider_max_weight: "0.15"   # SPEC 3.8 Nr. 10, Prüfpunkt CP-07 in core/note.py
 
 noten:   # Untergrenze des Gesamtwerts je Note (0 bis 100)
   A: 80

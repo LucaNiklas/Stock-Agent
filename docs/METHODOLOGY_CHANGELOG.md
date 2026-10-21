@@ -221,3 +221,10 @@ Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit 
 - Die Hauptnote ändert sich gegenüber 5.3 durch die Säule Momentum mit 15 Prozent. Die bisherige Note entspricht dem Horizont lang.
 - A7 Gegenposition: Haltedauer Monate bis 5 Jahre statt 5 bis 10 Jahre (Vorlage 1.1.0).
 
+## 5.5 (21.10.2026, Bauschritt 9, `config/insider_thresholds.yaml` 1.0, Scorecards 2.2, Schema 12)
+
+- Säule Insider aus SEC Form 4 nach SPEC 3.8 (ADR 0012): nur Geschäfte am offenen Markt, Einordnung routinemäßig/opportunistisch/unklar nach Cohen, Malloy und Pomorski (2012), Handelsplan nach Rule 10b5-1 routinemäßig, Cluster doppelt, Rollengewicht, Größe relativ zum Eigenbestand, Abklingen 90 Tage.
+- Die Säule ist ein fester Wert von 0 bis 100 (50 = kein Signal), kein Rang in der Vergleichsgruppe. Ohne Geschäfte fehlt sie und senkt die Abdeckung nicht. Gewicht höchstens 15 % (Prüfpunkt).
+- Agent A6 ordnet die Geschäfte mit Zitaten aus den Meldungen ein, ohne Note oder Säule zu ändern.
+- Nachtrag 5.3: Kennzahlen aus einer älteren Methodik-Version gelten beim Bewerten als veraltet. Risikoeingang Ergebnisstreuung je Scorecard (Banken ROTE, Versicherer ROE).
+
