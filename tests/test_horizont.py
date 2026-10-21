@@ -182,3 +182,38 @@ def test_dashboard_horizon_filter_and_sort(paths: Paths) -> None:
     assert sortiert["horizonte"]["kurz"]["mindest"] == 50
     assert dashboard.freitext("kurzfristig Note A", daten) == {"horizont": "kurz", "note": "A"}
     assert dashboard.freitext("1 bis 5 Jahre halten", daten)["horizont"] == "mittel"
+
+
+def test_risk_days_convert_usd_with_cached_series(paths: Paths) -> None:
+    """USD-Kurse: Referenzkurs am Tag oder am letzten Kurstag davor. 1,10 USD je EUR ab dem
+    1.10., 1,25 ab dem 3.10. Kurs 110 am 2.10. -> 100 EUR, Kurs 125 am 6.10. -> 100 EUR.
+    Ein Kurs vor dem ersten Referenzkurs fällt weg."""
+    conn = store.connect(paths.db)
+    try:
+        store.save_fx(
+            conn,
+            [
+                (date(2026, 10, 1), "USD", Decimal("1.10")),
+                (date(2026, 10, 3), "USD", Decimal("1.25")),
+            ],
+            "sha",
+            NOW,
+        )
+        isin = FIRMEN[0][0]
+        rows = [
+            store.PriceRow(isin, date(2026, 9, 30), Decimal(1), None, 1, "USD", "X", "t"),
+            store.PriceRow(isin, date(2026, 10, 2), Decimal(110), None, 1, "USD", "X", "t"),
+            store.PriceRow(isin, date(2026, 10, 6), Decimal(125), None, 1, "USD", "X", "t"),
+        ]
+        store.save_prices(conn, rows, [], "sha", NOW)
+        reihen: dict[str, tuple[list[date], list[Decimal]]] = {}
+        tage = bewertung._risikotage(conn, isin, {}, reihen)
+        assert [(t.datum, t.kurs_eur) for t in tage] == [
+            (date(2026, 10, 2), Decimal(100)),
+            (date(2026, 10, 6), Decimal(100)),
+        ]
+        assert set(reihen) == {"USD"}  # einmal gelesen, für die Gruppe wiederverwendet
+        p = store.price_on_or_before(conn, isin, date(2026, 10, 5))
+        assert p is not None and p.date == date(2026, 10, 2)
+    finally:
+        conn.close()

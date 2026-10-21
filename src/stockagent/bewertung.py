@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -171,11 +171,23 @@ def _titel(conn: duckdb.DuckDBPyConnection) -> list[Titel]:
     return list(out.values())
 
 
-def _veraltet(conn: duckdb.DuckDBPyConnection, issuer_id: str, jetzt: datetime, tage: int) -> bool:
+def _veraltet(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    jetzt: datetime,
+    tage: int,
+    version: str | None = None,
+) -> bool:
+    """Kennzahlen neu rechnen, wenn älter als `tage` oder mit einer anderen Methodik-Version
+    gerechnet (sonst fehlen neue Kennzahlen, etwa die der Branchen-Scorecards)."""
     row = conn.execute(
-        "SELECT max(computed_at) FROM metric_runs WHERE issuer_id = ?", [issuer_id]
+        "SELECT computed_at, methodology_version FROM metric_runs WHERE issuer_id = ? "
+        "ORDER BY computed_at DESC LIMIT 1",
+        [issuer_id],
     ).fetchone()
     if row is None or row[0] is None:
+        return True
+    if version is not None and str(row[1]) != version:
         return True
     return not dq.juenger_als(row[0].date(), jetzt.date(), tage)
 
@@ -279,10 +291,15 @@ def _boersenwert_eur(
 
 
 def _risikotage(
-    conn: duckdb.DuckDBPyConnection, isin: str, unter: dict[str, str]
+    conn: duckdb.DuckDBPyConnection,
+    isin: str,
+    unter: dict[str, str],
+    reihen: dict[str, tuple[list[date], list[Decimal]]] | None = None,
 ) -> list[marktrisiko.Tag]:
+    """Tageskurse in EUR. `reihen` hält die Referenzkurse je Währung über mehrere Aufrufe
+    (Firma und Vergleichsgruppe), damit sie nur einmal gelesen werden."""
+    reihen = {} if reihen is None else reihen
     tage = []
-    cache: dict[tuple[str, Any], Decimal | None] = {}
     for p in store.load_prices(conn, isin):
         if p.currency is None:
             continue
@@ -290,11 +307,10 @@ def _risikotage(
         teiler = fx.UNTERWAEHRUNG_TEILER if haupt != p.currency else 1
         je_eur = None
         if haupt != "EUR":
-            key = (haupt, p.date)
-            if key not in cache:
-                f = store.fx_on_or_before(conn, haupt, p.date)
-                cache[key] = f.per_eur if f else None
-            je_eur = cache[key]
+            if haupt not in reihen:
+                s = store.fx_series(conn, haupt)
+                reihen[haupt] = ([d for d, _ in s], [v for _, v in s])
+            je_eur = fx.referenzkurs_am(*reihen[haupt], p.date)
             if je_eur is None:
                 continue
         tage.append(marktrisiko.Tag(p.date, marktrisiko.in_eur(p.close, je_eur, teiler), p.volume))
@@ -396,6 +412,7 @@ def bewerten(
     isin = isin.upper()
     vg = cfg.scoring["vergleichsgruppe"]
     tage = int(vg["erneuern_tage"])
+    version = str(cfg.metrics["methodology_version"])
 
     # 1. Eigene Daten
     progress(f"{isin}: eigene Daten")
@@ -436,7 +453,7 @@ def bewerten(
         )
     conn = store.connect(paths.db)
     try:
-        frisch = not _veraltet(conn, issuer, now, tage)
+        frisch = not _veraltet(conn, issuer, now, tage, version)
     finally:
         conn.close()
     if not frisch:
@@ -486,7 +503,7 @@ def bewerten(
     try:
         umsatz = store.revenues(conn, zeitraum, konzepte)
         gruppe, stufe = _gruppe_waehlen(conn, eigen, alle, cfg, umsatz, None)
-        alt = [t for t in gruppe if _veraltet(conn, t.issuer_id, now, tage)]
+        alt = [t for t in gruppe if _veraltet(conn, t.issuer_id, now, tage, version)]
     finally:
         conn.close()
     if gruppe_laden and alt:
@@ -592,7 +609,8 @@ def _note(
         "unterwaehrungen"
     ]
     mcfg = cfg.horizonte["momentum"]
-    tage = _risikotage(conn, isin, unter)
+    fx_reihen: dict[str, tuple[list[date], list[Decimal]]] = {}
+    tage = _risikotage(conn, isin, unter, fx_reihen)
 
     def mit_momentum(
         isin_: str, w: dict[tuple[str, str], Decimal | None], reihe: list[marktrisiko.Tag]
@@ -610,7 +628,7 @@ def _note(
     issuer_von = {isin: issuer, **{t.isin: t.issuer_id for t, _ in mit_werten}}
     werte, momentum_weg = mit_momentum(isin, werte, tage)
     gruppe_werte = [
-        mit_momentum(t.isin, w, _risikotage(conn, t.isin, unter))[0]
+        mit_momentum(t.isin, w, _risikotage(conn, t.isin, unter, fx_reihen))[0]
         for (t, _), w in zip(mit_werten, gruppe_werte, strict=True)
     ]
 
@@ -679,7 +697,9 @@ def _note(
         if "risiko_verschuldung" in sc_cfg
         else werte.get(("net_debt_to_ebitda", "wert")),
         "amihud": marktrisiko.amihud(tage),
-        "ebit_marge_streuung": werte.get(("ebit_margin", "stdabw")),
+        "ebit_marge_streuung": werte.get(
+            (str(sc_cfg.get("risiko_ergebnis_streuung", "ebit_margin")), "stdabw")
+        ),
         "groesse": groesse,
     }
     risiko, risiko_stufen = note.risiko(risiko_eingaben, cfg.scoring["risiko"])

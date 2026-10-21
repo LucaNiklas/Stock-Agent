@@ -15,6 +15,7 @@ from http.client import HTTPConnection
 from pathlib import Path
 
 import pytest
+import yaml
 
 from stockagent import bewertung, tiers
 from stockagent.dashboard import app as dashboard
@@ -81,6 +82,11 @@ def _metriken(i: int) -> dict[tuple[str, str], str]:
     return out
 
 
+VERSION = str(
+    yaml.safe_load((ROOT / "config" / "metrics.yaml").read_text("utf-8"))["methodology_version"]
+)
+
+
 def _naiv(t: datetime) -> datetime:
     return t.replace(tzinfo=None)
 
@@ -123,7 +129,7 @@ def _seed(paths: Paths, *, computed: datetime = NOW) -> None:
             run = f"metrics:{iid}:t"
             conn.execute(
                 "INSERT INTO metric_runs VALUES (?, ?, ?, ?, ?, ?)",
-                [run, iid, _naiv(NOW), STICHTAG, "1.5", _naiv(computed)],
+                [run, iid, _naiv(NOW), STICHTAG, VERSION, _naiv(computed)],
             )
             conn.executemany(
                 "INSERT INTO metrics VALUES "
@@ -224,6 +230,23 @@ def test_stale_peers_are_reloaded(tmp_path: Path) -> None:
     bewertung.bewerten(p, FIRMEN[5][0], lader=a.lader(), now=NOW)
     assert a.abrufe[:4] == ["sec 1", "kurse 1", "kennzahlen 1", "umsatz CY2025"]
     assert a.abrufe[4:] == ["sec 1", "kurse 1", "kennzahlen 1"] * 19  # je Titel einzeln
+
+
+def test_old_methodology_version_is_reloaded(paths: Paths) -> None:
+    """Kennzahlen von heute, aber mit einer älteren Methodik-Version (JPMorgan am 21.10.2026:
+    Lauf vor Schritt 8 ohne Bankkennzahlen, Abdeckung 36 %): eigene Daten neu laden."""
+    isin, cik = FIRMEN[-1]
+    conn = store.connect(paths.db)
+    try:
+        conn.execute(
+            "UPDATE metric_runs SET methodology_version = '1.6' WHERE issuer_id = ?",
+            [sec.issuer_id(cik)],
+        )
+    finally:
+        conn.close()
+    a = Attrappe()
+    bewertung.bewerten(paths, isin, lader=a.lader(), now=NOW)
+    assert a.abrufe[:3] == ["sec 1", "kurse 1", "kennzahlen 1"]
 
 
 def test_too_small_group_and_other_scorecard(paths: Paths) -> None:

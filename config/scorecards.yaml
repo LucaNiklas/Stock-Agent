@@ -15,6 +15,8 @@
 # - `multiples`: Kennzahlen (Statistik aktuell) für die Bewertungsbedingung gegen den Median der
 #   Gruppe (SPEC 3.6), mit Richtung. `reverse_dcf: false` ohne Abstand zum Reverse-DCF
 # - `risiko_verschuldung`: Kennzahl für den Risikoeingang Verschuldung oder null
+# - `risiko_ergebnis_streuung`: Kennzahl, deren Streuung den Risikoeingang Ergebnisvolatilität
+#   bildet (Standard ebit_margin). Banken und Versicherer haben kein sinnvolles EBIT
 # - `konfidenz_abschlag`: Stufen Abschlag auf die Konfidenz (G-Score als Hilfsmaß, SPEC 3.11)
 version: "2.2"
 
@@ -164,6 +166,7 @@ scorecards:
       - {kennzahl: p_tbv, richtung: niedrig}
       - {kennzahl: pe, richtung: niedrig}
     reverse_dcf: false
+    risiko_ergebnis_streuung: rote
     risiko_verschuldung: null
 
   versicherer:
@@ -197,6 +200,7 @@ scorecards:
       - {kennzahl: pb, richtung: niedrig}
       - {kennzahl: pe, richtung: niedrig}
     reverse_dcf: false
+    risiko_ergebnis_streuung: roe
     risiko_verschuldung: null
 
   immobilien:
