@@ -654,9 +654,9 @@ def forensik_urteil(
     je = {b["hinweis"]: b for b in antwort.get("befunde", [])}
     out = []
     for h in hinweise:
-        b = je.get(h["regel"])
-        urteil = b["urteil"] if b else "offen"
-        belegt = bool(b) and all(
+        b = je.get(h["regel"]) or {"urteil": "offen", "claim_ids": []}
+        urteil = b["urteil"]
+        belegt = bool(b["claim_ids"]) and all(
             status.get(f"F1:{cid}", {}).get("status") == "verified" for cid in b["claim_ids"]
         )
         out.append(
@@ -666,7 +666,7 @@ def forensik_urteil(
                 "anlass": h["anlass"],
                 "urteil": urteil,
                 "wirksam": urteil if (urteil != "entkraeftet" or belegt) else "offen",
-                "claim_ids": b["claim_ids"] if b else [],
+                "claim_ids": b["claim_ids"],
             }
         )
     return out
