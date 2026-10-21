@@ -327,6 +327,7 @@ def ffo_wert(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     ni = _ergebnis_stammaktionaere(r, d, t)
     ab = d.hole("depreciation", t)
     _cp01(r, t, ab)
+    r.pruefe("CP-02", "Abschreibungen nicht negativ", ab.wert >= 0)
     r.vermerk(
         "FFO_ANGENAEHERT: FFO nach NAREIT aus XBRL, Abschreibungen einschließlich solcher auf "
         "nicht immobilienbezogene Werte"

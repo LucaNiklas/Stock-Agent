@@ -1,20 +1,32 @@
 # Scorecards (SPEC 3.11, 6.2). Version bei Änderung erhöhen, Eintrag im METHODOLOGY_CHANGELOG.
-# Zuordnung: die erste Scorecard, deren Regel passt (SIC-Bereich oder Kennzahlregel). In Schritt 5
-# ist nur `standard` aktiv. Titel einer anderen Scorecard bekommen Status N mit Grund, bis die
-# Scorecard in Schritt 8 gebaut ist (`ab_schritt`).
+# Zuordnung: die erste Scorecard, deren Regel passt (SIC-Bereich oder Kennzahlregel). Seit
+# Schritt 8 (ADR 0010) sind alle Scorecards aktiv. Holdings bekommen Status N mit Grund
+# (`nicht_bewertbar`), weil die Summe der Teile Marktwerte der Beteiligungen braucht, die nicht in
+# den XBRL-Daten stehen.
 #
 # Je Säule die Kennzahlen mit Statistik und Richtung. Statistik: `wert` (Geschäftsjahr),
-# `aktuell` (mit letztem Kurs), Trendstatistiken wie `steigung` oder `stdabw` (core/trends.py).
-# Richtung: hoch = höher ist besser, niedrig = niedriger ist besser.
-version: "1.0"
+# `aktuell` (mit letztem Kurs), Trendstatistiken wie `steigung`, `stdabw` oder `cagr_5j`
+# (core/trends.py). Richtung: hoch = höher ist besser, niedrig = niedriger ist besser.
+#
+# Je Scorecard optional:
+# - `saeulen_gewichte`: eigene Gewichte statt config/scoring.yaml (Summe 1)
+# - `kappungen`: welche Kappungen aus SPEC 6.2 Nr. 6 gelten (Standard: alle). Zinsdeckung,
+#   Altman Z und Verschuldung zu EBITDA sind bei Banken und Versicherern sinnlos (SPEC 3.11)
+# - `multiples`: Kennzahlen (Statistik aktuell) für die Bewertungsbedingung gegen den Median der
+#   Gruppe (SPEC 3.6), mit Richtung. `reverse_dcf: false` ohne Abstand zum Reverse-DCF
+# - `risiko_verschuldung`: Kennzahl für den Risikoeingang Verschuldung oder null
+# - `konfidenz_abschlag`: Stufen Abschlag auf die Konfidenz (G-Score als Hilfsmaß, SPEC 3.11)
+version: "2.0"
 
 zuordnung:
   - {scorecard: banken, sic: [[6020, 6099]], ab_schritt: 8}
   - {scorecard: versicherer, sic: [[6300, 6411]], ab_schritt: 8}
   - {scorecard: immobilien, sic: [[6798, 6798], [6500, 6553]], ab_schritt: 8}
   - {scorecard: versorger, sic: [[4900, 4991]], ab_schritt: 8}
-  # Wachstum ohne Gewinn: EBIT in den letzten 2 Jahren negativ und Umsatzwachstum über 15 %
-  - {scorecard: growth, regel: wachstum_ohne_gewinn, ab_schritt: 8}
+  # Holding: at-equity-Beteiligungen über 50 % der Bilanzsumme (Kennzahl holding_share)
+  - {scorecard: holdings, regel: holding, schwelle: "0.5", ab_schritt: 8}
+  # Wachstum ohne Gewinn: EBIT-Marge in den letzten 2 Jahren negativ und Umsatzwachstum über 15 %
+  - {scorecard: growth, regel: wachstum_ohne_gewinn, umsatzwachstum: "0.15", jahre: 2, ab_schritt: 8}
   # Chemie ohne Körperpflege und Haushaltsprodukte (2840 bis 2844, Procter & Gamble), die nicht
   # zyklisch sind (Abweichung von SPEC 3.11, ADR 0007)
   - {scorecard: cyclicals, sic: [[1000, 1499], [2800, 2839], [2845, 2899], [3310, 3399], [3711, 3716], [3674, 3674]], ab_schritt: 8}
@@ -50,3 +62,199 @@ scorecards:
         - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
         - {kennzahl: acquisition_intensity, statistik: wert, richtung: niedrig}
       insider: []   # Schritt 9. Ohne Insider-Daten geht das Gewicht auf die anderen Säulen
+
+  # Zykliker: wie Standard, Bewertung über das normalisierte EV/EBIT (SPEC 3.4) und Qualität
+  # über das Mittel des Zyklus statt des letzten Jahres, Bilanz im Abschwung stärker gewichtet
+  cyclicals:
+    name: Rohstoffe und Zykliker
+    saeulen_gewichte: {qualitaet: "0.20", bewertung: "0.25", stabilitaet: "0.25", wachstum: "0.10", kapitalallokation: "0.10", insider: "0.10"}
+    saeulen:
+      qualitaet:
+        - {kennzahl: roic, statistik: mittel, richtung: hoch}   # Mittel über bis zu 10 Jahre
+        - {kennzahl: gp_to_assets, statistik: mittel, richtung: hoch}
+        - {kennzahl: fcf_margin, statistik: mittel, richtung: hoch}
+        - {kennzahl: piotroski_f_score, statistik: wert, richtung: hoch}
+      bewertung:
+        - {kennzahl: ev_ebit_normalized, statistik: aktuell, richtung: niedrig}
+        - {kennzahl: fcf_yield, statistik: aktuell, richtung: hoch}
+        - {kennzahl: pb, statistik: aktuell, richtung: niedrig}
+        - {kennzahl: margin_of_safety, statistik: aktuell, richtung: hoch}
+      stabilitaet:
+        - {kennzahl: net_debt_to_ebitda, statistik: wert, richtung: niedrig}
+        - {kennzahl: interest_coverage, statistik: wert, richtung: hoch}
+        - {kennzahl: altman_z_double_prime, statistik: wert, richtung: hoch}
+        - {kennzahl: current_ratio, statistik: wert, richtung: hoch}
+        - {kennzahl: debt_maturity_12m, statistik: wert, richtung: niedrig}
+      wachstum:
+        - {kennzahl: revenue_cagr_5y, statistik: wert, richtung: hoch}
+        - {kennzahl: ebit_margin, statistik: steigung, richtung: hoch}
+      kapitalallokation:
+        - {kennzahl: shareholder_yield, statistik: aktuell, richtung: hoch}
+        - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
+        - {kennzahl: acquisition_intensity, statistik: wert, richtung: niedrig}
+      insider: []
+    multiples:
+      - {kennzahl: ev_ebit_normalized, richtung: niedrig}
+      - {kennzahl: fcf_yield, richtung: hoch}
+
+  # Wachstum ohne Gewinn: G-Score nach Mohanram (core/gscore.py) als Hilfsmaß, Bewertung über
+  # EV/Umsatz gegen Wachstum (SPEC 3.11)
+  growth:
+    name: Wachstum ohne Gewinn
+    konfidenz_abschlag: 1
+    saeulen:
+      qualitaet:
+        - {kennzahl: mohanram_g_score, statistik: wert, richtung: hoch}
+        - {kennzahl: gross_margin, statistik: wert, richtung: hoch}
+        - {kennzahl: gross_margin, statistik: steigung, richtung: hoch}
+      bewertung:
+        - {kennzahl: ev_sales, statistik: aktuell, richtung: niedrig}
+        - {kennzahl: ev_sales_to_growth, statistik: aktuell, richtung: niedrig}
+      stabilitaet:
+        - {kennzahl: cash_runway_months, statistik: wert, richtung: hoch}
+        - {kennzahl: current_ratio, statistik: wert, richtung: hoch}
+        - {kennzahl: equity_ratio, statistik: wert, richtung: hoch}
+      wachstum:
+        - {kennzahl: revenue_cagr_3y, statistik: wert, richtung: hoch}
+        - {kennzahl: revenue_growth, statistik: wert, richtung: hoch}
+        - {kennzahl: ebit_margin, statistik: steigung, richtung: hoch}
+      kapitalallokation:
+        - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}   # Verwässerung
+        - {kennzahl: sbc_to_revenue, statistik: wert, richtung: niedrig}
+      insider: []
+    kappungen: [beneish_ueber_schwelle]   # Zinsdeckung bei negativem EBIT ohne Aussage
+    multiples:
+      - {kennzahl: ev_sales, richtung: niedrig}
+    reverse_dcf: true
+    risiko_verschuldung: null
+
+  banken:
+    name: Banken
+    saeulen:
+      qualitaet:
+        - {kennzahl: rote, statistik: wert, richtung: hoch}
+        - {kennzahl: cost_income_ratio, statistik: wert, richtung: niedrig}
+        - {kennzahl: roa, statistik: wert, richtung: hoch}
+        - {kennzahl: rote, statistik: stdabw, richtung: niedrig}
+      bewertung:
+        - {kennzahl: p_tbv_gap, statistik: aktuell, richtung: hoch}   # Residualgewinnlogik
+        - {kennzahl: p_tbv, statistik: aktuell, richtung: niedrig}
+        - {kennzahl: pe, statistik: aktuell, richtung: niedrig}
+        - {kennzahl: dividend_yield, statistik: aktuell, richtung: hoch}
+      stabilitaet:
+        - {kennzahl: tce_ratio, statistik: wert, richtung: hoch}      # statt CET1 (ADR 0010)
+        - {kennzahl: net_charge_off_ratio, statistik: wert, richtung: niedrig}   # statt NPL
+        - {kennzahl: credit_cost_ratio, statistik: wert, richtung: niedrig}
+        - {kennzahl: allowance_to_loans, statistik: wert, richtung: niedrig}
+        - {kennzahl: deposit_share, statistik: wert, richtung: hoch}
+      wachstum:
+        - {kennzahl: tangible_book_per_share, statistik: cagr_5j, richtung: hoch}
+        - {kennzahl: eps_cagr_5y, statistik: wert, richtung: hoch}
+        - {kennzahl: revenue_cagr_5y, statistik: wert, richtung: hoch}
+      kapitalallokation:
+        - {kennzahl: buyback_yield, statistik: aktuell, richtung: hoch}
+        - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
+      insider: []
+    kappungen: [beneish_ueber_schwelle]
+    multiples:
+      - {kennzahl: p_tbv, richtung: niedrig}
+      - {kennzahl: pe, richtung: niedrig}
+    reverse_dcf: false
+    risiko_verschuldung: null
+
+  versicherer:
+    name: Versicherer
+    saeulen:
+      qualitaet:
+        - {kennzahl: roe, statistik: wert, richtung: hoch}
+        - {kennzahl: loss_ratio, statistik: wert, richtung: niedrig}   # statt Combined Ratio
+        - {kennzahl: roe, statistik: stdabw, richtung: niedrig}
+        - {kennzahl: investment_yield, statistik: wert, richtung: hoch}
+      bewertung:
+        - {kennzahl: pb_gap, statistik: aktuell, richtung: hoch}       # Residualgewinnlogik
+        - {kennzahl: pb, statistik: aktuell, richtung: niedrig}
+        - {kennzahl: pe, statistik: aktuell, richtung: niedrig}
+        - {kennzahl: dividend_yield, statistik: aktuell, richtung: hoch}
+      stabilitaet:
+        - {kennzahl: reserve_development, statistik: wert, richtung: niedrig}
+        - {kennzahl: equity_ratio, statistik: wert, richtung: hoch}
+        - {kennzahl: loss_ratio, statistik: stdabw, richtung: niedrig}
+      wachstum:
+        - {kennzahl: book_value_per_share, statistik: cagr_5j, richtung: hoch}
+        - {kennzahl: eps_cagr_5y, statistik: wert, richtung: hoch}
+        - {kennzahl: revenue_cagr_5y, statistik: wert, richtung: hoch}
+      kapitalallokation:
+        - {kennzahl: buyback_yield, statistik: aktuell, richtung: hoch}
+        - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
+      insider: []
+    kappungen: [beneish_ueber_schwelle]
+    multiples:
+      - {kennzahl: pb, richtung: niedrig}
+      - {kennzahl: pe, richtung: niedrig}
+    reverse_dcf: false
+    risiko_verschuldung: null
+
+  immobilien:
+    name: Immobilien und REITs
+    saeulen:
+      qualitaet:
+        - {kennzahl: ebit_margin, statistik: wert, richtung: hoch}
+        - {kennzahl: ebit_margin, statistik: stdabw, richtung: niedrig}
+        - {kennzahl: roa, statistik: wert, richtung: hoch}
+      bewertung:
+        - {kennzahl: ffo_yield, statistik: aktuell, richtung: hoch}
+        - {kennzahl: ev_ebitda, statistik: aktuell, richtung: niedrig}
+        - {kennzahl: pb, statistik: aktuell, richtung: niedrig}       # Näherung für Kurs zu NAV
+        - {kennzahl: dividend_yield, statistik: aktuell, richtung: hoch}
+      stabilitaet:
+        - {kennzahl: ltv, statistik: wert, richtung: niedrig}
+        - {kennzahl: interest_coverage, statistik: wert, richtung: hoch}
+        - {kennzahl: net_debt_to_ebitda, statistik: wert, richtung: niedrig}
+        - {kennzahl: debt_maturity_12m, statistik: wert, richtung: niedrig}
+      wachstum:
+        - {kennzahl: ffo_per_share, statistik: cagr_5j, richtung: hoch}
+        - {kennzahl: revenue_cagr_5y, statistik: wert, richtung: hoch}
+      kapitalallokation:
+        - {kennzahl: ffo_payout, statistik: wert, richtung: niedrig}
+        - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
+      insider: []
+    multiples:
+      - {kennzahl: ffo_yield, richtung: hoch}
+      - {kennzahl: ev_ebitda, richtung: niedrig}
+    reverse_dcf: false
+
+  versorger:
+    name: Versorger und Netze
+    saeulen:
+      qualitaet:
+        - {kennzahl: roic, statistik: wert, richtung: hoch}
+        - {kennzahl: roe, statistik: wert, richtung: hoch}
+        - {kennzahl: ebit_margin, statistik: stdabw, richtung: niedrig}
+      bewertung:
+        - {kennzahl: ev_ebitda, statistik: aktuell, richtung: niedrig}
+        - {kennzahl: dividend_yield, statistik: aktuell, richtung: hoch}
+        - {kennzahl: pe, statistik: aktuell, richtung: niedrig}
+        - {kennzahl: pb, statistik: aktuell, richtung: niedrig}
+      stabilitaet:
+        - {kennzahl: net_debt_to_ebitda, statistik: wert, richtung: niedrig}
+        - {kennzahl: interest_coverage, statistik: wert, richtung: hoch}
+        - {kennzahl: dividend_cover, statistik: wert, richtung: hoch}
+        - {kennzahl: debt_maturity_12m, statistik: wert, richtung: niedrig}
+      wachstum:
+        - {kennzahl: revenue_cagr_5y, statistik: wert, richtung: hoch}
+        - {kennzahl: eps_cagr_5y, statistik: wert, richtung: hoch}
+        - {kennzahl: capex_to_depreciation, statistik: wert, richtung: hoch}   # Investitionsquote
+      kapitalallokation:
+        - {kennzahl: dividend_cover, statistik: steigung, richtung: hoch}
+        - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
+      insider: []
+    multiples:
+      - {kennzahl: ev_ebitda, richtung: niedrig}
+      - {kennzahl: pe, richtung: niedrig}
+    reverse_dcf: false
+
+  holdings:
+    name: Holdings und Beteiligungsgesellschaften
+    nicht_bewertbar: "Holding (at-equity-Beteiligungen über 50 % der Bilanzsumme): die Summe der Teile braucht Marktwerte der Beteiligungen, die nicht in den XBRL-Daten stehen (SPEC 3.11, ADR 0010)"
+    saeulen: {}
+

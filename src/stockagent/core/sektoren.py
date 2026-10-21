@@ -35,14 +35,23 @@ class Scorecard:
     ab_schritt: int
 
 
-def scorecard(sic: int | None, wachstum_ohne_gewinn: bool, cfg: Mapping[str, Any]) -> Scorecard:
-    """Erste passende Regel aus `config/scorecards.yaml` (SPEC 3.11)."""
+def scorecard(
+    sic: int | None,
+    wachstum_ohne_gewinn: bool,
+    cfg: Mapping[str, Any],
+    holding: bool = False,
+) -> Scorecard:
+    """Erste passende Regel aus `config/scorecards.yaml` (SPEC 3.11). Die Kennzahlregeln
+    (Holding, Wachstum ohne Gewinn) wertet `bewertung.py` aus und reicht das Ergebnis herein."""
     for regel in cfg["zuordnung"]:
         if "sic" in regel:
             if sic is not None and any(int(a) <= sic <= int(b) for a, b in regel["sic"]):
                 return Scorecard(regel["scorecard"], int(regel["ab_schritt"]))
         elif regel.get("regel") == "wachstum_ohne_gewinn":
             if wachstum_ohne_gewinn:
+                return Scorecard(regel["scorecard"], int(regel["ab_schritt"]))
+        elif regel.get("regel") == "holding":
+            if holding:
                 return Scorecard(regel["scorecard"], int(regel["ab_schritt"]))
         else:
             return Scorecard(regel["scorecard"], int(regel["ab_schritt"]))

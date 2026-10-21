@@ -231,8 +231,24 @@ def test_too_small_group_and_other_scorecard(paths: Paths) -> None:
         conn.execute("UPDATE issuers SET sector_sic = '6021' WHERE cik = ?", [FIRMEN[0][1]])
     finally:
         conn.close()
+    # Seit Schritt 8 eigene Scorecard: ohne andere Banken ist die Vergleichsgruppe leer
     bank = bewertung.bewerten(paths, FIRMEN[0][0], lader=Attrappe().lader(), now=NOW)
-    assert bank.note == "N" and "banken" in (bank.grund or "")
+    assert bank.note == "N" and "Vergleichsgruppe zu klein (0" in (bank.grund or "")
+    # Holding: at-equity-Beteiligungen über 50 % der Bilanzsumme -> N mit Grund
+    conn = store.connect(paths.db)
+    try:
+        iid = sec.issuer_id(FIRMEN[2][1])
+        conn.execute(
+            "INSERT INTO metrics SELECT run_id, issuer_id, 'holding_share', metric_version, "
+            "statistik, period_end, '0.6', NULL, NULL, warnungen_json, vermerke_json, NULL, "
+            "computed_at FROM metrics WHERE issuer_id = ? AND metric_id = 'ebit_margin' "
+            "AND statistik = 'wert'",
+            [iid],
+        )
+    finally:
+        conn.close()
+    holding = bewertung.bewerten(paths, FIRMEN[2][0], lader=Attrappe().lader(), now=NOW)
+    assert holding.note == "N" and "Summe der Teile" in (holding.grund or "")
     conn = store.connect(paths.db)
     try:
         conn.execute("DELETE FROM metrics WHERE issuer_id <> ?", [sec.issuer_id(FIRMEN[1][1])])

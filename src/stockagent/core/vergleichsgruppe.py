@@ -30,11 +30,15 @@ def multiples_abschlag(
     r: Rechenweg,
     eigen: Mapping[str, Decimal | None],
     gruppe: Sequence[Mapping[str, Decimal | None]],
+    hoch: set[str] | None = None,
 ) -> Decimal | None:
     """Abschlag des Kurses gegenüber dem Median der Multiples der Gruppe. `eigen` und
-    `gruppe` mit den Schlüsseln ev_ebit, pe, fcf_yield (aktuell)."""
+    `gruppe` mit den Multiples der Scorecard (aktuell), `hoch` die Renditekennzahlen, bei denen
+    ein höherer Wert günstiger ist (Standard: fcf_yield)."""
+    hoch = {"fcf_yield"} if hoch is None else hoch
     verhaeltnisse: dict[str, Decimal] = {}
-    for name, hoeher_teurer in (("ev_ebit", True), ("pe", True), ("fcf_yield", False)):
+    for name in eigen:
+        hoeher_teurer = name not in hoch
         e = eigen.get(name)
         werte = [v for g in gruppe if (v := g.get(name)) is not None and v > 0]
         if e is None or e <= 0 or len(werte) < 5:

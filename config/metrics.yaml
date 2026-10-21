@@ -11,13 +11,19 @@
 # `ttm: true`: zusätzlich mit den Werten der letzten 12 Monate bis zum letzten Quartal (Statistik
 # `ttm`, core/ttm.py). Nicht für Kennzahlen mit Vorjahresvergleich oder Durchschnitten.
 
-methodology_version: "1.6"
+methodology_version: "1.7"
 
 # Kurse für Bewertungskennzahlen (Bauschritt 4, ADR 0005)
 kurse:
   max_abstand_tage: 7          # letzter Schlusskurs höchstens so lange vor dem Stichtag
 
 # Trends je Kennzahl (SPEC 3.4, core/trends.py)
+# Feste Annahmen der Branchenkennzahlen (Bauschritt 8). Erscheinen als Eingabe mit Quelle
+# `config/metrics.yaml parameter.<name>` im Rechenweg
+parameter:
+  residualgewinn_wachstum: "0"      # g im gerechtfertigten Kurs-Buchwert (vorsichtig: kein Wachstum)
+  liquiditaet_hoechst_monate: 120   # Obergrenze der Liquiditätsreichweite (10 Jahre)
+
 trends:
   max_jahre: 10                # Länge der Reihe für Streuung und Steigung
   mindest_jahre: 5             # darunter keine Streuung und keine Steigung (SPEC 3.4 Nr. 1)
@@ -42,7 +48,7 @@ metrics:
   scorecards: &id001
   - standard
   - growth
-  - utilities
+  - versorger
   - cyclicals
   quelle: Koller, Goedhart, Wessels. Valuation (McKinsey), 7. Auflage
   pruefpunkte:
@@ -1472,3 +1478,671 @@ metrics:
   - tests/metrics/test_growth_gap.py
   kurs: true
   ttm: true
+# ---------------------------------------------------------------- Bauschritt 8
+# Branchen-Scorecards (SPEC 3.11, core/branchenkennzahlen.py, ADR 0010)
+- id: rote
+  version: '1.0'
+  name: Rendite auf materielles Eigenkapital (ROTE)
+  formel: Ergebnis der Stammaktionäre / durchschnittliches materielles Eigenkapital
+  definition: Materielles Eigenkapital = Eigenkapital der Aktionäre - Vorzugskapital - Geschäftswert -
+    übrige immaterielle Werte. Durchschnitt aus Vorjahresende und Jahresende. Nicht definiert bei nicht
+    positivem materiellem Eigenkapital.
+  eingaben:
+  - net_income_common|net_income
+  - equity
+  - goodwill_and_intangibles|goodwill+intangibles_ex_goodwill
+  optionale_eingaben:
+  - preferred_equity
+  - goodwill
+  - intangibles_ex_goodwill
+  einheit: ratio
+  richtung: higher_better
+  rundung: &s8id001
+    anzeige: percent
+    nachkommastellen: 1
+  scorecards:
+  - banken
+  quelle: Calomiris und Nissim (2014), Journal of Financial Intermediation; Damodaran zu Finanzdienstleistern
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: cost_income_ratio
+  version: '1.0'
+  name: Kosten-Ertrags-Verhältnis
+  formel: Zinsunabhängiger Aufwand / (Zinsüberschuss + zinsunabhängige Erträge)
+  definition: 'Unter IFRS fehlt meist eine Summe der zinsunabhängigen Erträge: dann unknown.'
+  eingaben:
+  - noninterest_expense
+  - net_interest_income
+  - noninterest_income
+  einheit: ratio
+  richtung: lower_better
+  rundung: *s8id001
+  scorecards:
+  - banken
+  quelle: Calomiris und Nissim (2014), Journal of Financial Intermediation; Damodaran zu Finanzdienstleistern
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: tce_ratio
+  version: '1.0'
+  name: TCE-Quote
+  formel: Materielles Eigenkapital / (Bilanzsumme - immaterielle Werte)
+  definition: Ersatz für die CET1-Quote, die nicht ohne Dimension in den Company Facts steht (ADR 0010).
+  eingaben:
+  - equity
+  - total_assets
+  optionale_eingaben:
+  - preferred_equity
+  - goodwill
+  - intangibles_ex_goodwill
+  einheit: ratio
+  richtung: higher_better
+  rundung: *s8id001
+  scorecards:
+  - banken
+  quelle: Calomiris und Nissim (2014), Journal of Financial Intermediation; Damodaran zu Finanzdienstleistern
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: credit_cost_ratio
+  version: '1.0'
+  name: Risikokosten
+  formel: Risikovorsorge des Jahres / durchschnittlicher Kreditbestand
+  definition: Kreditbestand vor Risikovorsorge.
+  eingaben:
+  - credit_provision
+  - loans
+  einheit: ratio
+  richtung: lower_better
+  rundung: *s8id001
+  scorecards:
+  - banken
+  quelle: Calomiris und Nissim (2014), Journal of Financial Intermediation; Damodaran zu Finanzdienstleistern
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: net_charge_off_ratio
+  version: '1.0'
+  name: Ausfallquote
+  formel: Nettoausbuchungen / durchschnittlicher Kreditbestand
+  definition: Ersatz für die Quote notleidender Kredite (ADR 0010).
+  eingaben:
+  - net_charge_offs
+  - loans
+  einheit: ratio
+  richtung: lower_better
+  rundung: *s8id001
+  scorecards:
+  - banken
+  quelle: Calomiris und Nissim (2014), Journal of Financial Intermediation; Damodaran zu Finanzdienstleistern
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: allowance_to_loans
+  version: '1.0'
+  name: Vorsorgebestand zu Krediten
+  formel: Bestand der Risikovorsorge / Kreditbestand
+  definition: Zum Jahresende.
+  eingaben:
+  - loan_allowance
+  - loans
+  einheit: ratio
+  richtung: lower_better
+  rundung: *s8id001
+  scorecards:
+  - banken
+  quelle: Calomiris und Nissim (2014), Journal of Financial Intermediation; Damodaran zu Finanzdienstleistern
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: deposit_share
+  version: '1.0'
+  name: Einlagenanteil an der Refinanzierung
+  formel: Einlagen / Verbindlichkeiten
+  definition: Verbindlichkeiten gemeldet oder Passiva - Eigenkapital.
+  eingaben:
+  - deposits
+  - total_liabilities|liabilities_and_equity+equity_incl_nci
+  einheit: ratio
+  richtung: higher_better
+  rundung: *s8id001
+  scorecards:
+  - banken
+  quelle: Calomiris und Nissim (2014), Journal of Financial Intermediation; Damodaran zu Finanzdienstleistern
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: tangible_book_per_share
+  version: '1.0'
+  name: Materieller Buchwert je Aktie
+  formel: Materielles Eigenkapital / verwässerte Aktienzahl
+  definition: Wachstum über die Trendstatistik cagr_5j.
+  eingaben:
+  - equity
+  - shares_diluted
+  optionale_eingaben:
+  - preferred_equity
+  - goodwill
+  - intangibles_ex_goodwill
+  einheit: per_share
+  richtung: higher_better
+  rundung: &s8id002
+    anzeige: kurs
+    nachkommastellen: 2
+  scorecards:
+  - banken
+  quelle: Calomiris und Nissim (2014), Journal of Financial Intermediation; Damodaran zu Finanzdienstleistern
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: p_tbv
+  version: '1.0'
+  name: Kurs zu materiellem Buchwert
+  formel: Börsenwert / materielles Eigenkapital
+  definition: Nur bei positivem materiellem Eigenkapital.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - equity
+  optionale_eingaben:
+  - preferred_equity
+  - goodwill
+  - intangibles_ex_goodwill
+  einheit: pure
+  richtung: lower_better
+  rundung: &s8id003
+    anzeige: faktor
+    nachkommastellen: 2
+  scorecards:
+  - banken
+  quelle: Calomiris und Nissim (2014), Journal of Financial Intermediation; Damodaran zu Finanzdienstleistern
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+  kurs: true
+- id: p_tbv_gap
+  version: '1.0'
+  name: Abstand zum gerechtfertigten Kurs-Buchwert (Banken)
+  formel: ((ROTE - g) / (Eigenkapitalkosten - g)) / P/TBV - 1
+  definition: Residualgewinnlogik. Eigenkapitalkosten = rf + Beta der Branche laut Damodaran * Risikoprämie.
+    g aus parameter.residualgewinn_wachstum. Positiv = Kurs unter dem gerechtfertigten Wert.
+  eingaben:
+  - net_income_common|net_income
+  - equity
+  - kurs
+  - shares_diluted
+  - rf
+  - erp
+  - beta_branche
+  - parameter_residualgewinn_wachstum
+  optionale_eingaben:
+  - preferred_equity
+  - goodwill
+  - intangibles_ex_goodwill
+  einheit: ratio
+  richtung: higher_better
+  rundung: *s8id001
+  scorecards:
+  - banken
+  quelle: Calomiris und Nissim (2014), Journal of Financial Intermediation; Damodaran zu Finanzdienstleistern
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+  kurs: true
+- id: loss_ratio
+  version: '1.0'
+  name: Schadenquote
+  formel: Schäden und Leistungen netto / verdiente Prämien netto
+  definition: 'Ersatz für die Schaden-Kosten-Quote: die Kosten des Versicherungsbetriebs sind nicht einheitlich
+    in XBRL gegliedert (ADR 0010). Bei Lebensversicherern wenig aussagekräftig.'
+  eingaben:
+  - claims_incurred
+  - premiums_earned
+  einheit: ratio
+  richtung: lower_better
+  rundung: *s8id001
+  scorecards:
+  - versicherer
+  quelle: Nissim (2010), Analysis and Valuation of Insurance Companies, Columbia CEASA
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: reserve_development
+  version: '1.0'
+  name: Reserveabwicklung
+  formel: Schadenaufwand für Vorjahre / verdiente Prämien
+  definition: Negativ = Auflösung von Reserven (günstig).
+  eingaben:
+  - prior_year_development
+  - premiums_earned
+  einheit: ratio
+  richtung: lower_better
+  rundung: *s8id001
+  scorecards:
+  - versicherer
+  quelle: Nissim (2010), Analysis and Valuation of Insurance Companies, Columbia CEASA
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: investment_yield
+  version: '1.0'
+  name: Kapitalanlagerendite
+  formel: Nettokapitalanlageergebnis / durchschnittliche Kapitalanlagen
+  definition: Durchschnitt aus Vorjahresende und Jahresende.
+  eingaben:
+  - net_investment_income
+  - investments
+  einheit: ratio
+  richtung: higher_better
+  rundung: *s8id001
+  scorecards:
+  - versicherer
+  quelle: Nissim (2010), Analysis and Valuation of Insurance Companies, Columbia CEASA
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: book_value_per_share
+  version: '1.0'
+  name: Buchwert je Aktie
+  formel: Eigenkapital der Aktionäre / verwässerte Aktienzahl
+  definition: Wachstum über die Trendstatistik cagr_5j.
+  eingaben:
+  - equity
+  - shares_diluted
+  einheit: per_share
+  richtung: higher_better
+  rundung: *s8id002
+  scorecards:
+  - versicherer
+  quelle: Nissim (2010), Analysis and Valuation of Insurance Companies, Columbia CEASA
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: pb_gap
+  version: '1.0'
+  name: Abstand zum gerechtfertigten Kurs-Buchwert (Versicherer)
+  formel: ((ROE - g) / (Eigenkapitalkosten - g)) / KBV - 1
+  definition: Wie p_tbv_gap mit Eigenkapitalrendite und Kurs-Buchwert-Verhältnis.
+  eingaben:
+  - net_income
+  - equity
+  - revenue
+  - total_assets
+  - kurs
+  - shares_diluted
+  - rf
+  - erp
+  - beta_branche
+  - parameter_residualgewinn_wachstum
+  einheit: ratio
+  richtung: higher_better
+  rundung: *s8id001
+  scorecards:
+  - versicherer
+  quelle: Nissim (2010), Analysis and Valuation of Insurance Companies, Columbia CEASA
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-04
+  tests:
+  - tests/test_scorecards.py
+  kurs: true
+- id: ffo
+  version: '1.0'
+  name: Funds from Operations (FFO)
+  formel: Ergebnis der Stammaktionäre + Abschreibungen + Wertminderungen auf Immobilien - Verkaufsgewinne
+  definition: Nach NAREIT, aus XBRL angenähert (Vermerk FFO_ANGENAEHERT).
+  eingaben:
+  - net_income_common|net_income
+  - depreciation
+  optionale_eingaben:
+  - real_estate_impairment
+  - real_estate_gains
+  einheit: monetary
+  richtung: higher_better
+  rundung:
+    anzeige: betrag
+    nachkommastellen: 0
+  scorecards:
+  - immobilien
+  quelle: NAREIT FFO White Paper; EPRA Best Practices Recommendations
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: ffo_per_share
+  version: '1.0'
+  name: FFO je Aktie
+  formel: FFO / verwässerte Aktienzahl
+  definition: Wachstum über die Trendstatistik cagr_5j.
+  eingaben:
+  - net_income_common|net_income
+  - depreciation
+  - shares_diluted
+  optionale_eingaben:
+  - real_estate_impairment
+  - real_estate_gains
+  einheit: per_share
+  richtung: higher_better
+  rundung: *s8id002
+  scorecards:
+  - immobilien
+  quelle: NAREIT FFO White Paper; EPRA Best Practices Recommendations
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: ffo_yield
+  version: '1.0'
+  name: FFO-Rendite
+  formel: FFO / Börsenwert
+  definition: Kehrwert des Kurs-FFO-Verhältnisses.
+  eingaben:
+  - net_income_common|net_income
+  - depreciation
+  - kurs
+  - shares_diluted
+  optionale_eingaben:
+  - real_estate_impairment
+  - real_estate_gains
+  einheit: ratio
+  richtung: higher_better
+  rundung: *s8id001
+  scorecards:
+  - immobilien
+  quelle: NAREIT FFO White Paper; EPRA Best Practices Recommendations
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+  kurs: true
+- id: ffo_payout
+  version: '1.0'
+  name: Ausschüttung zu FFO
+  formel: Gezahlte Dividenden / FFO
+  definition: Nicht aussagekräftig bei FFO ab null.
+  eingaben:
+  - dividends_paid
+  - net_income_common|net_income
+  - depreciation
+  optionale_eingaben:
+  - real_estate_impairment
+  - real_estate_gains
+  einheit: ratio
+  richtung: lower_better
+  rundung: *s8id001
+  scorecards:
+  - immobilien
+  quelle: NAREIT FFO White Paper; EPRA Best Practices Recommendations
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: ltv
+  version: '1.0'
+  name: Beleihungsquote (LTV)
+  formel: Nettoverschuldung / Immobilienbestand
+  definition: Immobilienbestand netto nach Abschreibung (US-GAAP) oder zum beizulegenden Zeitwert (IFRS,
+    IAS 40).
+  eingaben:
+  - real_estate_net
+  - cash
+  - debt_long_total|debt_noncurrent
+  optionale_eingaben:
+  - short_term_borrowings
+  - commercial_paper
+  - debt_current
+  - st_investments
+  einheit: ratio
+  richtung: lower_better
+  rundung: *s8id001
+  scorecards:
+  - immobilien
+  quelle: NAREIT FFO White Paper; EPRA Best Practices Recommendations
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: ev_ebitda
+  version: '1.0'
+  name: EV/EBITDA
+  formel: Unternehmenswert / (EBIT + Abschreibungen)
+  definition: Unternehmenswert wie ev_ebit.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - ebit
+  - depreciation
+  - cash
+  - debt_long_total|debt_noncurrent
+  einheit: pure
+  richtung: lower_better
+  rundung: *s8id003
+  scorecards:
+  - versorger
+  - immobilien
+  quelle: Damodaran, Investment Valuation, 3. Auflage
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  tests:
+  - tests/test_scorecards.py
+  kurs: true
+- id: dividend_cover
+  version: '1.0'
+  name: Dividendendeckung
+  formel: Jahresüberschuss / gezahlte Dividenden
+  definition: Nicht definiert ohne Dividende.
+  eingaben:
+  - net_income
+  - dividends_paid
+  einheit: pure
+  richtung: higher_better
+  rundung: *s8id003
+  scorecards:
+  - versorger
+  quelle: SPEC 3.11
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: ocf_to_assets
+  version: '1.0'
+  name: Operativer Cashflow zu Bilanzsumme
+  formel: Operativer Cashflow / durchschnittliche Bilanzsumme
+  definition: Signal G2 im G-Score.
+  eingaben:
+  - operating_cash_flow
+  - total_assets
+  einheit: ratio
+  richtung: higher_better
+  rundung: *s8id001
+  scorecards:
+  - growth
+  quelle: Mohanram (2005), Review of Accounting Studies
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: rd_to_assets
+  version: '1.0'
+  name: F&E zu Bilanzsumme
+  formel: F&E-Aufwand / durchschnittliche Bilanzsumme
+  definition: Signal G6 im G-Score.
+  eingaben:
+  - rd_expense
+  - total_assets
+  einheit: ratio
+  richtung: higher_better
+  rundung: *s8id001
+  scorecards:
+  - growth
+  quelle: Mohanram (2005), Review of Accounting Studies
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: capex_to_assets
+  version: '1.0'
+  name: Investitionen zu Bilanzsumme
+  formel: Investitionen in Sachanlagen / durchschnittliche Bilanzsumme
+  definition: Signal G7 im G-Score.
+  eingaben:
+  - capex
+  - total_assets
+  einheit: ratio
+  richtung: higher_better
+  rundung: *s8id001
+  scorecards:
+  - growth
+  quelle: Mohanram (2005), Review of Accounting Studies
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: advertising_to_assets
+  version: '1.0'
+  name: Werbung zu Bilanzsumme
+  formel: Werbeaufwand / durchschnittliche Bilanzsumme
+  definition: Signal G8 im G-Score. Oft nicht gemeldet.
+  eingaben:
+  - advertising_expense
+  - total_assets
+  einheit: ratio
+  richtung: higher_better
+  rundung: *s8id001
+  scorecards:
+  - growth
+  quelle: Mohanram (2005), Review of Accounting Studies
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: revenue_growth
+  version: '1.0'
+  name: Umsatzwachstum
+  formel: Umsatz / Umsatz Vorjahr - 1
+  definition: Streuung über die Trendstatistik stdabw (Signal G5).
+  eingaben:
+  - revenue
+  einheit: ratio
+  richtung: higher_better
+  rundung: *s8id001
+  scorecards:
+  - growth
+  quelle: Mohanram (2005), Review of Accounting Studies
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: cash_runway_months
+  version: '1.0'
+  name: Liquiditätsreichweite
+  formel: (Kasse + kurzfristige Wertpapiere) / Mittelabfluss je Monat
+  definition: Mittelabfluss = negativer Free Cashflow. Ohne Mittelabfluss oder darüber gilt die Höchstgrenze
+    parameter.liquiditaet_hoechst_monate.
+  eingaben:
+  - cash
+  - operating_cash_flow
+  - capex
+  - parameter_liquiditaet_hoechst_monate
+  optionale_eingaben:
+  - st_investments
+  - capex_intangibles
+  einheit: pure
+  richtung: higher_better
+  rundung:
+    anzeige: ganzzahl
+    nachkommastellen: 0
+  scorecards:
+  - growth
+  quelle: SPEC 3.11
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
+- id: ev_sales_to_growth
+  version: '1.0'
+  name: EV/Umsatz zu Wachstum
+  formel: (Unternehmenswert / Umsatz) / (Umsatzwachstum 3 Jahre in Prozent)
+  definition: Nur bei positivem Wachstum.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - revenue
+  - cash
+  - debt_long_total|debt_noncurrent
+  einheit: pure
+  richtung: lower_better
+  rundung: *s8id003
+  scorecards:
+  - growth
+  quelle: SPEC 3.11
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  tests:
+  - tests/test_scorecards.py
+  kurs: true
+- id: holding_share
+  version: '1.0'
+  name: Beteiligungsquote
+  formel: At-equity-Beteiligungen / Bilanzsumme
+  definition: Regel Holding in config/scorecards.yaml.
+  eingaben:
+  - equity_investments
+  - total_assets
+  einheit: ratio
+  richtung: lower_better
+  rundung: *s8id001
+  scorecards:
+  - holdings
+  quelle: SPEC 3.11
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/test_scorecards.py
