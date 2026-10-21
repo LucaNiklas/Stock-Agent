@@ -148,3 +148,11 @@ def test_market_risk_inputs() -> None:
     assert marktrisiko.in_eur(Decimal(25000), Decimal("0.874"), 100).quantize(
         Decimal("0.01")
     ) == Decimal("286.04")
+
+
+def test_formatting_accepts_stored_text() -> None:
+    """Werte aus grades.detail_json sind Text (Absturz in `stockagent bewerten` vor dem Fix)."""
+    from stockagent.core.anzeige import formatiere
+
+    assert formatiere("0.8125", "percent", 0) == "81 %"
+    assert formatiere("97.5", "faktor", 1) == "97,5"

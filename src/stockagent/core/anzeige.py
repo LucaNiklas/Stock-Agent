@@ -15,11 +15,14 @@ def _gruppiert(x: Decimal, stellen: int) -> str:
 
 
 def formatiere(
-    wert: Decimal | None, anzeige: str, stellen: int, waehrung: str | None = None
+    wert: Decimal | str | None, anzeige: str, stellen: int, waehrung: str | None = None
 ) -> str:
-    """Deutsche Schreibweise. `anzeige` aus `rundung.anzeige` in config/metrics.yaml."""
+    """Deutsche Schreibweise. `anzeige` aus `rundung.anzeige` in config/metrics.yaml. Werte aus
+    gespeichertem JSON kommen als Text und werden ohne Rundung in Decimal umgewandelt."""
     if wert is None:
         return "unbekannt"
+    if isinstance(wert, str):
+        wert = Decimal(wert)
     if anzeige in ("percent", "punkte"):
         x = (wert * 100).quantize(Decimal(1).scaleb(-stellen), ROUND_HALF_EVEN)
         zeichen = "+" if anzeige == "punkte" and x > 0 else ""
