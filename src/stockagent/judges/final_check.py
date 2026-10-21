@@ -22,7 +22,7 @@ from typing import Any
 
 from stockagent.gates import wording
 
-ABSCHNITTE = 14
+ABSCHNITTE = list(range(1, 15))  # SPEC 12.3: Abschnitte 1 bis 14
 _ZITAT = re.compile(r"„[^“]*“")
 
 
@@ -53,8 +53,8 @@ def pruefen(md: str, entscheidung: dict[str, Any], kontext: dict[str, Any]) -> l
 
     # 1. Aufbau
     nummern = [int(n) for n in re.findall(r"\n## (\d+)\. ", md)]
-    if nummern != list(range(1, ABSCHNITTE + 1)):
-        out.append(Befund("aufbau", f"Abschnitte {nummern}, erwartet 1 bis {ABSCHNITTE}"))
+    if nummern != ABSCHNITTE:
+        out.append(Befund("aufbau", f"Abschnitte {nummern}, erwartet 1 bis 14"))
 
     # 2. Platzhalter
     if "{{" in md or "}}" in md:

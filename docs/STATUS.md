@@ -95,11 +95,10 @@ Pausiert am 21.10.2026 auf Lucas Wunsch. Weiter hier:
    Ergebnisse von Hand prüfen, in ADR 0010 und hier eintragen (eigener PR).
 3. Intel live: `stockagent insider update -i US4581401001`, dann `insider show`.
 4. Schritt 10 (Branch `schritt-10-pruefer`, Stand WIP):
-   - J4 Endkontrolle (`judges/final_check.py`) ist im Orchestrator eingebaut. Offen: der Test
-     `test_full_run_with_recorded_answers` eskaliert, weil die geprüfte Aussage „Die Marge blieb
-     trotz Konflikten hoch: 46,9 %.“ (A3E-Erwiderung) nicht im Bericht steht. Klären, ob der
-     Bericht die Erwiderungen in Abschnitt 11 vollständig zeigt oder J4 Erwiderungen anders sucht.
-     Danach `tests/test_final_check.py` (je Prüfung ein Fehlerfall).
+   - J4 Endkontrolle (`judges/final_check.py`) ist im Orchestrator eingebaut, alle Tests grün.
+     J4 fand gleich einen echten Fehler: offene Erwiderungen mit geprüften Aussagen fehlten im
+     Bericht, jetzt als Teilantwort gezeigt. Offen: `tests/test_final_check.py` (je Prüfung ein
+     Fehlerfall).
    - Bericht Abschnitt 8 zeigt nur noch Vermerke zu genutzten Kennzahlen (vorher REIT-Vermerke
      bei Apple).
    - Noch zu bauen: J3 Jury, F1 Forensik, Eskalations-Warteschlange (Dashboard,

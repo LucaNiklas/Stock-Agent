@@ -151,9 +151,9 @@ Nicht anwendbar: Die qualitative Analyse hat keine geprüften Befunde geliefert.
 Frühindikator: {{ r.fruehindikator }}
 
 {{ claims(r.claims) }}
-{% if r.offen %}Erwiderung: offen.{% else %}Erwiderung:
+{% if r.offen %}Erwiderung: offen.{% if r.erwiderung %} Teilantwort:{% endif %}{% else %}Erwiderung:{% endif %}
 
-{{ claims(r.erwiderung) }}{% endif %}
+{{ claims(r.erwiderung) }}
 
 {% else %}
 Nicht anwendbar: keine Gegenposition geliefert.

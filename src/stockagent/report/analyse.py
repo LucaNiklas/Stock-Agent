@@ -269,8 +269,9 @@ def kontext(paths: Paths, z: Zustand, ent: dict[str, Any]) -> dict[str, Any]:
             ungereimt.append({"id": "INC-11", "text": f"{key}: {'; '.join(s['gruende'])}"})
 
     # Nur Vermerke zu Kennzahlen, die der Bericht zeigt oder die Note nutzt (Scorecard)
-    genutzt = {r["kennzahl"] for r in ent["note"].get("raenge", [])}
-    genutzt |= {*KENNZAHLEN_TABELLE, *ERTRAGSQUALITAET, *BEWERTUNG}
+    genutzt = {r["kennzahl"] for r in ent["note"].get("raenge", [])}.union(
+        KENNZAHLEN_TABELLE, ERTRAGSQUALITAET, BEWERTUNG
+    )
     vermerke: dict[str, set[str]] = {}
     for r in rows:
         if r.metric_id not in genutzt:
