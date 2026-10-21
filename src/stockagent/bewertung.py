@@ -574,17 +574,20 @@ def _note(
     if erg.note == "N":
         return _n(paths, isin, issuer, now, erg.grund or "Note nicht berechenbar", conn)
 
-    # Konfidenz
+    # Konfidenz. Historie = Geschäftsjahre mit Jahreswerten in den Kennzahlen der Scorecard
+    # (vorher Bruttomarge und FCF, die es bei Banken und Versicherern nicht gibt: dort immer K4)
+    eigene_kz = {
+        str(k["kennzahl"])
+        for s in sc_cfg["saeulen"].values()
+        for k in s
+        if k["statistik"] == "wert" and k["kennzahl"] != gscore.KENNZAHL[0]
+    }
     jahre = len(
         {
             r.period_end
-            for r in store.load_metrics(conn, issuer, metric_id="gross_margin")
-            if r.statistik == "wert" and r.value is not None
-        }
-        | {
-            r.period_end
-            for r in store.load_metrics(conn, issuer, metric_id="fcf")
-            if r.statistik == "wert" and r.value is not None
+            for kz in sorted(eigene_kz)
+            for r in store.load_metrics(conn, issuer, metric_id=kz, statistik="wert")
+            if r.value is not None
         }
     )
     flags = store.load_dq_flags(conn, issuer)
