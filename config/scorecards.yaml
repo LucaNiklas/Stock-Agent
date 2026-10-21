@@ -16,7 +16,7 @@
 #   Gruppe (SPEC 3.6), mit Richtung. `reverse_dcf: false` ohne Abstand zum Reverse-DCF
 # - `risiko_verschuldung`: Kennzahl für den Risikoeingang Verschuldung oder null
 # - `konfidenz_abschlag`: Stufen Abschlag auf die Konfidenz (G-Score als Hilfsmaß, SPEC 3.11)
-version: "2.0"
+version: "2.2"
 
 zuordnung:
   - {scorecard: banken, sic: [[6020, 6099]], ab_schritt: 8}
@@ -61,7 +61,8 @@ scorecards:
         - {kennzahl: shareholder_yield, statistik: aktuell, richtung: hoch}
         - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
         - {kennzahl: acquisition_intensity, statistik: wert, richtung: niedrig}
-      insider: []   # Schritt 9. Ohne Insider-Daten geht das Gewicht auf die anderen Säulen
+      insider:   # Schritt 9: fester Wert 0 bis 100 (core/insider.py), ohne Signal fehlt die Säule
+        - {kennzahl: insider_signal, statistik: wert, richtung: absolut}
 
   # Zykliker: wie Standard, Bewertung über das normalisierte EV/EBIT (SPEC 3.4) und Qualität
   # über das Mittel des Zyklus statt des letzten Jahres, Bilanz im Abschwung stärker gewichtet
@@ -92,7 +93,8 @@ scorecards:
         - {kennzahl: shareholder_yield, statistik: aktuell, richtung: hoch}
         - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
         - {kennzahl: acquisition_intensity, statistik: wert, richtung: niedrig}
-      insider: []
+      insider:
+        - {kennzahl: insider_signal, statistik: wert, richtung: absolut}
     multiples:
       - {kennzahl: ev_ebit_normalized, richtung: niedrig}
       - {kennzahl: fcf_yield, richtung: hoch}
@@ -121,7 +123,8 @@ scorecards:
       kapitalallokation:
         - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}   # Verwässerung
         - {kennzahl: sbc_to_revenue, statistik: wert, richtung: niedrig}
-      insider: []
+      insider:
+        - {kennzahl: insider_signal, statistik: wert, richtung: absolut}
     kappungen: [beneish_ueber_schwelle]   # Zinsdeckung bei negativem EBIT ohne Aussage
     multiples:
       - {kennzahl: ev_sales, richtung: niedrig}
@@ -154,7 +157,8 @@ scorecards:
       kapitalallokation:
         - {kennzahl: buyback_yield, statistik: aktuell, richtung: hoch}
         - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
-      insider: []
+      insider:
+        - {kennzahl: insider_signal, statistik: wert, richtung: absolut}
     kappungen: [beneish_ueber_schwelle]
     multiples:
       - {kennzahl: p_tbv, richtung: niedrig}
@@ -186,7 +190,8 @@ scorecards:
       kapitalallokation:
         - {kennzahl: buyback_yield, statistik: aktuell, richtung: hoch}
         - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
-      insider: []
+      insider:
+        - {kennzahl: insider_signal, statistik: wert, richtung: absolut}
     kappungen: [beneish_ueber_schwelle]
     multiples:
       - {kennzahl: pb, richtung: niedrig}
@@ -217,7 +222,8 @@ scorecards:
       kapitalallokation:
         - {kennzahl: ffo_payout, statistik: wert, richtung: niedrig}
         - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
-      insider: []
+      insider:
+        - {kennzahl: insider_signal, statistik: wert, richtung: absolut}
     kappungen: [stopp_flag, beneish_ueber_schwelle]   # Altman Z passt nicht zu Immobilienbilanzen
     multiples:
       - {kennzahl: ffo_yield, richtung: hoch}
@@ -248,7 +254,8 @@ scorecards:
       kapitalallokation:
         - {kennzahl: dividend_cover, statistik: steigung, richtung: hoch}
         - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
-      insider: []
+      insider:
+        - {kennzahl: insider_signal, statistik: wert, richtung: absolut}
     kappungen: [stopp_flag, beneish_ueber_schwelle]   # Bau der Netze auf Kredit: FCF meist negativ, Verschuldung hoch, Altman Z passt nicht
     multiples:
       - {kennzahl: ev_ebitda, richtung: niedrig}

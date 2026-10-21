@@ -40,6 +40,11 @@ sec:
   # der Tabelle Pay versus Performance) taggen Abschlusswerte gerundet oder anders abgegrenzt.
   report_forms: [10-K, 10-K/A, 10-Q, 10-Q/A, 10-KT, 10-KT/A, 10-QT, 10-QT/A, 20-F, 20-F/A,
                  40-F, 40-F/A, 6-K, 6-K/A]
+  # Insidergeschäfte (Bauschritt 9, ADR 0012): Form 4 der letzten Jahre aus der
+  # Einreichungsliste. Drei Vorjahre braucht die Einordnung routinemäßig/opportunistisch
+  form4:
+    jahre: 5
+    max_meldungen: 400
 
 esef:
   # ESEF-Jahresberichte der EU über filings.xbrl.org (SPEC 7.2, ADR 0009). Ohne Schlüssel.

@@ -32,6 +32,7 @@ import yaml
 from stockagent import (
     esef_update,
     fx_update,
+    insider_update,
     kapitalmarkt_update,
     metrics_update,
     prices_update,
@@ -41,6 +42,7 @@ from stockagent.core import (
     dq,
     fx,
     gscore,
+    insider,
     marktrisiko,
     momentum,
     note,
@@ -75,6 +77,7 @@ class Lader:
     )
     umsatz: Callable[[Paths, str, list[str]], None] = field(default=lambda p, z, k: None)
     esef: Callable[[Paths, list[str]], object] = lambda p, i: esef_update.update(p, i)
+    insider: Callable[[Paths, list[str]], object] = lambda p, i: insider_update.update(p, i)
 
 
 def umsatz_laden(paths: Paths, zeitraum: str, konzepte: list[str]) -> None:
@@ -122,6 +125,7 @@ class Konfig:
     metrics: dict[str, Any]
     cmap: dict[str, Any]
     horizonte: dict[str, Any] = field(default_factory=dict)
+    insider: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def laden(cls, config: Any) -> Konfig:
@@ -136,6 +140,7 @@ class Konfig:
             yml("metrics.yaml"),
             yml("concept_map.yaml"),
             yml("horizonte.yaml"),
+            yml("insider_thresholds.yaml"),
         )
 
 
@@ -438,6 +443,10 @@ def bewerten(
         lader.sec(paths, [isin])
         lader.kurse(paths, [isin])
         lader.kennzahlen(paths, [isin])
+    if issuer.startswith("sec:"):
+        # Insidergeschäfte nur für den angefragten Titel (Säule mit festem Wert, kein Rang)
+        progress(f"{isin}: Insidergeschäfte (Form 4)")
+        lader.insider(paths, [isin])
 
     conn = store.connect(paths.db)
     try:
@@ -569,6 +578,9 @@ def _note(
         **cfg.scoring,
         "saeulen_gewichte": sc_cfg.get("saeulen_gewichte", cfg.scoring["saeulen_gewichte"]),
     }
+    # Insider-Signal der Firma (SPEC 3.8): fester Wert der Säule, kein Rang in der Gruppe
+    isig = insider.signal(issuer, store.load_insider(conn, issuer, now), now.date(), cfg.insider)
+    werte = {**werte, insider.KENNZAHL: isig.saeule}
     gscore_weg: dict[str, object] | None = None
     if any(k["kennzahl"] == gscore.KENNZAHL[0] for s in sc_cfg["saeulen"].values() for k in s):
         werte, gruppe_werte, gscore_weg = gscore.ergaenzen(
@@ -779,6 +791,16 @@ def _note(
         "boersenwert_eur": str(mc_eur) if mc_eur is not None else None,
         "scorecard": sc_cfg["name"],
         "g_score": gscore_weg,
+        "insider": {
+            "saeule": str(isig.saeule) if isig.saeule is not None else None,
+            "summe": str(isig.summe) if isig.summe is not None else None,
+            "grund": isig.grund,
+            "geschaefte": [
+                {**asdict(g), "handelstag": g.handelstag.isoformat(), "beitrag": str(g.beitrag)}
+                for g in isig.geschaefte
+            ],
+            "rechenweg": isig.rechenweg,
+        },
         "horizont_standard": standard,
         "horizonte": horizonte,
         "momentum": momentum_weg,

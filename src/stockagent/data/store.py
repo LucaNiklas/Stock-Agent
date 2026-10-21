@@ -23,7 +23,7 @@ import duckdb
 from stockagent.core import pit
 from stockagent.core.hinweise import Hinweis, Kennzahlwert
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);
@@ -366,6 +366,45 @@ CREATE TABLE IF NOT EXISTS index_members (
 );
 """
 
+SCHEMA_V12 = """
+-- Insidergeschäfte (Bauschritt 9, SPEC 3.8, 7.3). Je Geschäft eine Zeile, wie gemeldet.
+-- tx_id = <accession>:<laufende Nummer>. Werte als Text wie geliefert
+CREATE TABLE IF NOT EXISTS insider_tx (
+    tx_id            VARCHAR PRIMARY KEY,
+    issuer_id        VARCHAR NOT NULL,
+    person_id        VARCHAR NOT NULL,
+    person_name      VARCHAR NOT NULL,
+    rolle            VARCHAR NOT NULL,     -- ceo, cfo, officer, director, ten_percent, other
+    titel            VARCHAR,
+    beziehung        VARCHAR NOT NULL,     -- self oder indirect
+    beziehung_text   VARCHAR,
+    code             VARCHAR NOT NULL,     -- Transaktionscode laut Form 4
+    art              VARCHAR NOT NULL,     -- buy, sell, grant, exercise, tax, gift, other
+    offener_markt    BOOLEAN NOT NULL,
+    plan_10b5_1      BOOLEAN NOT NULL,
+    stueck           VARCHAR NOT NULL,
+    preis            VARCHAR,
+    waehrung         VARCHAR NOT NULL,
+    bestand_danach   VARCHAR,
+    handelstag       DATE NOT NULL,
+    veroeffentlicht  TIMESTAMP NOT NULL,   -- naives UTC, Annahme bei der SEC
+    accession        VARCHAR NOT NULL,
+    raw_sha256       VARCHAR NOT NULL,
+    quelle           VARCHAR NOT NULL,
+    retrieved_at     TIMESTAMP NOT NULL
+);
+CREATE INDEX IF NOT EXISTS insider_issuer ON insider_tx (issuer_id, handelstag);
+-- Gelesene Meldungen, auch ohne Geschäfte mit Aktien (nur Optionen), damit sie nicht erneut
+-- geladen werden
+CREATE TABLE IF NOT EXISTS insider_filings (
+    accession   VARCHAR PRIMARY KEY,
+    issuer_id   VARCHAR NOT NULL,
+    geschaefte  INTEGER NOT NULL,
+    fehler      VARCHAR,
+    retrieved_at TIMESTAMP NOT NULL
+);
+"""
+
 SCHEMA_V11 = """
 -- Noten je Anlagehorizont im Tagesstand (ADR 0011): {"kurz": {"note": "B", "score": "71.2",
 -- "kategorie": "Beobachten"}, ...}. Die Spalten oben enthalten den Standardhorizont.
@@ -384,7 +423,7 @@ CREATE TABLE IF NOT EXISTS document_pages (
 """
 
 # Schemaversionen, aus denen ohne Datenverlust aufgerüstet wird.
-_MIGRATABLE = {3, 4, 5, 6, 7, 8, 9, 10}
+_MIGRATABLE = {3, 4, 5, 6, 7, 8, 9, 10, 11}
 
 _COLUMNS = (
     "isin, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, lei_name, "
@@ -461,6 +500,7 @@ def connect(path: Path) -> duckdb.DuckDBPyConnection:
     conn.execute(SCHEMA_V9)
     conn.execute(SCHEMA_V10)
     conn.execute(SCHEMA_V11)
+    conn.execute(SCHEMA_V12)
     conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", [str(SCHEMA_VERSION)])
     return conn
 
@@ -2083,3 +2123,136 @@ def isins_for_issuer(conn: duckdb.DuckDBPyConnection, issuer_id: str) -> list[st
     ).fetchall()
     beleg = dict(rows)
     return sorted(isins, key=lambda i: (bool(beleg.get(i, False)), i))
+
+
+# ------------------------------------------------------------------ Insider (Bauschritt 9)
+
+
+def save_insider(
+    conn: duckdb.DuckDBPyConnection,
+    accession: str,
+    issuer_id: str,
+    rows: list[Any],
+    retrieved_at: datetime,
+    fehler: str | None = None,
+) -> None:
+    """Geschäfte einer Form-4-Meldung (`data.sources.form4.InsiderTx`) und die Meldung als
+    gelesen. Erneutes Speichern derselben Meldung ersetzt ihre Geschäfte."""
+    jetzt = _utc_naive(retrieved_at)
+    conn.execute("BEGIN")
+    try:
+        conn.execute("DELETE FROM insider_tx WHERE accession = ?", [accession])
+        if rows:
+            conn.executemany(
+                "INSERT INTO insider_tx VALUES "
+                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    [
+                        r.tx_id,
+                        r.issuer_id,
+                        r.person_id,
+                        r.person_name,
+                        r.rolle,
+                        r.titel,
+                        r.beziehung,
+                        r.beziehung_text,
+                        r.code,
+                        r.art,
+                        r.offener_markt,
+                        r.plan_10b5_1,
+                        str(r.stueck),
+                        str(r.preis) if r.preis is not None else None,
+                        r.waehrung,
+                        str(r.bestand_danach) if r.bestand_danach is not None else None,
+                        r.handelstag,
+                        _utc_naive(r.veroeffentlicht),
+                        r.accession,
+                        r.raw_sha256,
+                        r.quelle,
+                        jetzt,
+                    ]
+                    for r in rows
+                ],
+            )
+        conn.execute(
+            "INSERT OR REPLACE INTO insider_filings VALUES (?, ?, ?, ?, ?)",
+            [accession, issuer_id, len(rows), fehler, jetzt],
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def insider_filings_loaded(conn: duckdb.DuckDBPyConnection, issuer_id: str) -> set[str]:
+    return {
+        r[0]
+        for r in conn.execute(
+            "SELECT accession FROM insider_filings WHERE issuer_id = ? AND fehler IS NULL",
+            [issuer_id],
+        ).fetchall()
+    }
+
+
+@dataclass(frozen=True)
+class InsiderRow:
+    tx_id: str
+    person_id: str
+    person_name: str
+    rolle: str
+    titel: str | None
+    beziehung: str
+    beziehung_text: str | None
+    code: str
+    art: str
+    offener_markt: bool
+    plan_10b5_1: bool
+    stueck: Decimal
+    preis: Decimal | None
+    waehrung: str
+    bestand_danach: Decimal | None
+    handelstag: date
+    veroeffentlicht: datetime
+    accession: str
+    quelle: str
+
+
+def load_insider(
+    conn: duckdb.DuckDBPyConnection, issuer_id: str, as_of: datetime | None = None
+) -> list[InsiderRow]:
+    """Geschäfte eines Emittenten, älteste zuerst. Mit `as_of` nur, was bis dahin veröffentlicht
+    war (HR-07)."""
+    sql = (
+        "SELECT tx_id, person_id, person_name, rolle, titel, beziehung, beziehung_text, code, "
+        "art, offener_markt, plan_10b5_1, stueck, preis, waehrung, bestand_danach, handelstag, "
+        "veroeffentlicht, accession, quelle FROM insider_tx WHERE issuer_id = ?"
+    )
+    params: list[Any] = [issuer_id]
+    if as_of is not None:
+        sql += " AND veroeffentlicht <= ?"
+        params.append(_utc_naive(as_of))
+    rows = conn.execute(sql + " ORDER BY handelstag, tx_id", params).fetchall()
+    return [
+        InsiderRow(
+            r[0],
+            r[1],
+            r[2],
+            r[3],
+            r[4],
+            r[5],
+            r[6],
+            r[7],
+            r[8],
+            bool(r[9]),
+            bool(r[10]),
+            Decimal(r[11]),
+            _dec(r[12]),
+            r[13],
+            _dec(r[14]),
+            r[15],
+            r[16].replace(tzinfo=UTC),
+            r[17],
+            r[18],
+        )
+        for r in rows
+    ]

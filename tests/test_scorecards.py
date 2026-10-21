@@ -251,8 +251,8 @@ def test_scorecard_config_is_consistent() -> None:
         assert sum(Decimal(str(v)) for v in gewichte.values()) == 1, sid
         for kennzahlen in sc["saeulen"].values():
             for k in kennzahlen:
-                assert k["richtung"] in ("hoch", "niedrig")
-                if k["kennzahl"] == gscore.KENNZAHL[0]:
+                assert k["richtung"] in ("hoch", "niedrig", "absolut")
+                if k["kennzahl"] in (gscore.KENNZAHL[0], "insider_signal"):
                     continue
                 d = METRICS[k["kennzahl"]]
                 assert k["statistik"] in ("wert", *trends.STATISTIKEN), (sid, k)
