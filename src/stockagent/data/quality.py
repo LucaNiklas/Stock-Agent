@@ -21,7 +21,7 @@ Geprüften (HR-08: die ausgeführten Prüfungen werden genannt) und je Befund ei
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
@@ -34,7 +34,7 @@ from stockagent.data import concepts
 from stockagent.data.sources.sec_xbrl import InstanceFact, Summation
 from stockagent.data.store import DqFlag, StoredFact
 
-ANNUAL_FORMS = ("10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A", "10-KT")
+ANNUAL_FORMS = ("10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A", "10-KT", "ESEF")
 
 
 @dataclass(frozen=True)
@@ -125,15 +125,18 @@ def _ergebnis_flags(
     ]
 
 
-def jahresstichtage(facts: Sequence[StoredFact]) -> list[date]:
+def jahresstichtage(facts: Sequence[StoredFact], kern: Collection[str] | None = None) -> list[date]:
     """Stichtage der Geschäftsjahre: Enden von Jahreswerten (Dauer 52 bis 53 Wochen oder
-    12 Monate) aus Jahresberichten, absteigend."""
+    12 Monate) aus Jahresberichten, absteigend. Mit `kern` nur Enden, für die eines dieser
+    Konzepte einen Jahreswert hat. Sonst zählt auch ein Planwert für das kommende Jahr im
+    Anhang (Diageo: erwartete Pensionsbeiträge bis 30.06.2026 im Bericht für 2025)."""
     ends = {
         f.period_end
         for f in facts
         if f.form in ANNUAL_FORMS
         and dq.periode_passt(f.period_start, f.period_end, "FY")
         and f.period_start is not None
+        and (kern is None or f.concept in kern)
     }
     return sorted(ends, reverse=True)
 
@@ -159,6 +162,17 @@ def _index(facts: Sequence[StoredFact]) -> dict[tuple[str, date | None, date], S
 # ------------------------------------------------------------------ DQ-01
 
 
+def kern_konzepte(cmap: dict[str, Any]) -> set[str]:
+    """Konzepte, deren Jahreswert ein Geschäftsjahr belegt: Umsatz, Bruttoergebnis, Ergebnis."""
+    return {c for m in ("revenue", "gross_profit", "net_income") for c in cmap["us-gaap"][m]}
+
+
+def _aktiva(cmap: dict[str, Any]) -> list[str]:
+    """Konzepte der Bilanzsumme (US-GAAP und IFRS, Bauschritt 7)."""
+    a = cmap["bilanz"]["aktiva"]
+    return [a] if isinstance(a, str) else list(a)
+
+
 def bilanzgleichung(
     ctx: Kontext, cmap: dict[str, Any], cfg: dict[str, Any], stichtage: list[date]
 ) -> list[DqFlag]:
@@ -167,7 +181,9 @@ def bilanzgleichung(
     flags: list[DqFlag] = []
     geprueft = 0
     for stichtag in stichtage:
-        aktiva = idx.get((cmap["bilanz"]["aktiva"], None, stichtag))
+        aktiva = next(
+            (a for c in _aktiva(cmap) if (a := idx.get((c, None, stichtag))) is not None), None
+        )
         if aktiva is None:
             continue
         for variante in cmap["bilanz"]["passiva"]:
@@ -265,7 +281,7 @@ def einheiten(ctx: Kontext, cmap: dict[str, Any]) -> list[DqFlag]:
     ]
     # Fremdwährungen im Anhang (Anleihen in EUR) sind normal. Kernwerte müssen in der
     # Währung der Bilanz stehen.
-    bilanz = Counter(f.currency for f in ctx.facts if f.concept == cmap["bilanz"]["aktiva"])
+    bilanz = Counter(f.currency for f in ctx.facts if f.concept in _aktiva(cmap))
     if bilanz:
         haupt = bilanz.most_common(1)[0][0]
         kern = {c for m in cmap["kernwerte"] for c in cmap["us-gaap"][m]}
@@ -546,7 +562,7 @@ def splits(ctx: Kontext, cmap: dict[str, Any], cfg: dict[str, Any]) -> list[DqFl
 
 def run(ctx: Kontext, cmap: dict[str, Any], cfg: dict[str, Any]) -> list[DqFlag]:
     """Alle Prüfungen aus SPEC 3.2 für einen Emittenten."""
-    stichtage = jahresstichtage(ctx.facts)[:10]
+    stichtage = jahresstichtage(ctx.facts, kern_konzepte(cmap))[:10]
     return [
         *bilanzgleichung(ctx, cmap, cfg, stichtage),
         *summenstruktur(ctx, cmap, cfg),

@@ -50,17 +50,32 @@ def berichtswaehrung(d: Reihen, t: date) -> str | None:
 
 
 def kurs(r: Rechenweg, d: Reihen, t: date) -> Eingabe:
-    """Schlusskurs zum Stichtag in Berichtswährung, mit Umrechnung im Rechenweg."""
+    """Schlusskurs zum Stichtag in Berichtswährung, mit Umrechnung im Rechenweg. Bei einem
+    Hinterlegungsschein danach je Stammaktie (Kurs je Schein / Aktien je Schein)."""
     k = d.hole("kurs", t)
     _cp01(r, t, k)
     r.pruefe("CP-02", "Kurs positiv", k.wert > 0)
     ziel = berichtswaehrung(d, t)
-    if ziel is None or k.waehrung == ziel:
+    if ziel is not None and k.waehrung != ziel:
+        unter = dict(d.parameter.get("unterwaehrungen", {}))
+        haupt = fx.hauptwaehrung(str(k.waehrung), unter)
+        # Nur Unterwährung (GBp -> GBP): Teiler 100, kein Wechselkurs nötig
+        benoetigt = set() if haupt == ziel else {haupt, ziel} - {"EUR"}
+        kurse = {w: d.hole(f"fx_{w}", t) for w in benoetigt}
+        k = fx.umrechnen(r, "kurs_in_berichtswaehrung", k, ziel, kurse, unter)
+    if not d.hat("adr_aktien_je_schein", t):
         return k
-    unter = dict(d.parameter.get("unterwaehrungen", {}))
-    benoetigt = {fx.hauptwaehrung(str(k.waehrung), unter), ziel} - {"EUR"}
-    kurse = {w: d.hole(f"fx_{w}", t) for w in benoetigt}
-    return fx.umrechnen(r, "kurs_in_berichtswaehrung", k, ziel, kurse, unter)
+    verh = d.hole("adr_aktien_je_schein", t)
+    r.pruefe("CP-02", "Aktien je Schein positiv", verh.wert > 0)
+    return Eingabe(
+        r.schritt(
+            "kurs_je_aktie", "kurs_schein / aktien_je_schein", kurs_schein=k, aktien_je_schein=verh
+        ),
+        f"{k.quelle} je Schein, umgerechnet je Aktie ({verh.quelle})",
+        k.einheit,
+        k.periode_ende,
+        k.waehrung,
+    )
 
 
 def _aktien(r: Rechenweg, d: Reihen, t: date) -> Decimal:

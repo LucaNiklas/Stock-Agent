@@ -73,6 +73,7 @@ Bewusst verschoben (Lucas Entscheidung 13.10.2026): Kennzahlen mit Börsenkurs n
 
 - **Ziel:** Dasselbe für EU-Werte, vergleichbar über IFRS und US-GAAP.
 - **Neue Dateien:** `data/sources/pdf.py` (PDF-Rückfall mit Docling, SPEC 7.4), Agentenvorlage A2 (Extraktion).
+- **Gebaut (20.10.2026, ADR 0009):** IFRS-Konzepte in `config/concept_map.yaml` (geprüft an zehn 20-F-Meldern), `data/sources/esef.py` und `esef_update.py` (Befehl `esef update`, Rückfall in `bewerten`), Emittent je ISIN über die LEI, ADR-Verhältnis aus dem Börsennamen, abgeleiteter Umsatz und Aktienzahl, Leasing und gezahlte Zinsen unter IFRS (ACC-01, ACC-04), `config/accounting_adjustments.yaml` mit Status je Regel, Zins GBP von der Bank of England. Offen: deutsche Berichte (fehlen bei filings.xbrl.org), PDF-Rückfall mit Docling und A2, Regeln mit Anhangangaben, Zins CHF und DKK.
 - **Abnahme:** 10 DAX-Werte vollständig, je Regel ACC-01 bis ACC-14 ein Test mit echtem Bericht, GBX- und ADR-Fall getestet.
 
 ### Schritt 8: Weitere Scorecards

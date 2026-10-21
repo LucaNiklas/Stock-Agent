@@ -41,6 +41,16 @@ sec:
   report_forms: [10-K, 10-K/A, 10-Q, 10-Q/A, 10-KT, 10-KT/A, 10-QT, 10-QT/A, 20-F, 20-F/A,
                  40-F, 40-F/A, 6-K, 6-K/A]
 
+esef:
+  # ESEF-Jahresberichte der EU über filings.xbrl.org (SPEC 7.2, ADR 0009). Ohne Schlüssel.
+  # Abdeckung ab 2020. Deutsche Berichte fehlen dort (Unternehmensregister nicht angebunden).
+  base_url: https://filings.xbrl.org
+  filings_url: https://filings.xbrl.org/api/entities/{lei}/filings
+  pause_s: 1.0
+  timeout_s: 180
+  jahre: 6               # so viele Einreichungen je Firma, neueste zuerst
+  max_fehler: 0          # Einreichungen mit Validierungsfehlern von filings.xbrl.org auslassen
+
 openfigi:
   # ISIN -> Ticker (ADR 0002). Ohne API-Schlüssel, Grenzen live gemessen am 13.10.2026
   # (Antwort-Header ratelimit-policy: 25;w=60, mehr als 10 Aufträge je Anfrage ergibt HTTP 413).
@@ -167,6 +177,10 @@ zinsen:
   bundesbank_url: https://api.statistiken.bundesbank.de/rest/data/BBSIS/D.I.ZST.ZI.EUR.S1311.B.A604.R10XX.R.A.A._Z._Z.A?format=csv&startPeriod={start}
   # USD: Daily Treasury Par Yield Curve, Spalte "10 Yr", eine Datei je Kalenderjahr
   treasury_url: https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/{jahr}/all?type=daily_treasury_yield_curve&field_tdr_date_value={jahr}&page&_format=csv
+  # GBP: Bank of England, Serie IUDMNPY (10 Jahre, nominal, Par Yield), täglich (Bauschritt 7)
+  boe_url: https://www.bankofengland.co.uk/boeapps/database/_iadb-fromshowcolumns.asp?csv.x=yes&Datefrom={start}&Dateto=now&SeriesCodes=IUDMNPY&CSVF=TN&UsingCodes=Y&VPD=Y&VFD=N
+  # CHF (SNB data.snb.ch, Cube rendoblid) endet im Juli 2025, DKK (api.statbank.dk) nicht
+  # erreichbar: beide vorerst ohne risikofreien Zins (ADR 0009)
   start: "2015-01-01"
   aktuell_tage: 1
 

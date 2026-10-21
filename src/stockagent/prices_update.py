@@ -253,6 +253,10 @@ class _Lauf:
             ergebnis.fehler = "nicht im Universum"
             return ergebnis
         name, land = info
+        if store.listing_is_receipt(conn, isin):
+            # Hinterlegungsscheine (ADRs) handeln in den USA, die Heimatbörse der Firma führt die
+            # Stammaktie. Sonst wählt die Zuordnung etwa die Londoner Zeile eines ADRs (BP, Diageo)
+            land = "US"
         bekannt = store.load_price_symbol(conn, isin)
         if bekannt and bekannt.status == "zugeordnet" and self.aktuell(bekannt):
             ergebnis.symbol, ergebnis.status, ergebnis.uebersprungen = (

@@ -78,6 +78,25 @@ def parse_treasury(raw: bytes, serie: str = "rf_10y_USD", spalte: str = "10 Yr")
     return sorted(out, key=lambda z: z.datum)
 
 
+def parse_boe(raw: bytes, serie: str = "rf_10y_GBP", spalte: str = "IUDMNPY") -> list[Zins]:
+    """Bank of England, Statistical Interactive Database (CSV, Datum „01 Sep 2026“).
+    IUDMNPY: Rendite 10-jähriger britischer Staatsanleihen (nominal, Par Yield), täglich."""
+    rows = list(csv.DictReader(io.StringIO(raw.decode("utf-8-sig"))))
+    if not rows or "DATE" not in rows[0] or spalte not in rows[0]:
+        raise ZinsFormatError(f"Datei der Bank of England ohne Spalten DATE und {spalte}")
+    out = []
+    for row in rows:
+        wert = (row.get(spalte) or "").strip()
+        if not wert:
+            continue
+        tag = datetime.strptime(row["DATE"].strip(), "%d %b %Y").date()
+        try:
+            out.append(Zins(tag, serie, Decimal(wert)))
+        except InvalidOperation as exc:
+            raise ZinsFormatError(f"Bank of England: Zins nicht lesbar: {wert}") from exc
+    return sorted(out, key=lambda z: z.datum)
+
+
 @dataclass(frozen=True)
 class Abruf:
     zinsen: list[Zins]
@@ -111,3 +130,7 @@ class ZinsClient:
     def treasury(self, jahr: int) -> Abruf:
         raw, ref = self._hole(str(self.cfg["treasury_url"]).format(jahr=jahr))
         return Abruf(parse_treasury(raw), ref)
+
+    def boe(self, start: date) -> Abruf:
+        raw, ref = self._hole(str(self.cfg["boe_url"]).format(start=f"{start:%d/%b/%Y}"))
+        return Abruf(parse_boe(raw), ref)

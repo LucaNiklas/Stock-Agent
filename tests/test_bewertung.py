@@ -174,6 +174,7 @@ class Attrappe:
             wechselkurse=lambda p: None,
             kennzahlen=lambda p, i: self.abrufe.append(f"kennzahlen {len(i)}"),
             umsatz=umsatz,
+            esef=lambda p, i: self.abrufe.append(f"esef {len(i)}"),
         )
 
 
@@ -243,7 +244,7 @@ def test_too_small_group_and_other_scorecard(paths: Paths) -> None:
 
 def test_unknown_isin_is_status_n(paths: Paths) -> None:
     erg = bewertung.bewerten(paths, "DE0007164600", lader=Attrappe().lader(), now=NOW)
-    assert erg.note == "N" and "kein SEC-Melder" in (erg.grund or "")
+    assert erg.note == "N" and "weder SEC-Melder noch ESEF" in (erg.grund or "")
 
 
 # ------------------------------------------------------------------ Tiers

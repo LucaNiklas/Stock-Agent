@@ -1,4 +1,77 @@
-# Normalisierungsregeln (SPEC 4.3).
-# PLATZHALTER: wird in Bauschritt 7 gebaut (docs/BAUPLAN.md).
+# Normalisierungsregeln (SPEC 4.3). Version bei Änderung erhöhen, Eintrag im Methodik-Changelog.
 #
-# Inhalt: Je Regel ACC-01 bis ACC-14: ID, Version, Thema, Quelle, Parameter.
+# Stand Bauschritt 7 (20.10.2026, ADR 0009): Regeln, die mit den XBRL-Daten allein sauber gehen,
+# sind aktiv. Die übrigen brauchen Angaben aus dem Anhang (Berichtstext) und damit die
+# Extraktion mit Beleg (A2, PDF-Rückfall). Sie sind offen und im Bericht als nicht angewandt
+# genannt. Geraten wird nie (HR-05).
+version: "1.0"
+
+regeln:
+  ACC-01:
+    thema: Leasing
+    status: aktiv (teilweise)
+    umsetzung: Leasingverbindlichkeiten zählen zur Nettoverschuldung (core/kennzahlen.leasing).
+      Unter IFRS ohne eigene Bilanzzeile gelten sie als in Borrowings enthalten und werden nicht
+      doppelt gezählt (data/inputs.reihen, Vermerk LEASING_IN_SCHULDEN). Offen ist der
+      Leasingaufwand aus dem Anhang für das EBITDA von US-GAAP-Operating-Leases.
+    quelle: IFRS 16, ASC 842
+  ACC-02:
+    thema: Entwicklungskosten
+    status: offen
+    grund: aktivierte Entwicklungskosten der Periode stehen nur im Anhang
+  ACC-03:
+    thema: Vorräte LIFO
+    status: offen
+    grund: LIFO-Reserve steht nur im Anhang (US-GAAP, us-gaap:InventoryLIFOReserve wird in
+      Schritt 7 Teil 2 geprüft)
+  ACC-04:
+    thema: Gezahlte Zinsen in der Kapitalflussrechnung
+    status: aktiv
+    umsetzung: ifrs-full:InterestPaidClassifiedAsFinancingActivities wird vom operativen
+      Cashflow abgezogen (core/kennzahlen.fcf_wert, Vermerk ACC-04)
+    quelle: IAS 7.31-33, ab IFRS 18 einheitlich
+  ACC-05:
+    thema: Ergebnis-Zwischensummen
+    status: offen
+    grund: EBIT aus Komponenten statt ausgewiesenem operativen Ergebnis braucht die Gliederung
+      der Erfolgsrechnung. Bis dahin ProfitLossFromOperatingActivities (IFRS) bzw.
+      OperatingIncomeLoss (US-GAAP), bei fehlendem Wert abgeleitet mit Vermerk
+  ACC-06:
+    thema: Bereinigte Kennzahlen
+    status: aktiv
+    umsetzung: bereinigte Werte des Managements werden nie übernommen (nur XBRL-Pflichtwerte)
+  ACC-07:
+    thema: Wertaufholung
+    status: offen
+    grund: Betrag steht im Anhang
+  ACC-08:
+    thema: Neubewertung
+    status: offen
+    grund: Fair-Value-Änderungen im operativen Ergebnis stehen im Anhang
+  ACC-09:
+    thema: Goodwill unter HGB
+    status: nicht anwendbar
+    grund: HGB-Abschlüsse erst mit Datenquelle für lokale Standards
+  ACC-10:
+    thema: Pensionen
+    status: aktiv (teilweise)
+    umsetzung: Defizit als schuldenähnlicher Posten in net_debt_incl_pensions (US-GAAP). IFRS-
+      Konzept für den Finanzierungsstatus folgt mit der Prüfung gegen Berichte
+  ACC-11:
+    thema: Aktienbasierte Vergütung
+    status: aktiv
+    umsetzung: fcf_after_sbc zieht die Vergütung immer ab
+  ACC-12:
+    thema: Versicherungsverträge
+    status: offen
+    grund: Scorecard Versicherer (Schritt 8) vergleicht nur innerhalb desselben Standards
+  ACC-13:
+    thema: Geschäftsjahr
+    status: aktiv (teilweise)
+    umsetzung: TTM aus Quartalen für 10-Q-Melder. 20-F-Melder berichten halbjährlich ohne XBRL
+      bei der SEC, dort nur Geschäftsjahreswerte
+  ACC-14:
+    thema: Minderheitsanteile
+    status: aktiv
+    umsetzung: Unternehmenswert mit Minderheiten, Ergebnis je Aktie mit dem Anteil der Aktionäre
+      des Mutterunternehmens (ProfitLossAttributableToOwnersOfParent)

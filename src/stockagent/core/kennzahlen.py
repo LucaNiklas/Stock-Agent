@@ -119,7 +119,14 @@ def finanzschulden(r: Rechenweg, d: Reihen, t: date) -> Decimal:
 
 
 def leasing(r: Rechenweg, d: Reihen, t: date) -> Decimal:
-    """Leasingverbindlichkeiten: Operating plus Finance, gesamt oder aus kurz- und langfristig."""
+    """Leasingverbindlichkeiten: Operating plus Finance, gesamt oder aus kurz- und langfristig.
+    Unter IFRS ohne eigene Bilanzzeile sind sie in den Finanzschulden enthalten (Vermerk)."""
+    if t in d.parameter.get("leasing_in_finanzschulden", ()):
+        r.vermerk(
+            "LEASING_IN_SCHULDEN: Leasingverbindlichkeiten ohne eigene Bilanzzeile, in den "
+            "Finanzschulden (Borrowings) enthalten und nicht noch einmal addiert"
+        )
+        return r.schritt("leasing_in_finanzschulden", "0")
 
     def art(prefix: str) -> Wert:
         if d.hat(prefix, t):
@@ -168,6 +175,21 @@ def fcf_wert(r: Rechenweg, d: Reihen, t: date) -> Decimal:
     capex = d.hole("capex", t)
     _cp01(r, t, ocf, capex)
     r.pruefe("CP-02", "Investitionen als Auszahlung nicht negativ", capex.wert >= 0)
+    if d.hat("interest_paid_financing", t):
+        # ACC-04 (config/accounting_adjustments.yaml): unter IFRS als Finanzierung gezeigte
+        # gezahlte Zinsen vom operativen Cashflow abziehen, wie unter US-GAAP
+        r.vermerk(
+            "ACC-04: gezahlte Zinsen unter Finanzierung ausgewiesen, vom operativen Cashflow "
+            "abgezogen"
+        )
+        return r.schritt(
+            "fcf",
+            "ocf - zinsen_finanzierung - capex - capex_immateriell",
+            ocf=ocf,
+            zinsen_finanzierung=d.hole("interest_paid_financing", t),
+            capex=capex,
+            capex_immateriell=_opt(r, d, "capex_intangibles", t),
+        )
     return r.schritt(
         "fcf",
         "ocf - capex - capex_immateriell",

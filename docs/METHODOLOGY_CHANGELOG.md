@@ -31,6 +31,15 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Kursquelle Yahoo Finance für alle Länder, Kurse wie geliefert gespeichert (SPEC 7.3).
 - Einordnung gegen den Gesamtmarkt nur, wenn es einen Lauf über alle Titel gibt (SPEC 3.3).
 
+## 5.2 (20.10.2026, Bauschritt 7 Teil 1, `methodology_version` der Kennzahlen 1.6, Konzeptzuordnung 1.2)
+
+- IFRS-Konzepte (`ifrs-full`) in `config/concept_map.yaml`, geprüft an zehn europäischen 20-F-Berichten (ADR 0009).
+- Umsatz aus Bruttoergebnis plus Umsatzkosten, wenn kein Gesamtumsatz gemeldet ist. Ein Geschäftsjahr braucht Umsatz, Bruttoergebnis oder Ergebnis als Jahreswert.
+- Leasing unter IFRS ohne eigene Bilanzzeile gilt als in den Finanzschulden enthalten (ACC-01). Gezahlte Zinsen unter Finanzierung mindern den FCF (ACC-04). Normalisierungsregeln mit Status in `config/accounting_adjustments.yaml`.
+- Hinterlegungsscheine: Kurs je Stammaktie über die Aktien je Schein aus dem Börsennamen oder `state/adr_verhaeltnis.yaml`.
+- Vergleichsgruppe: eigener Umsatz in USD, wenn die Firma nicht in den Frames der SEC steht.
+- ESEF-Berichte über filings.xbrl.org (Emittent `lei:<LEI>`), Emittent je ISIN über die LEI, Aktienzahl aus dem Ergebnis je Aktie, wenn keine gemeldet ist. Risikofreier Zins für GBP (Bank of England).
+
 ## 5.1 (20.10.2026, Bauschritt 6, Agentenvorlagen Version 1.0.0)
 
 - Tiefenanalyse über einen Python-Zustandsautomaten mit Agenten A1, A3, A4, A5, A7, Erwiderung A3, J1, J2 und A9 (ADR 0008). Modelle aus `config/models.yaml`, Vorlagen in `agents_src/`, Versionen in `src/stockagent/agents/prompts/versions.yaml`.

@@ -1982,3 +1982,61 @@ def loaded_documents(
         [issuer_id],
     ).fetchall()
     return [(r[0], r[1], r[2], r[3], int(r[4])) for r in rows]
+
+
+# ------------------------------------------------------------------ Emittent je ISIN (Bauschritt 7)
+
+
+def issuer_for_isin(conn: duckdb.DuckDBPyConnection, isin: str) -> str | None:
+    """Emittent zu einer ISIN, in dieser Reihenfolge (ADR 0009):
+
+    1. eigene Zuordnung zur SEC (`isin_cik`)
+    2. ESEF-Emittent mit der LEI der ISIN (`lei:<LEI>`, sobald Werte geladen sind)
+    3. SEC-Emittent mit derselben LEI, etwa die deutsche SAP-Aktie über das ADR von SAP
+    """
+    isin = isin.upper()
+    row = conn.execute(
+        "SELECT cik FROM isin_cik WHERE isin = ? AND status = 'zugeordnet' AND cik IS NOT NULL",
+        [isin],
+    ).fetchone()
+    if row:
+        return f"sec:{row[0]}"
+    lei = conn.execute("SELECT lei FROM listings WHERE isin = ?", [isin]).fetchone()
+    if not lei or not lei[0]:
+        return None
+    esef = conn.execute(
+        "SELECT issuer_id FROM issuers WHERE issuer_id = ?", [f"lei:{lei[0]}"]
+    ).fetchone()
+    if esef:
+        return str(esef[0])
+    sec_row = conn.execute(
+        "SELECT issuer_id FROM issuers WHERE lei = ? AND issuer_id LIKE 'sec:%' "
+        "ORDER BY issuer_id LIMIT 1",
+        [lei[0]],
+    ).fetchone()
+    return str(sec_row[0]) if sec_row else None
+
+
+def isins_for_issuer(conn: duckdb.DuckDBPyConnection, issuer_id: str) -> list[str]:
+    """Alle ISINs eines Emittenten: SEC-Zuordnung und ISINs mit derselben LEI. Stammaktien
+    vor Hinterlegungsscheinen."""
+    lei_row = conn.execute("SELECT lei FROM issuers WHERE issuer_id = ?", [issuer_id]).fetchone()
+    isins = {
+        r[0]
+        for r in conn.execute(
+            "SELECT isin FROM isin_cik WHERE status = 'zugeordnet' AND 'sec:' || cik = ?",
+            [issuer_id],
+        ).fetchall()
+    }
+    if lei_row and lei_row[0]:
+        isins.update(
+            r[0]
+            for r in conn.execute(
+                "SELECT isin FROM listings WHERE lei = ? AND listed", [lei_row[0]]
+            ).fetchall()
+        )
+    rows = conn.execute(
+        "SELECT isin, is_receipt FROM listings WHERE isin IN (SELECT unnest(?))", [sorted(isins)]
+    ).fetchall()
+    beleg = dict(rows)
+    return sorted(isins, key=lambda i: (bool(beleg.get(i, False)), i))

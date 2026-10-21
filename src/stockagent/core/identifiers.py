@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from decimal import Decimal
 
 _ISIN = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
 
@@ -157,6 +158,30 @@ def is_depositary_receipt(name: str) -> bool:
     nichts über das Unternehmen (ADRs haben immer eine US-ISIN).
     """
     return bool(_RECEIPT.search(name.upper()))
+
+
+_ADR_VERHAELTNIS = re.compile(
+    r"\b(?:SP\.\s*|SPON\.\s*)?(?:ADRS?|NY\s+SHS|NY-REG\.?)\s*"
+    r"(?:/\s*(?P<n>\d+)(?![\d,.])|(?P<z>\d+)/(?P<m>\d+)(?=/|\s|$)|(?P<e>\d+)(?=/[A-Z]|\s|$))"
+)
+
+
+def adr_verhaeltnis(name: str) -> Decimal | None:
+    """Stammaktien je Hinterlegungsschein laut Börsenname der Deutschen Börse (SPEC 5.2 Nr. 11).
+
+    „SP.ADR/6“ heißt 1 Schein = 6 Aktien, „ADR 1/2/EO 2“ heißt 1 Schein = 1/2 Aktie (danach der
+    Nennwert), „ADR 1“ oder „ADR 1/EO-,06“ heißt 1 Schein = 1 Aktie. Ohne Angabe None: dann muss
+    das Verhältnis festgelegt werden (`state/adr_verhaeltnis.yaml`)."""
+    m = _ADR_VERHAELTNIS.search(name.upper())
+    if m is None:
+        return None
+    if m.group("n"):
+        wert = Decimal(m.group("n"))
+    elif m.group("z"):
+        wert = Decimal(m.group("z")) / Decimal(m.group("m"))
+    else:
+        wert = Decimal(m.group("e"))
+    return wert if wert > 0 else None
 
 
 def choose_country(

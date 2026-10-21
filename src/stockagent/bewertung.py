@@ -29,10 +29,17 @@ from typing import Any
 import duckdb
 import yaml
 
-from stockagent import fx_update, kapitalmarkt_update, metrics_update, prices_update, sec_update
+from stockagent import (
+    esef_update,
+    fx_update,
+    kapitalmarkt_update,
+    metrics_update,
+    prices_update,
+    sec_update,
+)
 from stockagent.core import dq, fx, marktrisiko, note, sektoren, vergleichsgruppe
 from stockagent.core.calc import Rechenweg
-from stockagent.data import store
+from stockagent.data import concepts, inputs, quality, store
 from stockagent.data.sources import sec
 from stockagent.paths import Paths
 
@@ -58,6 +65,7 @@ class Lader:
         p, isins=i
     )
     umsatz: Callable[[Paths, str, list[str]], None] = field(default=lambda p, z, k: None)
+    esef: Callable[[Paths, list[str]], object] = lambda p, i: esef_update.update(p, i)
 
 
 def umsatz_laden(paths: Paths, zeitraum: str, konzepte: list[str]) -> None:
@@ -236,6 +244,37 @@ def _risikotage(
     return tage
 
 
+def _eigener_umsatz_usd(
+    conn: duckdb.DuckDBPyConnection, issuer_id: str, cmap: dict[str, Any]
+) -> Decimal:
+    """Umsatz des letzten Geschäftsjahres in USD, wenn die Firma nicht in den Frames steht
+    (IFRS-Berichte in anderer Währung, Bauschritt 7). Umrechnung im Rechenweg zum EZB-Kurs am
+    Stichtag. 0, wenn er fehlt (dann gilt die Reihenfolge der Kennung)."""
+    facts = store.pit_query(conn, as_of=datetime.now(UTC), issuer_id=issuer_id)
+    stichtage = quality.jahresstichtage(facts, quality.kern_konzepte(cmap))
+    if not stichtage:
+        return Decimal(0)
+    t = stichtage[0]
+    treffer = [
+        f
+        for (start, ende), f in concepts.resolve(facts, cmap["us-gaap"]["revenue"]).items()
+        if ende == t and start is not None
+    ]
+    if not treffer or treffer[0].currency is None:
+        return Decimal(0)
+    e = inputs.eingabe(treffer[0])
+    if e.waehrung == "USD":
+        return e.wert
+    kurse = {}
+    for w in {str(e.waehrung), "USD"}.difference({"EUR"}):
+        k = store.fx_on_or_before(conn, w, t)
+        if k is None:
+            return Decimal(0)
+        kurse[w] = inputs._fx_eingabe(k, t)
+    r = Rechenweg("umsatz_usd", "1.0", issuer_id, t.isoformat(), pflicht=())
+    return fx.umrechnen(r, "umsatz_in_usd", e, "USD", kurse, {}).wert
+
+
 def _gruppe_waehlen(
     conn: duckdb.DuckDBPyConnection,
     eigen: Titel,
@@ -275,7 +314,9 @@ def _gruppe_waehlen(
         if len(kandidaten) >= mindest:
             break
     if eigen_umsatz is None:
-        eigen_umsatz = umsatz.get(eigen.issuer_id.removeprefix("sec:"), Decimal(0))
+        eigen_umsatz = umsatz.get(eigen.issuer_id.removeprefix("sec:")) or _eigener_umsatz_usd(
+            conn, eigen.issuer_id, cfg.cmap
+        )
     je = {t.issuer_id: t for t in kandidaten}
     ausgewaehlt = vergleichsgruppe.naechste(
         eigen_umsatz, {iid: umsatz[iid.removeprefix("sec:")] for iid in je}, hoechst
@@ -316,7 +357,26 @@ def bewerten(
         finally:
             conn.close()
     if issuer is None:
-        return _n(paths, isin, None, now, "kein SEC-Melder (Europa ab Schritt 7)")
+        # Kein SEC-Melder: ESEF-Bericht über die LEI (Bauschritt 7)
+        progress(f"{isin}: ESEF-Berichte über die LEI")
+        lader.esef(paths, [isin])
+        conn = store.connect(paths.db)
+        try:
+            issuer = metrics_update.issuer_for_isin(conn, isin)
+        finally:
+            conn.close()
+        if issuer is not None:
+            lader.kurse(paths, [isin])
+            lader.kennzahlen(paths, [isin])
+    if issuer is None:
+        return _n(
+            paths,
+            isin,
+            None,
+            now,
+            "weder SEC-Melder noch ESEF-Bericht bei filings.xbrl.org (deutsche Berichte fehlen "
+            "dort, ADR 0009)",
+        )
     conn = store.connect(paths.db)
     try:
         frisch = not _veraltet(conn, issuer, now, tage)

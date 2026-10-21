@@ -1,0 +1,112 @@
+{
+ "documentInfo": {
+  "documentType": "https://xbrl.org/2021/xbrl-json",
+  "features": {
+   "xbrl:canonicalValues": true
+  },
+  "namespaces": {
+   "asml": "http://www.asml.com/20251231",
+   "ifrs-full": "https://xbrl.ifrs.org/taxonomy/2024-03-27/ifrs-full",
+   "iso4217": "http://www.xbrl.org/2003/iso4217",
+   "scheme": "http://standards.iso.org/iso/17442",
+   "xbrl": "https://xbrl.org/2021",
+   "xbrli": "http://www.xbrl.org/2003/instance"
+  },
+  "taxonomy": [
+   "http://www.asml.com/20251231/asml-2025-12-31.xsd"
+  ]
+ },
+ "facts": {
+  "f-55": {
+   "value": "20.59",
+   "decimals": 2,
+   "dimensions": {
+    "concept": "ifrs-full:DilutedEarningsLossPerShare",
+    "entity": "scheme:724500Y6DUVHQD6OXN27",
+    "period": "2023-01-01T00:00:00/2024-01-01T00:00:00",
+    "unit": "iso4217:EUR/xbrli:shares"
+   }
+  },
+  "f-56": {
+   "value": "21.21",
+   "decimals": 2,
+   "dimensions": {
+    "concept": "ifrs-full:DilutedEarningsLossPerShare",
+    "entity": "scheme:724500Y6DUVHQD6OXN27",
+    "period": "2024-01-01T00:00:00/2025-01-01T00:00:00",
+    "unit": "iso4217:EUR/xbrli:shares"
+   }
+  },
+  "f-57": {
+   "value": "26.26",
+   "decimals": 2,
+   "dimensions": {
+    "concept": "ifrs-full:DilutedEarningsLossPerShare",
+    "entity": "scheme:724500Y6DUVHQD6OXN27",
+    "period": "2025-01-01T00:00:00/2026-01-01T00:00:00",
+    "unit": "iso4217:EUR/xbrli:shares"
+   }
+  },
+  "f-61": {
+   "value": "394100000.0",
+   "decimals": -5,
+   "dimensions": {
+    "concept": "ifrs-full:AdjustedWeightedAverageShares",
+    "entity": "scheme:724500Y6DUVHQD6OXN27",
+    "period": "2023-01-01T00:00:00/2024-01-01T00:00:00",
+    "unit": "xbrli:shares"
+   }
+  },
+  "f-62": {
+   "value": "393600000.0",
+   "decimals": -5,
+   "dimensions": {
+    "concept": "ifrs-full:AdjustedWeightedAverageShares",
+    "entity": "scheme:724500Y6DUVHQD6OXN27",
+    "period": "2024-01-01T00:00:00/2025-01-01T00:00:00",
+    "unit": "xbrli:shares"
+   }
+  },
+  "f-63": {
+   "value": "388900000.0",
+   "decimals": -5,
+   "dimensions": {
+    "concept": "ifrs-full:AdjustedWeightedAverageShares",
+    "entity": "scheme:724500Y6DUVHQD6OXN27",
+    "period": "2025-01-01T00:00:00/2026-01-01T00:00:00",
+    "unit": "xbrli:shares"
+   }
+  },
+  "f-149": {
+   "value": "52566500000.0",
+   "decimals": -5,
+   "dimensions": {
+    "concept": "ifrs-full:Assets",
+    "entity": "scheme:724500Y6DUVHQD6OXN27",
+    "period": "2025-01-01T00:00:00",
+    "unit": "iso4217:EUR"
+   }
+  },
+  "f-150": {
+   "value": "55576800000.0",
+   "decimals": -5,
+   "dimensions": {
+    "concept": "ifrs-full:Assets",
+    "entity": "scheme:724500Y6DUVHQD6OXN27",
+    "period": "2026-01-01T00:00:00",
+    "unit": "iso4217:EUR"
+   }
+  },
+  "f-182": {
+   "value": "36300000.0",
+   "decimals": -5,
+   "dimensions": {
+    "concept": "ifrs-full:Equity",
+    "entity": "scheme:724500Y6DUVHQD6OXN27",
+    "period": "2023-01-01T00:00:00",
+    "ifrs-full:ComponentsOfEquityAxis": "ifrs-full:IssuedCapitalMember",
+    "unit": "iso4217:EUR"
+   }
+  }
+ }
+}

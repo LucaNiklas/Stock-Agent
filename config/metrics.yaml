@@ -11,7 +11,7 @@
 # `ttm: true`: zusätzlich mit den Werten der letzten 12 Monate bis zum letzten Quartal (Statistik
 # `ttm`, core/ttm.py). Nicht für Kennzahlen mit Vorjahresvergleich oder Durchschnitten.
 
-methodology_version: "1.5"
+methodology_version: "1.6"
 
 # Kurse für Bewertungskennzahlen (Bauschritt 4, ADR 0005)
 kurse:

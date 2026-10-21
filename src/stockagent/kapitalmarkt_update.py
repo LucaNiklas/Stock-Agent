@@ -35,7 +35,8 @@ def zinsen_update(
     fetcher: Callable[..., bytes] = fetch,
     now: datetime | None = None,
 ) -> ZinsErgebnis:
-    """10-jährige Zinsen für EUR (Bundesbank) und USD (Treasury). Beim ersten Mal ab `start`."""
+    """10-jährige Zinsen für EUR (Bundesbank), USD (Treasury) und GBP (Bank of England). Beim
+    ersten Mal ab `start`."""
     now = now or datetime.now(UTC)
     cfg = _cfg(paths)
     zcfg = cfg["zinsen"]
@@ -44,7 +45,11 @@ def zinsen_update(
     out = ZinsErgebnis()
     conn = store.connect(paths.db)
     try:
-        for serie, quelle in (("rf_10y_EUR", "bundesbank"), ("rf_10y_USD", "treasury")):
+        for serie, quelle in (
+            ("rf_10y_EUR", "bundesbank"),
+            ("rf_10y_USD", "treasury"),
+            ("rf_10y_GBP", "boe"),
+        ):
             letzter = store.last_rate(conn, serie)
             if (
                 letzter
@@ -55,11 +60,12 @@ def zinsen_update(
                 out.je_serie[serie] = (0, letzter[0])
                 continue
             ab = letzter[0] if letzter and not refresh else start
-            abrufe = (
-                [client.bundesbank(ab)]
-                if quelle == "bundesbank"
-                else [client.treasury(j) for j in range(ab.year, now.year + 1)]
-            )
+            if quelle == "bundesbank":
+                abrufe = [client.bundesbank(ab)]
+            elif quelle == "boe":
+                abrufe = [client.boe(ab)]
+            else:
+                abrufe = [client.treasury(j) for j in range(ab.year, now.year + 1)]
             neu = 0
             bis: date | None = letzter[0] if letzter else None
             for a in abrufe:
