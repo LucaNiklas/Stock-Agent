@@ -159,6 +159,17 @@ def note(
     return out
 
 
+def gewichte_horizont(gewichte: Mapping[str, Any], momentum_anteil: Decimal) -> dict[str, Decimal]:
+    """Säulengewichte für einen Anlagehorizont (ADR 0011): Momentum bekommt `momentum_anteil`,
+    die übrigen Säulen behalten ihr Verhältnis und teilen sich den Rest."""
+    if not 0 <= momentum_anteil <= 1:
+        raise ValueError(f"Momentum-Anteil außerhalb 0 bis 1: {momentum_anteil}")
+    rest = 1 - momentum_anteil
+    out = {k: Decimal(str(v)) * rest for k, v in gewichte.items() if k != "momentum"}
+    out["momentum"] = momentum_anteil
+    return out
+
+
 # ------------------------------------------------------------------ Konfidenz
 
 

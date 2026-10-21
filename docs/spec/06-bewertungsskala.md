@@ -25,6 +25,16 @@ Die Trennung ist Absicht. Eine gute Note auf dünner Datenbasis ist eine andere 
 | Kapitalallokation | 10 % | shareholder_yield, share_count_change_3y, acquisition_intensity, ROIC auf Zuwachs |
 | Insider | 10 % (höchstens 15 %) | Signal aus 3.8. Ohne Insider-Daten wird das Gewicht auf die anderen Säulen verteilt |
 
+**Säule Momentum und Anlagehorizont (ADR 0011).** Zu den sechs Säulen kommt die Säule Momentum: Kursmomentum über 12 und 6 Monate ohne den letzten Monat (Jegadeesh und Titman 1993), Nähe zum 52-Wochen-Hoch (George und Hwang 2004), Abstand zur 200-Tage-Linie, Kursreaktion auf den letzten Bericht (Bernard und Thomas 1989), Umsatzwachstum des letzten Jahres und Veränderung der EBIT-Marge. Kurse in EUR. Ihr Gewicht hängt vom Anlagehorizont ab, die übrigen Säulen behalten ihr Verhältnis zueinander und teilen sich den Rest:
+
+| Horizont | Haltedauer | Gewicht Momentum | Zusatz für "Attraktiv" |
+|---|---|---|---|
+| kurz | Monate bis 1 Jahr | 40 % | Momentum-Säule mindestens 50 |
+| mittel (Standard) | 1 bis 5 Jahre | 15 % | |
+| lang | über 5 Jahre | 0 % | |
+
+Jede Bewertung rechnet alle drei Horizonte. Die Hauptnote (`grades.grade`, Notenkontrolle) ist die des Standardhorizonts. Werte in `config/horizonte.yaml`, vorab festgelegt.
+
 Die anderen Scorecards nutzen dieselben sechs Säulen mit eigenen Kennzahlen und Gewichten in `config/scorecards.yaml`. Banken bewerten etwa unter "Finanzielle Stabilität" die CET1-Quote und unter "Qualität" die ROTE.
 
 **Rechenweg**
@@ -78,7 +88,7 @@ Die Kategorie ordnet ein Unternehmen ein. Sie ist keine Kauf- oder Verkaufsempfe
 
 | Kategorie | Bedingung |
 |---|---|
-| Attraktiv | Note A oder B, Konfidenz K1 oder K2, keine Stopp-Flags, Bewertungsbedingung aus 3.6 erfüllt, Hysterese aus 9.5 erfüllt. Wurde eine Tiefenanalyse durchgeführt, muss sie bestanden sein, sonst gilt "Eskaliert" |
+| Attraktiv | Note A oder B, Konfidenz K1 oder K2, keine Stopp-Flags, Bewertungsbedingung aus 3.6 erfüllt, Hysterese aus 9.5 erfüllt, im Horizont kurz zusätzlich Momentum-Säule mindestens 50 (6.2). Wurde eine Tiefenanalyse durchgeführt, muss sie bestanden sein, sonst gilt "Eskaliert" |
 | Beobachten | Note B mit zu hoher Bewertung, Note C mit Aufwärtstrend oder Note A mit K3 |
 | Neutral | Note C ohne Aufwärtstrend |
 | Unattraktiv | Note D oder E |

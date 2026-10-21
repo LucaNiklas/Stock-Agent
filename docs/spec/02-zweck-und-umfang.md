@@ -4,6 +4,10 @@
 
 Das System ist ein Recherche-Assistent. Es zeigt alle bei Trade Republic handelbaren Aktien mit Note, Konfidenz und Risikoklasse an und erstellt auf Anfrage für einzelne Unternehmen einen geprüften finanziellen Überblick (12.3) mit Kennzahlen, Trends, Bilanzqualität, Bewertung, Insider-Verhalten, qualitativen Befunden, Gegenposition und vollständiger Herleitung. Agenten recherchieren und ordnen ein, Python rechnet, Prüfagenten kontrollieren.
 
+### 2.1a Anlagehorizont
+
+Luca hält Einzelaktien einige Monate bis etwa 5 Jahre (Vorgabe vom 21.10.2026). Sehr lange Horizonte von 15 bis 20 Jahren deckt er mit ETFs ab. Die Note gibt es deshalb je Anlagehorizont: kurz (Monate bis 1 Jahr), mittel (1 bis 5 Jahre, Standard) und lang (über 5 Jahre). Kennzahlen und Rechenwege sind für alle Horizonte gleich, nur das Gewicht der Säule Momentum ändert sich (6.2, `config/horizonte.yaml`, ADR 0011). Das Dashboard lässt den Horizont wählen und danach filtern und sortieren.
+
 ### 2.2 Was das System nicht leistet
 
 - Es trifft keine Anlageentscheidung und gibt keine Anlageberatung im rechtlichen Sinn.

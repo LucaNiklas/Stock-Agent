@@ -104,7 +104,7 @@ Für jeden Agenten gilt dieselbe Struktur. Rolle, Eingabe, Ausgabe (JSON-Schema 
 - Modell. `standard` (Sonnet).
 
 **A7 Bear-Agent**
-- Rolle. Die stärkste begründete Gegenposition formulieren. Ziel ist nicht Ablehnung um jeden Preis, sondern die drei wichtigsten Wege aufzuzeigen, wie die Investition scheitern könnte, inklusive Pre-Mortem ("es ist 2031, die Aktie hat 50 Prozent verloren, warum?").
+- Rolle. Die stärkste begründete Gegenposition formulieren. Ziel ist nicht Ablehnung um jeden Preis, sondern die drei wichtigsten Wege aufzuzeigen, wie die Investition scheitern könnte, inklusive Pre-Mortem ("in zwei Jahren hat die Aktie 40 Prozent verloren, warum?"). Betrachtet wird die Haltedauer von Monaten bis etwa 5 Jahren (2.1a), mit Auslösern, die in dieser Zeit eintreten können.
 - Eingabe. Alle Ergebnisse A3 bis A6 plus dieselben Rohdaten.
 - Ausgabe. `bear_case` mit Risiken, Eintrittsindikatoren, Belegen und der Frage "was müsste man beobachten, um früh zu merken, dass die These falsch ist?".
 - Modell. `strong` (Opus), mit eigenem Prompt und ohne Kenntnis, welches Modell A3 geschrieben hat.

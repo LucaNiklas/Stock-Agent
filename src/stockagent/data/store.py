@@ -23,7 +23,7 @@ import duckdb
 from stockagent.core import pit
 from stockagent.core.hinweise import Hinweis, Kennzahlwert
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL);
@@ -366,6 +366,12 @@ CREATE TABLE IF NOT EXISTS index_members (
 );
 """
 
+SCHEMA_V11 = """
+-- Noten je Anlagehorizont im Tagesstand (ADR 0011): {"kurz": {"note": "B", "score": "71.2",
+-- "kategorie": "Beobachten"}, ...}. Die Spalten oben enthalten den Standardhorizont.
+ALTER TABLE grade_snapshots ADD COLUMN IF NOT EXISTS horizonte_json VARCHAR;
+"""
+
 SCHEMA_V10 = """
 -- Seitentext geladener Berichte (Bauschritt 6): Grundlage für Zitat-Gate (HR-03) und Agenten.
 -- Seitenzahl = laufende Seite im Dokument nach den Seitenumbrüchen der Quelle.
@@ -378,7 +384,7 @@ CREATE TABLE IF NOT EXISTS document_pages (
 """
 
 # Schemaversionen, aus denen ohne Datenverlust aufgerüstet wird.
-_MIGRATABLE = {3, 4, 5, 6, 7, 8, 9}
+_MIGRATABLE = {3, 4, 5, 6, 7, 8, 9, 10}
 
 _COLUMNS = (
     "isin, name, wkn, mnemonic, isin_country, currency, primary_mic, on_xetra, lei, lei_name, "
@@ -454,6 +460,7 @@ def connect(path: Path) -> duckdb.DuckDBPyConnection:
     conn.execute(SCHEMA_V8)
     conn.execute(SCHEMA_V9)
     conn.execute(SCHEMA_V10)
+    conn.execute(SCHEMA_V11)
     conn.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", [str(SCHEMA_VERSION)])
     return conn
 
@@ -1816,9 +1823,12 @@ def save_snapshot(
     g: GradeRow,
     price: Decimal | None,
     currency: str | None,
+    horizonte: dict[str, dict[str, str | None]] | None = None,
 ) -> None:
     conn.execute(
-        "INSERT OR REPLACE INTO grade_snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO grade_snapshots (snapshot_date, isin, grade, score, konfidenz, "
+        "risiko, kategorie, price, currency, methodology_version, horizonte_json) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
             day,
             g.isin,
@@ -1830,8 +1840,38 @@ def save_snapshot(
             str(price) if price is not None else None,
             currency,
             g.methodology_version,
+            json.dumps(horizonte, ensure_ascii=False) if horizonte else None,
         ],
     )
+
+
+def last_report_date(
+    conn: duckdb.DuckDBPyConnection, issuer_id: str, as_of: datetime
+) -> date | None:
+    """Tag der letzten Veröffentlichung eines Berichts mit Abschlusswerten bis `as_of`
+    (Quartals- und Jahresberichte, für die Kursreaktion auf den Bericht)."""
+    row = conn.execute(
+        "SELECT max(published_at) FROM facts WHERE issuer_id = ? AND published_at <= ?",
+        [issuer_id, as_of.replace(tzinfo=None)],
+    ).fetchone()
+    return row[0].date() if row and row[0] else None
+
+
+def snapshot_grades_horizont(
+    conn: duckdb.DuckDBPyConnection, isin: str, horizont: str
+) -> list[tuple[date, str]]:
+    """Frühere Noten eines Horizonts. Tagesstände vor Schema 11 haben nur den Standardhorizont
+    und zählen hier nicht."""
+    out = []
+    for tag, roh in conn.execute(
+        "SELECT snapshot_date, horizonte_json FROM grade_snapshots WHERE isin = ? "
+        "AND horizonte_json IS NOT NULL ORDER BY snapshot_date",
+        [isin],
+    ).fetchall():
+        note = (json.loads(roh).get(horizont) or {}).get("note")
+        if note:
+            out.append((tag, str(note)))
+    return out
 
 
 def snapshot_grades(conn: duckdb.DuckDBPyConnection, isin: str) -> list[tuple[date, str]]:

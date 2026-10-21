@@ -213,3 +213,11 @@ Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit 
 - Wachstum ohne Gewinn: EBIT-Marge in beiden letzten Jahren negativ (vorher nur im letzten Jahr).
 - Neue Trendstatistik `mittel` (Mittel über bis zu 10 Jahre), für Zykliker über den Zyklus.
 
+## 5.4 (21.10.2026, Anlagehorizont, `config/horizonte.yaml` 1.0, Schema 11)
+
+- Note je Anlagehorizont: kurz (Monate bis 1 Jahr), mittel (1 bis 5 Jahre, Standard und Hauptnote), lang (über 5 Jahre). Lucas Vorgabe, ADR 0011.
+- Neue Säule Momentum: Momentum 12-1 und 6-1, Nähe zum 52-Wochen-Hoch, Abstand zur 200-Tage-Linie, Kursreaktion auf den letzten Bericht, Umsatzwachstum, Veränderung der EBIT-Marge. Gewicht 40 / 15 / 0 Prozent je Horizont, die übrigen Säulen im bisherigen Verhältnis.
+- Horizont kurz: Kategorie Attraktiv nur mit Momentum-Säule mindestens 50.
+- Die Hauptnote ändert sich gegenüber 5.3 durch die Säule Momentum mit 15 Prozent. Die bisherige Note entspricht dem Horizont lang.
+- A7 Gegenposition: Haltedauer Monate bis 5 Jahre statt 5 bis 10 Jahre (Vorlage 1.1.0).
+
