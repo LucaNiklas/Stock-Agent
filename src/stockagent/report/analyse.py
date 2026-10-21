@@ -86,6 +86,8 @@ PRUEFUNGEN = [
     "Schranken je Agentenantwort: Schema, Zahlen, Beleg, Zitat, Formulierung, Konsistenz",
     "J1 blinde Nachrechnung jeder zitierten Kennzahl (INC-01)",
     "J2 Belegprüfung jeder Aussage mit Dokumentstelle (INC-11)",
+    "J3 Jury aus drei Richtern nach Rubrik (Median, Spannweite)",
+    "J4 Endkontrolle des fertigen Berichts",
 ]
 
 
@@ -380,6 +382,7 @@ def kontext(paths: Paths, z: Zustand, ent: dict[str, Any]) -> dict[str, Any]:
             "j1": j1_zahl,
             "claims": zaehler,
             "entfernt": entfernt,
+            "jury": ent.get("jury"),
         },
         "grenzen": {
             "lauf": z.grenzen,

@@ -18,6 +18,7 @@ Texte aus Dokumenten stehen nur in markierten Datenblöcken bzw. Seitendateien (
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -31,7 +32,7 @@ from stockagent.core.anzeige import formatiere
 from stockagent.data import store
 from stockagent.paths import Paths
 from stockagent.platzhalter import Werte, refs_im_text
-from stockagent.schemas.agents import THEMEN, AgentAntwort, J1Antwort, J2Antwort
+from stockagent.schemas.agents import THEMEN, AgentAntwort, J1Antwort, J2Antwort, J3Antwort
 
 if TYPE_CHECKING:
     from stockagent.orchestrator import Auftrag, Zustand
@@ -74,7 +75,11 @@ SCHEMA = {
     "J1": "J1Antwort",
     "J2": "J2Antwort",
     "A9": "A9Antwort",
+    "J3_1": "J3Antwort",
+    "J3_2": "J3Antwort",
+    "J3_3": "J3Antwort",
 }
+JURY = ("J3_1", "J3_2", "J3_3")
 
 
 def _cfg(paths: Paths, name: str) -> dict[str, Any]:
@@ -281,6 +286,8 @@ def bauen(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
         return _j2(paths, z, a)
     if a.agent == "A9":
         return _a9(paths, z, a)
+    if a.agent in JURY:
+        return _j3(paths, z, a)
     raise ValueError(f"unbekannter Agent {a.agent}")
 
 
@@ -613,6 +620,187 @@ def _a9(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
     ) | {"daten": {"note": _note(paths, z), "gepruefte_claims": geprueft}}
 
 
+_RECHTSFORM = re.compile(
+    r"[,.]?\s+(inc|corp|corporation|co|company|ltd|plc|ag|se|sa|nv|n\.v|s\.a|holdings?|group)\.?$",
+    re.IGNORECASE,
+)
+
+
+def anonymisieren(name: str) -> Callable[[str], str]:
+    """Firmenname im Text durch „das Unternehmen“ ersetzen (SPEC 11.4, anonymize_for_jury):
+    voller Name, dazu Name ohne Rechtsform und erstes Wort, wenn mindestens vier Buchstaben."""
+    kurz = name.strip()
+    while _RECHTSFORM.search(kurz):
+        kurz = _RECHTSFORM.sub("", kurz).strip()
+    erstes = kurz.split()[0] if kurz.split() else ""
+    # Kurze Namen (Dow) nur in voller Form, sonst träfe es auch „Dow Jones“
+    formen = {name.strip(), *(f for f in (kurz, erstes) if len(f) >= 4)}
+    formen.discard("")
+    muster = re.compile(
+        r"(?<!\w)("
+        + "|".join(re.escape(f) for f in sorted(formen, key=len, reverse=True))
+        + r")(?!\w)",
+        re.IGNORECASE,
+    )
+    return lambda text: muster.sub("das Unternehmen", text)
+
+
+def jury_fall(paths: Paths, z: Zustand) -> dict[str, Any]:
+    """Fall für die Jury: geprüfte Aussagen, These, Gegenposition mit Erwiderung, Wahl von A5.
+    Nur Claims mit Status verified, Werte eingesetzt. Je Seite höchstens
+    `max_aussagen_je_seite` Aussagen (feste Länge gegen Längenbias, SPEC 11.4)."""
+    cfg = _cfg(paths, "models.yaml")["pruefung"]["jury"]
+    max_n = int(cfg["max_aussagen_je_seite"])
+    w = _werte(paths, z)
+    anon = anonymisieren(z.name) if cfg["anonymisieren"] else (lambda t: t)
+    status = claim_status(paths, z)
+
+    def geprueft(slot: str, ids: list[str] | None = None) -> list[dict[str, str]]:
+        out = []
+        for c in (ausgabe(paths, z, slot) or {}).get("claims", []):
+            key = f"{slot}:{c['claim_id']}"
+            if ids is not None and c["claim_id"] not in ids:
+                continue
+            if status.get(key, {}).get("status") == "verified":
+                out.append({"schluessel": key, "text": anon(w.ersetze(c["text"]))})
+        return out
+
+    pro = [c for slot in ("A3", "A4", "A5", "A6") for c in geprueft(slot)][:max_n]
+    a3e = ausgabe(paths, z, "A3E") or {}
+    risiken = []
+    for i, r in enumerate((ausgabe(paths, z, "A7") or {}).get("risiken", []), start=1):
+        antwort = next((e for e in a3e.get("erwiderungen", []) if e["risiko"] == i), None)
+        risiken.append(
+            {
+                "titel": anon(w.ersetze(r["titel"])),
+                "fruehindikator": anon(w.ersetze(r["fruehindikator"])),
+                "aussagen": geprueft("A7", r["claim_ids"]),
+                "erwiderung": geprueft("A3E", antwort["claim_ids"]) if antwort else [],
+                "offen": antwort is None or bool(antwort["offen"]),
+            }
+        )
+    a5 = ausgabe(paths, z, "A5") or {}
+    a9 = ausgabe(paths, z, "A9") or {}
+    note = _note(paths, z)
+    return {
+        "note": {k: note.get(k) for k in ("note", "konfidenz", "risiko", "kategorie", "scorecard")},
+        "these": anon(w.ersetze(a9["these"])) if a9 else None,
+        "these_claims": a9.get("these_claims", []),
+        "fuer": pro,
+        "gegen": risiken[:max_n],
+        "bewertung": {
+            "annahmen": [
+                {k: an[k] for k in ("szenario", "groesse", "stufe", "claim_ids")}
+                for an in a5.get("annahmen", [])
+            ],
+            "aussagen": geprueft("A5"),
+        },
+    }
+
+
+def _j3(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
+    cfg = _cfg(paths, "models.yaml")["pruefung"]["jury"]
+    fall = jury_fall(paths, z)
+    # Positionsbias (SPEC 11.4): beim zweiten Richter steht die Gegenposition vorn
+    gegen_zuerst = a.agent == "J3_2"
+    reihenfolge = ["gegen", "fuer"] if gegen_zuerst else ["fuer", "gegen"]
+    kopf = _kopf(
+        z,
+        a,
+        "Den Fall nach der Rubrik bewerten: je Kriterium zuerst die Begründung mit den "
+        "Schlüsseln der Aussagen (claim_ids), dann die Punkte 1 bis 5. Belegdichte zählt, "
+        "nicht Umfang.",
+        ["Read nur für die Auftragsdatei, keine anderen Quellen"],
+        [
+            "Urteile allein nach dem Fall. Kein Wissen über das Unternehmen von außerhalb.",
+            "In der Begründung keine Zahlen und keine Schlüssel, die Schlüssel gehören in "
+            "claim_ids.",
+            "Keine Kursziele, keine Empfehlungen, keine Renditeversprechen (HR-15).",
+        ],
+    )
+    if cfg["anonymisieren"]:
+        kopf["unternehmen"] = {"name": "das Unternehmen", "isin": None}
+    return kopf | {
+        "daten": {
+            "rubrik": RUBRIK,
+            "reihenfolge": reihenfolge,
+            "note": fall["note"],
+            "these": fall["these"],
+            "these_claims": fall["these_claims"],
+            **{k: fall[k] for k in reihenfolge},
+            "bewertung": fall["bewertung"],
+        }
+    }
+
+
+RUBRIK = {
+    "faktentreue": "1 mehrere ungeprüfte oder falsche Fakten, 3 einzelne kleinere Ungenauigkeiten, "
+    "5 alle Fakten belegt und geprüft",
+    "vollstaendigkeit": "1 wichtige Bereiche fehlen (Verschuldung, Bewertung, Risiken), 3 alle "
+    "Bereiche, einzelne oberflächlich, 5 alle Bereiche substanziell behandelt",
+    "konsistenz": "1 Schlussfolgerung widerspricht Daten, 3 kleinere Sprünge, 5 jede "
+    "Schlussfolgerung folgt aus Belegen",
+    "gegenargumente": "1 Gegenposition ignoriert, 3 erwähnt, nicht beantwortet, 5 jedes "
+    "Hauptrisiko beantwortet oder als offen markiert",
+    "bewertungsdisziplin": "1 Annahmen unbegründet oder extrem, 3 plausibel, teils unbegründet, "
+    "5 jede Annahme belegt, Sensitivität verstanden",
+    "gesamtbegruendung": "1 Einordnung nicht nachvollziehbar, 3 nachvollziehbar mit Lücken, "
+    "5 ein kritischer Analyst würde die Herleitung akzeptieren",
+}
+
+
+def _fall_schluessel(fall: dict[str, Any]) -> set[str]:
+    aussagen = [*fall["fuer"], *fall["bewertung"]["aussagen"]]
+    aussagen += [c for r in fall["gegen"] for c in [*r["aussagen"], *r["erwiderung"]]]
+    return {c["schluessel"] for c in aussagen}.union(fall["these_claims"])
+
+
+def jury_urteil(paths: Paths, z: Zustand) -> dict[str, Any] | None:
+    """Urteile der Richter zusammenführen (SPEC 11.2 Ebene 3). None ohne Jury im Plan."""
+    from stockagent.agents.render import agent_klasse, resolve_model
+    from stockagent.core import jury
+
+    if not any(a.agent in JURY for a in z.auftraege):
+        return None
+    cfg = _cfg(paths, "models.yaml")
+    punkte: dict[str, list[int]] = {k: [] for k in jury.KRITERIEN}
+    richter = []
+    for slot in JURY:
+        antwort = ausgabe(paths, z, slot)
+        agent_cfg = cfg["tiefenanalyse"]["agenten"][slot]
+        klasse, rueckfall = agent_klasse(agent_cfg, cfg)
+        eintrag: dict[str, Any] = {
+            "richter": slot,
+            "modell": resolve_model(klasse, cfg, rueckfall),
+            "gegen_zuerst": slot == "J3_2",
+            "punkte": None,
+        }
+        if antwort is not None:
+            je = {b["kriterium"]: int(b["punkte"]) for b in antwort["bewertungen"]}
+            eintrag["punkte"] = je
+            for k in jury.KRITERIEN:
+                punkte[k].append(je[k])
+        richter.append(eintrag)
+    erg = jury.urteil(punkte, jury.JuryKonfig.aus(cfg["pruefung"]["jury"]))
+    extern_aus = not cfg.get("extern", {}).get("aktiv", False)
+    return {
+        "status": erg.status,
+        "richter": richter,
+        "kriterien": [
+            {
+                "kriterium": k.kriterium,
+                "punkte": list(k.punkte),
+                "median": str(k.median) if k.median is not None else None,
+                "spannweite": str(k.spannweite) if k.spannweite is not None else None,
+            }
+            for k in erg.kriterien
+        ],
+        "gruende": erg.gruende,
+        # SPEC 11.2: ohne Gemini ersetzt ein Claude-Modell den dritten Platz
+        "diversitaet_eingeschraenkt": extern_aus,
+    }
+
+
 # ------------------------------------------------------------------ Zusatzprüfungen
 
 
@@ -646,6 +834,19 @@ def zusatzpruefung(
             return [*fehlt, *fremd]
 
         return j2
+    if a.agent in JURY:
+        bekannt = _fall_schluessel(jury_fall(paths, z))
+
+        def j3(antwort: AgentAntwort) -> list[str]:
+            assert isinstance(antwort, J3Antwort)
+            return [
+                f"Rubrik {b.kriterium}: {k} steht nicht im Fall"
+                for b in antwort.bewertungen
+                for k in b.claim_ids
+                if k not in bekannt
+            ]
+
+        return j3
     if a.agent == "A9":
         status = claim_status(paths, z)
         geprueft = {k for k, s in status.items() if s["status"] == "verified"}
@@ -793,6 +994,9 @@ def entscheidung(paths: Paths, z: Zustand) -> dict[str, Any]:
         if u["urteil"] == "contradicted"
     ]
     eskalationen += [f"Auftrag {a.id} eskaliert" for a in z.auftraege if a.status == "eskaliert"]
+    jury = jury_urteil(paths, z)
+    if jury is not None and jury["status"] == "escalated":
+        eskalationen.append("J3 Jury: " + "; ".join(jury["gruende"]))
     a5 = _a5_werte(paths, z, status)
 
     start = note.get("kategorie") or "Nicht bewertbar"
@@ -823,4 +1027,5 @@ def entscheidung(paths: Paths, z: Zustand) -> dict[str, Any]:
         else None,
         "claims": status,
         "j1": j1,
+        "jury": jury,
     }

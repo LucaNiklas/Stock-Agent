@@ -9,3 +9,4 @@ a7-gegenposition: "1.1.0"   # Haltedauer Monate bis 5 Jahre (ADR 0011)
 j1-zahlenpruefer: "1.0.0"
 j2-belegpruefer: "1.0.0"
 a9-synthese: "1.0.0"
+j3-jury: "1.0.0"   # Bauschritt 10, eine Vorlage für drei Richter

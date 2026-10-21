@@ -15,7 +15,7 @@ Plan je Lauf (Abhängigkeiten über Fächer, ein Fach kann nach einer Nachforder
 Auftrag bekommen):
 
     A1 je Hinweis an A1 -> A3, A4 (und A6 bei Insidergeschäften) -> A5 -> A7 -> A3E (Erwiderung)
-    -> J1, J2 -> A9 -> Bericht
+    -> J1, J2 -> A9 -> J3 (drei Richter) -> Bericht mit J4 Endkontrolle
 
 Jede Abteilung bekommt nur die Übergabe der vorigen als Eingabe (SPEC 8.1). Prüfer arbeiten
 blind (HR-14). Konfiguration wird beim Anlegen gehasht und bei jedem Schritt verglichen (HR-11).
@@ -54,6 +54,9 @@ ABTEILUNG = {
     "J1": "Prüfung",
     "J2": "Prüfung",
     "A9": "Bericht",
+    "J3_1": "Prüfung",
+    "J3_2": "Prüfung",
+    "J3_3": "Prüfung",
 }
 
 
@@ -325,7 +328,14 @@ def anlegen(
         Auftrag("J1", "J1", "J1", deps=["A3E"]),
         Auftrag("J2", "J2", "J2", deps=["A3E"]),
         Auftrag("A9", "A9", "A9", deps=["J1", "J2"]),
+        # Jury (SPEC 11.2 Ebene 3): drei Richter unabhängig, nach der These
+        *[Auftrag(j, j, j, deps=["A9"]) for j in eingaben.JURY],
     ]
+    if not cfg.get("extern", {}).get("aktiv", False):
+        z.grenzen.append(
+            "Jury ohne zweite Modellfamilie: Gemini nicht angebunden, der dritte Richter ist "
+            "ein Claude-Modell mit eigener Rubrik-Perspektive (SPEC 11.2, ADR 0013)"
+        )
     for a in plan:
         a.eingabe = f"runs/{run_id}/eingaben/{a.id}.json"
         a.ausgabe = f"runs/{run_id}/ausgaben/{a.id}.json"
@@ -526,15 +536,16 @@ def _metrics_cfg(paths: Paths) -> dict[str, Any]:
     return data
 
 
-def _prompt(paths: Paths, vorlage: str) -> tuple[str, str]:
-    """Version und Hash der gerenderten Agent-Datei (SPEC 8.4 Umschlag)."""
+def _prompt(paths: Paths, vorlage: str, quelle: str | None = None) -> tuple[str, str]:
+    """Version (der Vorlage `quelle`, bei Varianten) und Hash der gerenderten Agent-Datei
+    (SPEC 8.4 Umschlag)."""
     datei = paths.root / ".claude" / "agents" / f"{vorlage}.md"
     versionen = yaml.safe_load(
         (paths.root / "src" / "stockagent" / "agents" / "prompts" / "versions.yaml").read_text(
             "utf-8"
         )
     )
-    version = str(versionen.get(vorlage, "0"))
+    version = str(versionen.get(quelle or vorlage, "0"))
     if not datei.exists():
         return version, "sha256:nicht_gerendert"
     return version, "sha256:" + hashlib.sha256(datei.read_bytes()).hexdigest()
@@ -543,18 +554,18 @@ def _prompt(paths: Paths, vorlage: str) -> tuple[str, str]:
 def _ausgabe_schreiben(
     paths: Paths, z: Zustand, a: Auftrag, p: runner.Pruefung, cfg: dict[str, Any], now: datetime
 ) -> None:
-    from stockagent.agents.render import resolve_model
+    from stockagent.agents.render import agent_klasse, resolve_model
 
     agent_cfg = cfg["tiefenanalyse"]["agenten"][a.agent]
-    klasse = str(cfg["agenten"][agent_cfg["modell_von"]])
-    version, prompt_hash = _prompt(paths, agent_cfg["vorlage"])
+    klasse, rueckfall = agent_klasse(agent_cfg, cfg)
+    version, prompt_hash = _prompt(paths, agent_cfg["vorlage"], agent_cfg.get("quelle"))
     umschlag = {
         "run_id": z.run_id,
         "agent_id": agent_cfg["modell_von"] if a.agent != "A3E" else "A3_erwiderung",
         "agent_version": version,
         "prompt_hash": prompt_hash,
         "model_class": klasse if klasse != "extern" else "standard",
-        "model": resolve_model(klasse, cfg),
+        "model": resolve_model(klasse, cfg, rueckfall),
         "lei": None,
         "input_refs": [a.eingabe],
         "created_at": now.isoformat(),

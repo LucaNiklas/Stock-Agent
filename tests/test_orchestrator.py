@@ -272,6 +272,37 @@ def j2(paths: Paths, run: str, urteil: str = "supported") -> str:
     )
 
 
+KRITERIEN = (
+    "faktentreue",
+    "vollstaendigkeit",
+    "konsistenz",
+    "gegenargumente",
+    "bewertungsdisziplin",
+    "gesamtbegruendung",
+)
+
+
+def j3(run: str, richter: str, punkte: int = 4, claim: str = "A3:c-0001") -> str:
+    return antwort(
+        run,
+        richter,
+        bewertungen=[
+            {
+                "kriterium": k,
+                "begruendung": "Die Aussage zur Marge ist geprüft und belegt.",
+                "claim_ids": [claim],
+                "punkte": punkte,
+            }
+            for k in KRITERIEN
+        ],
+    )
+
+
+def _jury(paths: Paths, run: str, punkte: tuple[int, int, int] = (4, 4, 4)) -> None:
+    for richter, p in zip(("J3_1", "J3_2", "J3_3"), punkte, strict=True):
+        assert orchestrator.annehmen(paths, run, j3(run, richter, p), now=NOW).angenommen
+
+
 def _ids(liste: list[orchestrator.Auftrag]) -> list[str]:
     return [a.id for a in liste]
 
@@ -344,6 +375,18 @@ def test_full_run_with_recorded_answers(paths: Paths) -> None:
     )
     assert orchestrator.annehmen(paths, run, these, now=NOW).angenommen
 
+    # Jury: drei Richter, anonymisiert, beim zweiten die Gegenposition vorn (SPEC 11.4)
+    assert _ids(orchestrator.naechste(paths, run, now=NOW)) == ["J3_1", "J3_2", "J3_3"]
+    ein1 = json.loads((paths.runs / run / "eingaben" / "J3_1.json").read_text())
+    ein2 = json.loads((paths.runs / run / "eingaben" / "J3_2.json").read_text())
+    assert "Apple" not in json.dumps(ein1, ensure_ascii=False)
+    assert ein1["daten"]["these"].startswith("das Unternehmen verdient")
+    assert ein1["daten"]["reihenfolge"] == ["fuer", "gegen"]
+    assert list(ein2["daten"]).index("gegen") < list(ein2["daten"]).index("fuer")
+    fremd = orchestrator.annehmen(paths, run, j3(run, "J3_1", claim="A3:c-0099"), now=NOW)
+    assert not fremd.angenommen and "steht nicht im Fall" in fremd.meldung
+    _jury(paths, run)
+
     # Ende: Entscheidung und Bericht
     assert orchestrator.naechste(paths, run, now=NOW) == []
     z = orchestrator.laden(paths, run)
@@ -356,7 +399,10 @@ def test_full_run_with_recorded_answers(paths: Paths) -> None:
     assert ent["kategorie_deterministisch"] == "Attraktiv"
     assert ent["kategorie"] == "Beobachten"
     assert ent["uebergaenge"][0]["art"] == "downgrade"
+    assert ent["jury"]["status"] == "verified" and ent["j4"] == []
+    assert [r["modell"] for r in ent["jury"]["richter"]] == ["opus", "sonnet", "haiku"]
     bericht = (paths.runs / run / "report.md").read_text()
+    assert "Jury J3 (verified" in bericht and "| gesamtbegruendung | 4 / 4 / 4 | 4 | 0 |" in bericht
     for nr in range(1, 15):
         assert f"\n## {nr}. " in bericht
     assert "{{" not in bericht  # alle Platzhalter ersetzt
@@ -376,7 +422,12 @@ def test_llm_cannot_upgrade(paths: Paths) -> None:
     assert ent["kategorie"] == "Neutral" and ent["uebergaenge"] == []
 
 
-def _durchlaufen(paths: Paths, run: str, j2_urteil: str = "supported") -> None:
+def _durchlaufen(
+    paths: Paths,
+    run: str,
+    j2_urteil: str = "supported",
+    jury: tuple[int, int, int] = (4, 4, 4),
+) -> None:
     _a1_erledigen(paths, run)
     for text in (a3(run), a4(run)):
         orchestrator.annehmen(paths, run, text, now=NOW)
@@ -391,6 +442,21 @@ def _durchlaufen(paths: Paths, run: str, j2_urteil: str = "supported") -> None:
         paths, run, antwort(run, "A9", these="Kurz.", these_claims=["A3:c-0001"]), now=NOW
     )
     orchestrator.naechste(paths, run, now=NOW)
+    for richter, p in zip(("J3_1", "J3_2", "J3_3"), jury, strict=True):
+        orchestrator.annehmen(paths, run, j3(run, richter, p), now=NOW)
+    orchestrator.naechste(paths, run, now=NOW)
+
+
+def test_divided_jury_escalates(paths: Paths) -> None:
+    """Spannweite 3 bei jedem Kriterium: Jury uneinig, der Fall geht an Luca (SPEC 11.2)."""
+    z = orchestrator.anlegen(paths, APPLE_ISIN, lader=_lader(), now=NOW)
+    _durchlaufen(paths, z.run_id, jury=(5, 2, 4))
+    z = orchestrator.laden(paths, z.run_id)
+    ent = json.loads((paths.runs / z.run_id / "decision.json").read_text())
+    assert z.status == "eskaliert" and ent["kategorie"] == "Eskaliert"
+    assert ent["jury"]["status"] == "escalated"
+    assert any("Jury uneinig (Spannweite 3)" in g for g in ent["jury"]["gruende"])
+    assert any(e.startswith("J3 Jury:") for e in ent["eskalationen"])
 
 
 def test_contradicted_claim_escalates(paths: Paths) -> None:
@@ -484,14 +550,24 @@ def test_rendered_agents_match_models_and_turns(tmp_path: Path) -> None:
     from stockagent.agents.render import render_all
 
     cfg = yaml.safe_load((ROOT / "config" / "models.yaml").read_text())
+    quelle = {
+        a["vorlage"]: a["quelle"] for a in cfg["tiefenanalyse"]["agenten"].values() if "quelle" in a
+    }
     for datei in render_all(ROOT / "agents_src", tmp_path, ROOT / "config" / "models.yaml"):
         kopf = yaml.safe_load(datei.read_text().split("---")[1])
-        assert kopf["maxTurns"] == cfg["aufwand"]["max_turns"][kopf["name"]]
+        vorlage = quelle.get(kopf["name"], kopf["name"])
+        assert kopf["maxTurns"] == cfg["aufwand"]["max_turns"][vorlage]
         assert "Agent" in kopf["disallowedTools"]  # keine verschachtelten Subagents (SPEC 8.1)
         if "Bash" in kopf["tools"]:
             assert "nur_werkzeuge.sh" in datei.read_text()
     a1 = yaml.safe_load((tmp_path / "a1-datenbeschaffung.md").read_text().split("---")[1])
     assert a1["model"] == "haiku" and "Bash" in a1["disallowedTools"]  # HR-17
+    # Jury: drei Dateien aus einer Vorlage, ohne Gemini Haiku auf Platz 3 (SPEC 11.2)
+    richter = [
+        yaml.safe_load((tmp_path / f"j3-jury-{i}.md").read_text().split("---")[1])["model"]
+        for i in (1, 2, 3)
+    ]
+    assert richter == ["opus", "sonnet", "haiku"] and not (tmp_path / "j3-jury.md").exists()
 
 
 def test_dashboard_starts_claude_in_background_with_queue(tmp_path: Path) -> None:

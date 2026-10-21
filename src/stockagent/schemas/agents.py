@@ -308,6 +308,39 @@ class J2Antwort(AgentAntwort):
         return self
 
 
+Kriterium = Literal[
+    "faktentreue",
+    "vollstaendigkeit",
+    "konsistenz",
+    "gegenargumente",
+    "bewertungsdisziplin",
+    "gesamtbegruendung",
+]
+
+
+class J3Bewertung(_Strict):
+    """Je Kriterium zuerst die Begründung mit Verweisen, dann die Zahl (SPEC 11.3)."""
+
+    kriterium: Kriterium
+    begruendung: KurzText
+    claim_ids: list[str] = Field(default_factory=list, max_length=12)  # Schlüssel aus dem Fall
+    punkte: int = Field(ge=1, le=5)
+
+
+class J3Antwort(AgentAntwort):
+    """J3 Richter der Jury: Rubrik mit sechs Kriterien, Skala 1 bis 5 (SPEC 11.3)."""
+
+    bewertungen: list[J3Bewertung] = Field(min_length=6, max_length=6)
+
+    @model_validator(mode="after")
+    def _rubrik(self) -> J3Antwort:
+        if self.claims:
+            raise ValueError("J3 schreibt keine Claims")
+        if len({b.kriterium for b in self.bewertungen}) != 6:
+            raise ValueError("jedes der sechs Kriterien genau einmal")
+        return self
+
+
 ANTWORTEN: dict[str, type[AgentAntwort]] = {
     "A1": A1Antwort,
     "A3": A3Antwort,
@@ -319,4 +352,7 @@ ANTWORTEN: dict[str, type[AgentAntwort]] = {
     "A9": A9Antwort,
     "J1": J1Antwort,
     "J2": J2Antwort,
+    "J3_1": J3Antwort,
+    "J3_2": J3Antwort,
+    "J3_3": J3Antwort,
 }
