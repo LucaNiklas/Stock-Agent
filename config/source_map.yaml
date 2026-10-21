@@ -74,9 +74,17 @@ informationen:
       - {name: EZB-Referenzkurse, zugriff: python, modul: fx, ab_schritt: 4}
 
   zinsen:
+    beschreibung: Risikofreier Zins 10 Jahre je Berichtswährung (SPEC 3.6 Nr. 3)
     region: alle
     quellen:
-      - {name: Bundesbank und FRED, zugriff: python, modul: rates, ab_schritt: 4}
+      - {name: Bundesbank-Zinsstrukturkurve (EUR) und US-Treasury Par Yield Curve (USD), zugriff: python, modul: rates, ab_schritt: 4}
+
+  kapitalkosten_damodaran:
+    beschreibung: Branchenbetas, implizite Risikoprämie, Rating-Aufschläge und Branchenzuordnung
+      (ADR 0006)
+    region: alle
+    quellen:
+      - {name: Damodaran-Datensätze (NYU Stern), zugriff: python, modul: damodaran, ab_schritt: 4}
 
   abschlusswerte_eu:
     region: EU

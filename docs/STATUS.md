@@ -25,18 +25,21 @@ Recherche- und Bewertungssystem für Aktien, die bei Trade Republic handelbar si
 | 2 Abschlussdaten USA | ISIN zu CIK über OpenFIGI (ADR 0002), SIC und Adresse der SEC, Company Facts mit Zeitpunktbezug, Rechenweg `core/calc.py`, Datenqualität DQ-01 bis DQ-08, CLI als Paket | LucaNiklas/Stock-Agent#7 |
 | Spezifikation 4.3 | Dashboard als Bedienzentrale, Indexstufe Tier 1 bis 4, Suche in eigenen Worten (ADR 0004) | LucaNiklas/Stock-Agent#8 |
 | 4 Kurse (Teil 1) | Kursquelle Yahoo für alle Länder auf Anfrage, Zuordnung über OpenFIGI, Befehl `prices`, Plan: Bewertung auf Anfrage, Vergleichsgruppe 15 bis 50 (ADR 0005) | LucaNiklas/Stock-Agent#11 |
-| 4 Bewertung (Teil 2) | Wechselkurse der EZB, Umrechnung im Rechenweg, zehn Kennzahlen mit Börsenkurs, Bewertung mit aktuellem Kurs, Rang gegen die eigenen 10 Jahre | Branch `schritt-04-bewertung` |
+| 4 Bewertung (Teil 2) | Wechselkurse der EZB, Umrechnung im Rechenweg, zehn Kennzahlen mit Börsenkurs, Bewertung mit aktuellem Kurs, Rang gegen die eigenen 10 Jahre, Dividenden-Gegenprobe | LucaNiklas/Stock-Agent#12 |
+| 4 Kapitalkosten (Teil 3a) | Zinsen (Bundesbank, Treasury), Damodaran, WACC, Reverse-DCF, normalisiertes EV/EBIT, Altman Z für Produzenten (ADR 0006) | Branch `schritt-04-kapitalkosten` |
 | 3 Kennzahlen | 33 Kennzahlen und Scores ohne Börsenkurs mit Rechenweg und Prüfpunkten, Trends, vertikale Analyse, Speicherung, Hinweise an die Agenten, Befehl `metrics`, Architekturtest HR-06 | LucaNiklas/Stock-Agent#9 |
 
 ## Stand der Daten (lokal, nicht im Repository)
 
-- `data/stockagent.duckdb` (Schema-Version 7, Versionen 3 bis 6 werden beim Öffnen ohne Datenverlust aufgerüstet): 14.509 Aktien, Stand der Quelle 12.10.2026.
+- `data/stockagent.duckdb` (Schema-Version 8, Versionen 3 bis 7 werden beim Öffnen ohne Datenverlust aufgerüstet): 14.509 Aktien, Stand der Quelle 12.10.2026.
 - Zuordnung zur SEC (Lauf vom 13.10.2026): von 4.021 US-ISINs sind 3.117 einer CIK zugeordnet (3.052 verschiedene Firmen), 9 unsicher, 895 ohne SEC-Melder (davon 845 Hinterlegungsscheine, meist nicht gesponserte ADRs, 69 davon nur ADR-Registrierungen der Depotbank). Stammdaten liegen für alle 3.052 vor. Die SEC selbst führt bei 115 keinen SIC-Code (überwiegend geschlossene Fonds) und bei 2 keine Geschäftsadresse. 2.697 haben eine US-Geschäftsadresse.
 - Die 9 unsicheren Zuordnungen zeigt `stockagent sec show <ISIN>` mit Grund (meist Umbenennungen wie Hypera/Hypermarcas oder Verwechslungen bei OpenFIGI wie Helix Energy mit dem Ticker von Hornbeck Offshore). Festlegen mit `stockagent sec map <ISIN> <CIK>|keine`.
 - Abschlusswerte und Prüfungen bisher für die 10 Abnahmefirmen: Apple, Microsoft, Coca-Cola, Johnson & Johnson, Caterpillar, Procter & Gamble, Nike, Walmart, JPMorgan, PagerDuty. Alle erfüllen die Bilanzgleichung für zehn Jahre, alle verfügbaren Kernwerte stimmen auf dem zweiten Weg mit dem Originalbericht überein.
 - Kennzahlen (Lauf vom 13.10.2026) für die 10 Abnahmefirmen: zusammen 306 von 330 Jahreswerten im letzten Geschäftsjahr berechnet, kein Prüfpunkt gestoppt. Die fehlenden: JPMorgan 20 (Bank, eigene Scorecard in Schritt 8), Apple, Caterpillar und Nike je 1 (kein Zinsaufwand gemeldet, Zinsdeckung unbekannt), PagerDuty 1 (Gewinn je Aktie vor 5 Jahren negativ, Wachstumsrate in Prozent nicht berechenbar). Bei Johnson & Johnson und Nike ist das EBIT abgeleitet und markiert. Speicher je Firma rund 100 KB. Die Werte aus der Datenbank stimmen für Apple bei allen 33 Kennzahlen mit der Handrechnung aus den 10-K überein.
 - Wechselkurse der EZB (Lauf vom 14.10.2026): 86.703 Referenzkurse für 29 Währungen ab 2015.
 - Bewertung (Lauf vom 14.10.2026, Kurse bis 13.10.2026) für die 10 Abnahmefirmen: 43 Kennzahlen je Firma, davon 10 mit Börsenkurs. Es fehlen JPMorgan 5 (Unternehmenswert, EV/EBIT, EV/Umsatz und Aktionärsrendite brauchen die Nettoverschuldung, FCF-Rendite den Capex: Bank, Schritt 8) . PagerDuty zahlt keine Dividende: Dividendenrendite 0 % (Bericht und Yahoo zeigen keine), Aktionärsrendite 9,45 % aus Rückkäufen und Schuldenabbau. Die Werte aus der Datenbank stimmen für Apple bei allen 43 Kennzahlen mit der Handrechnung überein. Beispiel Apple: KGV 34,2 am Geschäftsjahresende, 45,7 mit dem Kurs vom 13.10.2026, so hoch wie in keinem der letzten 10 Geschäftsjahre.
+- Zinsen und Damodaran (Lauf vom 19.10.2026): 10-jährige Zinsen EUR und USD ab 2015, Damodaran-Stand Januar 2026 (96 Branchen, 48.144 Firmen), Risikoprämie monatlich bis Oktober 2026 (3,70 %).
+- Kapitalkosten (Lauf vom 19.10.2026, 10 Abnahmefirmen): WACC zwischen 6,4 % (Coca-Cola) und 12,0 % (PagerDuty), Apple 9,37 %. Implizites FCFF-Wachstum über 10 Jahre am Geschäftsjahresende: Procter & Gamble 4,5 %, Johnson & Johnson 6,1 %, Coca-Cola 9,8 %, Caterpillar 10,6 %, Nike 11,5 %, Apple 15,5 %, Walmart 16,2 %, Microsoft 16,8 %, PagerDuty -2,0 %. JPMorgan ohne WACC (Bank). Rückrechnung CP-06 bei allen bestanden. Die Werte aus der Datenbank stimmen für Apple bei allen 47 Kennzahlen mit der Handrechnung überein.
 - `data/raw/`: Rohdateien mit SHA-256, auch jede SEC- und OpenFIGI-Antwort.
 - `state/tr_checks.yaml`: Lucas Prüfungen in der Trade-Republic-App. Noch leer.
 - `state/cik_overrides.yaml`: Lucas Zuordnungen zur SEC (`stockagent sec map`). Noch leer.
@@ -63,6 +66,9 @@ uv run stockagent sec map <ISIN> <CIK>|keine
 uv run stockagent prices update -i <ISIN> [--refresh]
 uv run stockagent prices show <ISIN>
 uv run stockagent prices map <ISIN> <SYMBOL>|keine
+uv run stockagent markt update [--refresh]
+uv run stockagent markt show
+uv run stockagent markt branche <ISIN> "<Branche bei Damodaran>"
 uv run stockagent fx update [--refresh]
 uv run stockagent fx show USD [--datum JJJJ-MM-TT]
 uv run stockagent metrics update [--isin <ISIN>] [--as-of JJJJ-MM-TT]
@@ -78,6 +84,7 @@ uv run pytest && uv run ruff check . && uv run mypy
 - ADR 0002: ISIN zu CIK über OpenFIGI und die Tickerliste der SEC, Unsicheres bleibt leer. onvista und finanzen.net werden nicht automatisch abgefragt.
 - ADR 0003: vier Abteilungen (Recherche, Berechnung, Auswertung, Prüfung) mit Quellenkarte. Python holt alles mit fester Adresse, Agenten suchen nur, wo es keine gibt.
 - Werte für Abschlusszahlen nur für eine Auswahl laden (Lucas Entscheidung 13.10.2026).
+- ADR 0006 (19.10.2026): Kapitalkosten aus Treasury- und Bundesbank-Zins, Damodarans Risikoprämie und Branchenbeta (Zuordnung über Börse und Kürzel, sonst SIC), gesetzlicher Steuersatz je Land, Fremdkapitalaufschlag aus synthetischem Rating. Reverse-DCF über 10 Jahre mit Rückrechnung.
 - ADR 0005 (14.10.2026): Bewertung auf Anfrage statt Gesamtlauf, Vergleichsgruppe 15 bis 50 Titel, Kursquelle Yahoo Finance für alle Länder mit eigenem kleinem Abrufmodul, ohne Schlüssel. Polygon bleibt als zweite Quelle für US-Kurse vorgesehen.
 
 ## Offen und bekannt
@@ -115,4 +122,4 @@ Das Dashboard wird die Bedienzentrale: suchen in eigenen Worten, filtern nach Ti
 
 ## Nächster Schritt
 
-Bauschritt 4, dritter Teil: Zinsen (Bundesbank, US-Treasury), Damodaran, Kapitalkosten, Reverse-DCF, DCF-Szenarien, `ev_ebit_normalized`, Altman Z für Produzenten, TTM-Werte aus Quartalen. Braucht die Domains `api.statistiken.bundesbank.de`, `home.treasury.gov` und `pages.stern.nyu.edu`.
+Bauschritt 4 Teil 3b: DCF-Szenarien mit Sensitivität und TTM-Werte aus Quartalen. Danach Schritt 5.

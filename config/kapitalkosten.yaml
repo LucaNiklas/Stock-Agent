@@ -1,0 +1,63 @@
+# Kapitalkosten, Reverse-DCF und DCF (SPEC 3.6, ADR 0006). Version bei jeder Änderung erhöhen
+# und in docs/METHODOLOGY_CHANGELOG.md eintragen.
+version: "1.0"
+
+# Risikofreier Zins je Berichtswährung (Reihe in Tabelle `rates`). Andere Währungen: kein WACC,
+# bis eine Quelle eingetragen ist (Umrechnung über die Inflationsdifferenz, SPEC 5.2 Nr. 6, offen).
+zinsreihe:
+  USD: rf_10y_USD
+  EUR: rf_10y_EUR
+# Zins höchstens so viele Tage vor dem Stichtag
+zins_max_abstand_tage: 7
+
+# Gesetzlicher Steuersatz je Land (Hauptsitz, ISO), für die Steuerersparnis auf Fremdkapital und
+# das Neuverschulden des Betas (Lucas Entscheidung 19.10.2026). Quelle: OECD Corporate Tax
+# Statistics 2025, kombinierter Satz Staat und Gemeinden. Fehlt das Land: `standard`.
+steuersatz:
+  standard: "0.25"
+  US: "0.21"     # Bundessatz, wie mit Luca abgestimmt (mit Bundesstaaten im Schnitt rund 25 %)
+  DE: "0.2983"   # Körperschaftsteuer mit Solidaritätszuschlag und Gewerbesteuer (Hebesatz 400 %)
+  AT: "0.23"
+  BE: "0.25"
+  CH: "0.196"
+  DK: "0.22"
+  ES: "0.25"
+  FI: "0.20"
+  FR: "0.2583"
+  GB: "0.25"
+  IE: "0.125"
+  IT: "0.279"
+  LU: "0.2494"
+  NL: "0.258"
+  NO: "0.22"
+  PL: "0.19"
+  PT: "0.315"
+  SE: "0.206"
+  JP: "0.2974"
+  CA: "0.262"
+  AU: "0.30"
+  HK: "0.165"
+
+# Synthetisches Rating (Damodaran, Tabelle für große Firmen): Zinsdeckung = EBIT / Zinsaufwand.
+# Firmen mit SIC 6000 bis 6799 nutzen die Tabelle für Finanzfirmen.
+finanz_sic: [6000, 6799]
+# Meldet die Firma keinen Zinsaufwand: Aufschlag der Branche laut Damodaran (Fremdkapitalkosten
+# der Branche minus Damodarans Zins für 10-jährige Treasuries am Stand der Tabelle).
+
+# Reverse-DCF und DCF (SPEC 3.6)
+jahre: 10                  # Prognosejahre, danach Endwert nach Gordon
+endwachstum_max: "0.025"   # Endwachstum höchstens risikofreier Zins, Default höchstens 2,5 %
+suche:
+  wachstum_min: "-0.5"     # implizites Wachstum wird in diesem Bereich gesucht
+  wachstum_max: "1.0"
+  genauigkeit: "0.0000001"
+rueckrechnung_toleranz: "0.001"   # CP-06: DCF mit implizitem Wachstum trifft den Unternehmenswert
+endwert_anteil_hinweis: "0.75"    # SPEC 3.6 Nr. 5
+
+# Normalisiertes EV/EBIT (SPEC 3.4 Nr. 4)
+ev_ebit_normalisiert:
+  mindest_jahre: 7
+  max_jahre: 10
+
+# Altman Z für Produzenten (SPEC 3.5): SIC-Bereiche der verarbeitenden Industrie
+produzent_sic: [[2000, 3999]]

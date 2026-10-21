@@ -158,3 +158,50 @@ ecb:
                ZAR, ILS, INR, IDR, THB, MYR, NZD, BRL, MXN, TRY, ISK, RON, PHP]
   # Unterwährungen (SPEC 5.2 Nr. 10): Kurse in Pence, Cent oder Agorot, Faktor 100 zur Hauptwährung
   unterwaehrungen: {GBp: GBP, GBX: GBP, ZAc: ZAR, ZAC: ZAR, ILA: ILS}
+
+zinsen:
+  # Risikofreier Zins 10 Jahre (SPEC 3.6 Nr. 3). Ohne Schlüssel. Werte in Prozent.
+  # EUR: Zinsstrukturkurve der Bundesbank (Svensson, börsennotierte Bundeswertpapiere)
+  bundesbank_url: https://api.statistiken.bundesbank.de/rest/data/BBSIS/D.I.ZST.ZI.EUR.S1311.B.A604.R10XX.R.A.A._Z._Z.A?format=csv&startPeriod={start}
+  # USD: Daily Treasury Par Yield Curve, Spalte "10 Yr", eine Datei je Kalenderjahr
+  treasury_url: https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/{jahr}/all?type=daily_treasury_yield_curve&field_tdr_date_value={jahr}&page&_format=csv
+  start: "2015-01-01"
+  aktuell_tage: 1
+
+damodaran:
+  # Datensätze von Aswath Damodaran, NYU Stern (SPEC 3.6 Nr. 3, 7.3), frei zugänglich.
+  # Gespeichert wird je Datensatz der zuletzt geladene Stand mit Datum. Betas und
+  # Branchenzuordnung erscheinen einmal im Jahr (Januar), die Risikoprämie monatlich.
+  betas_url: https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/Betas.html
+  ratings_url: https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ratings.html
+  wacc_url: https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/wacc.html
+  erp_url: https://pages.stern.nyu.edu/~adamodar/pc/implprem/ERPbymonth.xlsx
+  firms_url: https://pages.stern.nyu.edu/~adamodar/pc/datasets/indname.xlsx
+  erp_spalte: "ERP (T12m)"   # Damodarans Standardwert der impliziten Prämie
+  aktuell_tage: 7            # jünger: nicht neu laden
+  # Endung des Yahoo-Symbols -> Börsenkürzel bei Damodaran ("Börse:Kürzel"), in dieser Reihenfolge
+  boersen:
+    "": [NYSE, NasdaqGS, NasdaqGM, NasdaqCM, NYSEAM, BATS, OTCPK]
+    ".DE": [XTRA, DB]
+    ".F": [DB, XTRA]
+    ".L": [LSE, AIM]
+    ".PA": [ENXTPA]
+    ".AS": [ENXTAM]
+    ".BR": [ENXTBR]
+    ".LS": [ENXTLS]
+    ".SW": [SWX]
+    ".MI": [BIT]
+    ".MC": [BME]
+    ".ST": [OM]
+    ".CO": [CPSE]
+    ".HE": [HLSE]
+    ".OL": [OB]
+    ".VI": [WBAG]
+    ".IR": [ISE]
+    ".WA": [WSE]
+    ".AT": [ATSE]
+    ".T": [TSE]
+    ".HK": [SEHK]
+    ".TO": [TSX]
+    ".V": [TSXV]
+    ".AX": [ASX]

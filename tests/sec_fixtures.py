@@ -33,6 +33,7 @@ def project(tmp_path: Path) -> Paths:
         "concept_map.yaml",
         "metrics.yaml",
         "hinweise.yaml",
+        "kapitalkosten.yaml",
     ):
         shutil.copy(ROOT / "config" / name, tmp_path / "config" / name)
     paths = Paths(tmp_path)

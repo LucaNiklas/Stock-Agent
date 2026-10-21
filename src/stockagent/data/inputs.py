@@ -8,7 +8,7 @@ Split-Ereignisse aus den Deckblatt-Meldungen (DQ-08). Reine Auswahl, keine Arith
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from decimal import Decimal
 from itertools import pairwise
@@ -144,6 +144,187 @@ def kurse(
     return werte, luecken
 
 
+@dataclass(frozen=True)
+class Branche:
+    name: str
+    herkunft: str  # Begründung der Zuordnung, erscheint im Rechenweg
+
+
+def damodaran_branche(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    isin: str | None,
+    boersen: dict[str, list[str]],
+    festgelegt: dict[str, str],
+) -> Branche | None:
+    """Branche bei Damodaran: Lucas Festlegung, sonst über Börse:Kürzel (Yahoo-Symbol oder
+    Tickerliste der SEC), sonst die häufigste Branche unter Damodarans Firmen mit demselben
+    SIC-Code (Lucas Entscheidung 19.10.2026, ADR 0006)."""
+    if isin and isin in festgelegt:
+        return Branche(festgelegt[isin], f"festgelegt in state/damodaran_branchen.yaml ({isin})")
+    kandidaten: list[str] = []
+    sym = store.load_price_symbol(conn, isin) if isin else None
+    if sym is not None and sym.symbol:
+        basis, _, endung = sym.symbol.rpartition(".")
+        if not basis or f".{endung}" not in boersen:
+            basis, endung = sym.symbol, ""
+        endung = f".{endung}" if endung else ""
+        for kuerzel in dict.fromkeys([basis, basis.replace("-", ".")]):
+            kandidaten += [f"{b}:{kuerzel}" for b in boersen.get(endung, [])]
+    m = store.load_isin_cik(conn).get(isin or "")
+    if m is not None and m.ticker:
+        kandidaten += [f"{b}:{m.ticker.replace('-', '.')}" for b in boersen.get("", [])]
+    treffer = store.damodaran_industry_for(conn, list(dict.fromkeys(kandidaten)))
+    if treffer:
+        return Branche(treffer[0], f"Damodaran-Firmenliste, {treffer[1]}")
+    issuer = store.load_issuer(conn, issuer_id)
+    if issuer is not None and issuer.sector_sic:
+        s = store.damodaran_industry_by_sic(conn, issuer.sector_sic)
+        if s:
+            return Branche(
+                s[0], f"häufigste Branche bei SIC {issuer.sector_sic} ({s[1]} von {s[2]} Firmen)"
+            )
+    return None
+
+
+def _anteil(text: str, quelle: str, t: date) -> Eingabe:
+    return Eingabe(Decimal(text), quelle, "anteil", t)
+
+
+def kapitalmarkt(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    isin: str | None,
+    stichtage: list[date],
+    berichtswaehrung: str | None,
+    kk_cfg: dict[str, Any],
+    boersen: dict[str, list[str]],
+    festgelegt: dict[str, str],
+) -> tuple[dict[str, dict[date, Eingabe]], dict[str, str], dict[str, Any]]:
+    """Eingaben für Kapitalkosten und Reverse-DCF je Stichtag: risikofreier Zins der
+    Berichtswährung, Risikoprämie, Branchenbeta, Steuersatz, Branchenaufschlag, Endwachstum.
+    Dazu Rating-Tabelle und Kennzeichen als Parameter. Reine Auswahl, keine Arithmetik."""
+    werte: dict[str, dict[date, Eingabe]] = {}
+    luecken: dict[str, str] = {}
+    parameter: dict[str, Any] = {"kapitalkosten": kk_cfg}
+    vermerke: list[str] = []
+    issuer = store.load_issuer(conn, issuer_id)
+    sic = int(issuer.sector_sic) if issuer and issuer.sector_sic else None
+    lo, hi = (int(x) for x in kk_cfg["finanz_sic"])
+    parameter["finanzfirma"] = sic is not None and lo <= sic <= hi
+    parameter["produzent"] = sic is not None and any(
+        int(a) <= sic <= int(b) for a, b in kk_cfg["produzent_sic"]
+    )
+    parameter["sic"] = sic
+
+    # Risikofreier Zins der Berichtswährung
+    serie = kk_cfg["zinsreihe"].get(berichtswaehrung or "")
+    if serie is None:
+        luecken["rf"] = f"kein risikofreier Zins für {berichtswaehrung} (config/kapitalkosten.yaml)"
+    else:
+        werte["rf"] = {}
+        for t in stichtage:
+            z = store.rate_on_or_before(conn, serie, t)
+            if z is None or dq.kurs_veraltet(z.date, t, int(kk_cfg["zins_max_abstand_tage"])):
+                continue
+            werte["rf"][t] = Eingabe(
+                z.percent,
+                f"{z.source} {serie} {z.date.isoformat()} (Rohdatei {z.raw_sha256[:12]})",
+                "prozent",
+                t,
+            )
+        if not werte["rf"]:
+            luecken["rf"] = f"keine Zinsen {serie} geladen (stockagent markt update)"
+
+    # Risikoprämie (monatlich)
+    werte["erp"] = {}
+    for t in stichtage:
+        e = store.erp_on_or_before(conn, t)
+        if e is not None:
+            werte["erp"][t] = _anteil(
+                str(e.erp),
+                f"Damodaran implizite Risikoprämie {e.month:%m.%Y} (Rohdatei {e.raw_sha256[:12]})",
+                t,
+            )
+    if not werte["erp"]:
+        luecken["erp"] = "keine Risikoprämie geladen (stockagent markt update)"
+
+    # Branchenbeta und Branchenaufschlag
+    branche = damodaran_branche(conn, issuer_id, isin, boersen, festgelegt)
+    betas = store.damodaran_meta(conn, "betas_us")
+    wacc_meta = store.damodaran_meta(conn, "wacc_us")
+    if branche is None:
+        luecken["beta_unverschuldet"] = "keine Branche bei Damodaran zugeordnet"
+    else:
+        parameter["branche_damodaran"] = branche.name
+        b = store.industry_beta(conn, branche.name)
+        if b is None or b.unlevered_cash is None or betas is None:
+            luecken["beta_unverschuldet"] = f"kein Branchenbeta für {branche.name}"
+        else:
+            quelle = (
+                f"Damodaran Betas USA Stand {betas.stand}, Branche {branche.name} "
+                f"({branche.herkunft}), unverschuldet um Kasse bereinigt"
+            )
+            werte["beta_unverschuldet"] = {
+                t: Eingabe(b.unlevered_cash, quelle, "faktor", t) for t in stichtage
+            }
+            vermerke.append(f"BETA_STAND: Branchenbeta Stand {betas.stand} für alle Jahre")
+            land = (store.listing_info(conn, isin) or ("", ""))[1] if isin else ""
+            if land and land != "US":
+                vermerke.append("BETA_USA: US-Branchenbeta, europäische Betas ab Schritt 7")
+        kd = store.industry_cost_of_debt(conn, branche.name)
+        if kd is not None and wacc_meta is not None and wacc_meta.stand:
+            monat = datetime.strptime(wacc_meta.stand, "%B %Y").date()
+            e = store.erp_on_or_before(conn, monat)
+            if e is not None and e.tbond is not None:
+                werte["kd_branche"] = {
+                    t: Eingabe(
+                        kd,
+                        f"Damodaran Kapitalkosten USA Stand {wacc_meta.stand}, Branche "
+                        f"{branche.name}, Fremdkapitalkosten vor Steuern",
+                        "prozent",
+                        t,
+                    )
+                    for t in stichtage
+                }
+                werte["rf_damodaran"] = {
+                    t: _anteil(
+                        str(e.tbond),
+                        f"Damodaran Zins 10-jährige Treasury {e.month:%m.%Y} (Stand der Tabelle)",
+                        t,
+                    )
+                    for t in stichtage
+                }
+
+    # Steuersatz und Endwachstum aus config/kapitalkosten.yaml
+    land = (store.listing_info(conn, isin) or ("", ""))[1] if isin else ""
+    saetze = kk_cfg["steuersatz"]
+    satz, herkunft = (saetze[land], land) if land in saetze else (saetze["standard"], "standard")
+    werte["steuersatz"] = {
+        t: _anteil(str(satz), f"config/kapitalkosten.yaml steuersatz {herkunft}", t)
+        for t in stichtage
+    }
+    werte["endwachstum_max"] = {
+        t: _anteil(str(kk_cfg["endwachstum_max"]), "config/kapitalkosten.yaml endwachstum_max", t)
+        for t in stichtage
+    }
+    ratings = store.rating_table(conn, "finanz" if parameter["finanzfirma"] else "nichtfinanz")
+    rmeta = store.damodaran_meta(conn, "ratings")
+    parameter["ratings"] = [
+        {
+            "art": z.kind,
+            "ab": str(z.coverage_from),
+            "bis": str(z.coverage_to),
+            "rating": z.rating,
+            "aufschlag": str(z.spread_percent),
+            "stand": rmeta.stand if rmeta else "",
+        }
+        for z in ratings
+    ]
+    parameter["vermerke_kapitalkosten"] = tuple(vermerke)
+    return werte, luecken, parameter
+
+
 def reihen(
     conn: duckdb.DuckDBPyConnection,
     issuer_id: str,
@@ -154,6 +335,7 @@ def reihen(
     *,
     isin: str | None = None,
     kurs_cfg: dict[str, Any] | None = None,
+    kk_cfg: dict[str, Any] | None = None,
 ) -> Reihen:
     """Jahresreihen aller internen Größen aus `cmap['us-gaap']` für bis zu `max_jahre` Jahre.
     Mit `isin` und `kurs_cfg` (Abschnitt `kurse` aus metrics.yaml plus Unterwährungen) auch
@@ -185,6 +367,21 @@ def reihen(
         )
         werte.update(kurs_werte)
         parameter["unterwaehrungen"] = unter
+    if kk_cfg is not None:
+        umsatz = next(iter(werte.get("revenue", {}).values()), None)
+        kk_werte, kk_luecken, kk_parameter = kapitalmarkt(
+            conn,
+            issuer_id,
+            isin,
+            list(stichtage),
+            umsatz.waehrung if umsatz else None,
+            kk_cfg,
+            dict(kk_cfg.get("boersen", {})),
+            dict(kk_cfg.get("festgelegt", {})),
+        )
+        werte.update(kk_werte)
+        luecken.update(kk_luecken)
+        parameter.update(kk_parameter)
     return Reihen(
         subjekt=issuer_id,
         stichtage=tuple(stichtage),
@@ -225,6 +422,30 @@ def reihen_aktuell(
         f = store.fx_on_or_before(conn, str(w), k.date)
         if f is not None:
             neu[f"fx_{w}"] = {stichtag: _fx_eingabe(f, stichtag)}
+    kk = basis.parameter.get("kapitalkosten")
+    if kk:
+        # Kapitalkosten mit dem Zins und der Risikoprämie von heute
+        serie = kk["zinsreihe"].get(umsatz.waehrung if umsatz else "")
+        z = store.rate_on_or_before(conn, serie, heute) if serie else None
+        if z is not None and not dq.kurs_veraltet(z.date, heute, int(kk["zins_max_abstand_tage"])):
+            neu["rf"] = {
+                stichtag: Eingabe(
+                    z.percent,
+                    f"{z.source} {serie} {z.date.isoformat()} (Rohdatei {z.raw_sha256[:12]})",
+                    "prozent",
+                    stichtag,
+                )
+            }
+        e = store.erp_on_or_before(conn, heute)
+        if e is not None:
+            neu["erp"] = {
+                stichtag: _anteil(
+                    str(e.erp),
+                    f"Damodaran implizite Risikoprämie {e.month:%m.%Y} "
+                    f"(Rohdatei {e.raw_sha256[:12]})",
+                    stichtag,
+                )
+            }
     werte = {name: dict(je) for name, je in basis.werte.items()}
     for name, je in neu.items():
         werte.setdefault(name, {}).update(je)

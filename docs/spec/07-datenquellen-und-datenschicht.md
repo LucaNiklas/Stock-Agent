@@ -121,6 +121,15 @@ prices(isin, date, close, adj_close, volume, currency, symbol, source, raw_sha25
 price_events(isin, date, kind[split|dividende], value, numerator, denominator, currency, symbol, source, raw_sha256)
 fx_rates(date, currency, per_eur, source, raw_sha256, retrieved_at)
        # EZB-Referenzkurse, Einheiten der Währung je 1 EUR, ab 2015, ab Schritt 4 (Schema-Version 7)
+rates(date, series[rf_10y_EUR|rf_10y_USD], percent, source[bundesbank|treasury], raw_sha256, retrieved_at)
+       # Risikofreier Zins in Prozent wie geliefert, ab Schritt 4 (Schema-Version 8, ADR 0006)
+damodaran_meta(dataset, stand, raw_sha256, url, retrieved_at)
+damodaran_betas(industry, firms, beta, de_percent, tax_percent, unlevered, cash_percent, unlevered_cash)
+damodaran_ratings(kind[nichtfinanz|finanz], coverage_from, coverage_to, rating, spread_percent)
+damodaran_wacc(industry, cost_of_debt_percent)
+damodaran_erp(month, erp, tbond, raw_sha256)
+damodaran_firms(ticker, firm, industry, sic, country)
+       # Je Datensatz der zuletzt geladene Stand, Werte als Text wie geliefert
 hinweise(run_id, issuer_id, regel[H-01..], an_agent, abteilung, anlass, metric_id, period_end, detail,
          status[offen|beauftragt|erledigt], erstellt_at)   # 8.5, Regeln in config/hinweise.yaml
 insider_tx(tx_id PK, lei, person_name, role, relation[self|spouse|child|household|controlled_entity],

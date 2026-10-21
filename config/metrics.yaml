@@ -9,7 +9,7 @@
 # Bewertungskennzahlen mit Börsenkurs (`kurs: true`, core/marktkennzahlen.py) seit Bauschritt 4.
 # `historie_perzentil: true`: Einordnung gegen die eigenen letzten 10 Jahre (SPEC 3.3).
 
-methodology_version: "1.2"
+methodology_version: "1.3"
 
 # Kurse für Bewertungskennzahlen (Bauschritt 4, ADR 0005)
 kurse:
@@ -1099,3 +1099,164 @@ metrics:
   tests:
   - tests/metrics/test_shareholder_yield.py
   kurs: true
+- id: wacc
+  version: '1.0'
+  name: Kapitalkosten (WACC)
+  formel: EK / (EK + FK) * (rf + Beta * ERP) + FK / (EK + FK) * (rf + Aufschlag) * (1 - Steuersatz)
+  definition: rf = 10-jährige Staatsanleihe der Berichtswährung (Bundesbank, US-Treasury), ERP =
+    implizite Risikoprämie nach Damodaran (Monat), Beta = Branchenbeta nach Damodaran, unverschuldet
+    und um Kasse bereinigt, mit der eigenen Verschuldung neu verschuldet. Aufschlag aus dem
+    synthetischen Rating nach Zinsdeckung, ohne gemeldeten Zinsaufwand der Branchenaufschlag
+    (Vermerk). EK = Börsenwert, FK = Finanzschulden + Leasing. Annahmen in config/kapitalkosten.yaml.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - debt_long_total|debt_noncurrent
+  - lease_operating
+  - rf
+  - erp
+  - beta_unverschuldet
+  - steuersatz
+  optionale_eingaben:
+  - debt_current
+  - short_term_borrowings
+  - commercial_paper
+  - lease_finance
+  - interest_expense
+  - kd_branche
+  - rf_damodaran
+  einheit: percent
+  richtung: lower_better
+  rundung:
+    anzeige: percent
+    nachkommastellen: 2
+  scorecards:
+  - standard
+  quelle: Damodaran, Investment Valuation, 3. Auflage, Kapitel 8; SPEC 3.6 Nr. 3; ADR 0006
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  tests:
+  - tests/metrics/test_wacc.py
+  kurs: true
+- id: implied_growth
+  version: '1.0'
+  name: Implizites Wachstum (Reverse-DCF)
+  formel: g mit Barwert(FCFF * (1 + g)^t, 10 Jahre, WACC) + Endwert = Unternehmenswert
+  definition: Hauptverfahren der Bewertung (SPEC 3.6). FCFF = FCF + Zinsaufwand * (1 - Steuersatz).
+    Endwachstum = min(risikofreier Zins, 2,5 %). Ist der FCFF nicht positiv, auf Umsatzbasis mit der
+    Zielmarge (Median der eigenen FCF-Margen, Branchenmedian ab Schritt 5, Vermerk). Rückrechnung
+    CP-06.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - debt_long_total|debt_noncurrent
+  - cash
+  - lease_operating
+  - operating_cash_flow
+  - capex
+  - rf
+  - erp
+  - beta_unverschuldet
+  - steuersatz
+  - endwachstum_max
+  optionale_eingaben:
+  - interest_expense
+  - debt_current
+  - short_term_borrowings
+  - commercial_paper
+  - st_investments
+  - lease_finance
+  - pension_funded_status
+  - equity_incl_nci
+  - equity_investments
+  einheit: percent
+  richtung: lower_better
+  rundung:
+    anzeige: percent
+    nachkommastellen: 1
+  scorecards:
+  - standard
+  quelle: Mauboussin und Rappaport, Expectations Investing (2001, 2021); SPEC 3.6
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  - CP-06
+  tests:
+  - tests/metrics/test_implied_growth.py
+  kurs: true
+- id: ev_ebit_normalized
+  version: '1.0'
+  name: EV/EBIT normalisiert
+  formel: Unternehmenswert / Durchschnitt EBIT der letzten 7 bis 10 Geschäftsjahre
+  definition: Für Zykliker (SPEC 3.4 Nr. 4). Mindestens 7 Jahre EBIT, nur bei positivem Durchschnitt.
+  eingaben:
+  - kurs
+  - shares_diluted
+  - debt_long_total|debt_noncurrent
+  - cash
+  - lease_operating
+  - ebit
+  optionale_eingaben:
+  - debt_current
+  - short_term_borrowings
+  - commercial_paper
+  - st_investments
+  - lease_finance
+  - pension_funded_status
+  - equity_incl_nci
+  - equity_investments
+  einheit: pure
+  richtung: lower_better
+  rundung:
+    anzeige: faktor
+    nachkommastellen: 1
+  scorecards:
+  - standard
+  - cyclicals
+  quelle: Graham und Dodd, Security Analysis (1934); SPEC 3.4 Nr. 4
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  - CP-03
+  tests:
+  - tests/metrics/test_ev_ebit_normalized.py
+  kurs: true
+  historie_perzentil: true
+- id: altman_z
+  version: '1.0'
+  name: Altman Z (Produzenten)
+  formel: 1,2 X1 + 1,4 X2 + 3,3 X3 + 0,6 X4 + 1,0 X5
+  definition: Nur für Produzenten (SIC 2000 bis 3999, config/kapitalkosten.yaml). X4 = Börsenwert /
+    Gesamtverbindlichkeiten, X5 = Umsatz / Bilanzsumme, X1 bis X3 wie bei Z''. Gefahrenzone unter 1,81,
+    sichere Zone über 2,99. Warnlampe, keine Wahrscheinlichkeit.
+  eingaben:
+  - total_assets
+  - current_assets
+  - current_liabilities
+  - retained_earnings
+  - ebit
+  - revenue
+  - kurs
+  - shares_diluted
+  - total_liabilities|liabilities_and_equity
+  einheit: pure
+  richtung: higher_better
+  rundung:
+    anzeige: faktor
+    nachkommastellen: 2
+  scorecards:
+  - standard
+  - cyclicals
+  quelle: Altman (1968), Journal of Finance; SPEC 3.5
+  pruefpunkte:
+  - CP-01
+  - CP-02
+  tests:
+  - tests/metrics/test_altman_z.py
+  kurs: true
+  schwellen:
+    gefahr_unter: '1.81'
+    sicher_ueber: '2.99'

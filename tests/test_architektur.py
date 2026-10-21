@@ -52,6 +52,16 @@ ERLAUBT: dict[tuple[str, str], str] = {
     ("sec_update.py", "header + yaml.safe_dump(data, sort_keys=True)"): "Text",
     ("tr_checks.py", "header + yaml.safe_dump(body, sort_keys=False)"): "Text",
     ("prices_update.py", "header + yaml.safe_dump(data, sort_keys=True)"): "Text",
+    ("data/xlsx.py", "nummer * 26 + (ord(b) - 64)"): "Spaltenname einer Excel-Zelle in Nummer",
+    ("data/xlsx.py", "nummer * 26"): "Spaltenname einer Excel-Zelle in Nummer",
+    ("data/xlsx.py", "ord(b) - 64"): "Spaltenname einer Excel-Zelle in Nummer",
+    ("data/xlsx.py", "nummer - 1"): "Spaltenname einer Excel-Zelle in Nummer",
+    ("data/xlsx.py", "breite + 1"): "Anzahl Zellen einer Zeile",
+    ("data/xlsx.py", "basis.toordinal() + tage"): "Excel-Datum in Kalenderdatum",
+    ("data/sources/damodaran.py", "kopf + 1"): "Zeile nach der Kopfzeile",
+    ("kapitalmarkt_update.py", "kopf + 1"): "Zeile nach der Kopfzeile",
+    ("kapitalmarkt_update.py", "now.year + 1"): "Jahresdateien bis zum laufenden Jahr",
+    ("kapitalmarkt_update.py", "[r[0] for r in rows] + ([bis] if bis else [])"): "Liste",
 }
 # Listen und Zähler, die mit += wachsen (keine Finanzwerte)
 ERLAUBT_ANHAENGEN = {"sql", "params", "flags", "detail"}

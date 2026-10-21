@@ -31,6 +31,13 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Kursquelle Yahoo Finance für alle Länder, Kurse wie geliefert gespeichert (SPEC 7.3).
 - Einordnung gegen den Gesamtmarkt nur, wenn es einen Lauf über alle Titel gibt (SPEC 3.3).
 
+## 4.8 (19.10.2026, Bauschritt 4 Teil 3a, `methodology_version` der Kennzahlen 1.3)
+
+- Kapitalkosten (`wacc`) nach ADR 0006: risikofreier Zins 10 Jahre der Berichtswährung, implizite Risikoprämie nach Damodaran, Branchenbeta nach Damodaran mit eigener Verschuldung neu verschuldet, Fremdkapitalkosten aus synthetischem Rating oder Branchenaufschlag, gesetzlicher Steuersatz je Land (`config/kapitalkosten.yaml`).
+- Reverse-DCF (`implied_growth`): FCFF-Wachstum über 10 Jahre, das den Unternehmenswert rechtfertigt, Endwachstum höchstens risikofreier Zins und 2,5 %, Rückrechnung CP-06. Bei nicht positivem FCFF auf Umsatzbasis mit der Zielmarge aus der eigenen Historie (Vermerk).
+- Normalisiertes EV/EBIT (`ev_ebit_normalized`): Unternehmenswert durch durchschnittliches EBIT der letzten 7 bis 10 Jahre (SPEC 3.4 Nr. 4).
+- Altman Z für Produzenten (`altman_z`, SIC 2000 bis 3999) mit Börsenwert in X4. Für alle anderen bleibt Z''.
+
 ## 4.7 (14.10.2026, `methodology_version` der Kennzahlen 1.2, Hinweisregeln 1.1)
 
 - Dividenden mit Gegenprobe bei Yahoo (Lucas Entscheidung 14.10.2026). Meldet der Bericht für das Geschäftsjahr keine Dividendenzahlung, zählt die Dividende nur dann als 0, wenn auch Yahoo vom Tag nach dem Vorjahresstichtag bis zum Stichtag kein Dividendenereignis zeigt. Vermerk `KEINE_DIVIDENDE` am Wert. Gilt für Dividenden- und Aktionärsrendite.
