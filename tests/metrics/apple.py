@@ -191,6 +191,11 @@ MARKT = {
         "faktor",
         "Damodaran Betas Stand January 2026, Computers/Peripherals",
     ),
+    "beta_branche": (
+        {T25: "1.35", T24: "1.35"},
+        "faktor",
+        "Damodaran Betas Stand January 2026, Computers/Peripherals, Beta der Branche",
+    ),
     "kd_branche": ({T25: "5.29", T24: "5.29"}, "prozent", "Damodaran wacc Stand January 2026"),
     "rf_damodaran": (
         {T25: "0.041799999999999997", T24: "0.041799999999999997"},
@@ -199,6 +204,17 @@ MARKT = {
     ),
     "steuersatz": ({T25: "0.21", T24: "0.21"}, "anteil", "config/kapitalkosten.yaml US"),
     "endwachstum_max": ({T25: "0.025", T24: "0.025"}, "anteil", "config/kapitalkosten.yaml"),
+    # Feste Annahmen der Branchenkennzahlen (config/metrics.yaml parameter, Bauschritt 8)
+    "parameter_residualgewinn_wachstum": (
+        {T25: "0", T24: "0"},
+        "pure",
+        "config/metrics.yaml parameter.residualgewinn_wachstum",
+    ),
+    "parameter_liquiditaet_hoechst_monate": (
+        {T25: "120", T24: "120"},
+        "pure",
+        "config/metrics.yaml parameter.liquiditaet_hoechst_monate",
+    ),
 }
 # Rating-Tabelle für große Nicht-Finanzfirmen, Damodaran ratings.html Stand January 2026
 RATINGS = [

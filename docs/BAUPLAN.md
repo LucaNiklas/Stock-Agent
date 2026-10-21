@@ -80,6 +80,7 @@ Bewusst verschoben (Lucas Entscheidung 13.10.2026): Kennzahlen mit Börsenkurs n
 
 - **Ziel:** Eigene Bewertung für Banken, Versicherer, Immobilien, Versorger, Zykliker, Holdings und Wachstumsfirmen ohne Gewinn (SPEC 3.11).
 - **Entsteht:** Erweiterung von `config/scorecards.yaml` und `config/metrics.yaml` um die Kennzahlen dieser Branchen.
+- **Gebaut (21.10.2026, ADR 0010):** `core/branchenkennzahlen.py` mit 30 Kennzahlen, `core/gscore.py`, `config/scorecards.yaml` 2.0 mit allen Scorecards, Zuordnung über SIC und die Regeln Holding und Wachstum ohne Gewinn, je Scorecard Kappungen, Multiples und Risikoeingang, Konzeptzuordnung 1.3 für Banken, Versicherer, REITs. Holdings: Status N mit Grund. Offen: CET1, notleidende Kredite, Combined Ratio, Solvency-Quote, NAV und Leerstand (nicht in XBRL), NACE-Codes für Firmen ohne SIC.
 - **Abnahme:** Je Scorecard 3 Unternehmen von Hand geprüft.
 
 ### Schritt 9: Insider

@@ -136,7 +136,7 @@ def _reihen(
     cfg: Konfiguration,
     isin: str | None,
 ) -> Reihen:
-    return inputs.reihen(
+    reihen = inputs.reihen(
         conn,
         issuer_id,
         as_of,
@@ -146,6 +146,7 @@ def _reihen(
         kurs_cfg=cfg.kurs_cfg(),
         kk_cfg=cfg.kk_cfg(),
     )
+    return inputs.mit_parametern(reihen, cfg.metrics.get("parameter", {}))
 
 
 def berechne(

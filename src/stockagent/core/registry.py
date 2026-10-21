@@ -54,6 +54,7 @@ def berechne(definition: Mapping[str, Any], reihen: Reihen, stichtag: date) -> E
 
 # Registrierung der Kennzahlen und Scores beim Import (Dekorator oben muss zuerst stehen)
 from stockagent.core import (  # noqa: E402
+    branchenkennzahlen,
     kapitalkosten,
     kennzahlen,
     marktkennzahlen,
@@ -63,6 +64,7 @@ from stockagent.core import (  # noqa: E402
 
 __all__ = [
     "berechne",
+    "branchenkennzahlen",
     "get",
     "ids",
     "kapitalkosten",

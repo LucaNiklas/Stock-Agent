@@ -45,6 +45,7 @@ STATISTIKEN = (
     "cagr_5j",
     "stdabw",
     "steigung",
+    "mittel",
     "plausibilitaet",
     "aktuell",
     "ttm",
@@ -152,6 +153,14 @@ def cagr(r: Rechenweg, werte: Sequence[Eingabe], jahre: int) -> Decimal:
     return r.schritt("cagr", "p - 1", p=potenz)
 
 
+def mittel(r: Rechenweg, werte: Sequence[Eingabe], mindest: int) -> Decimal:
+    """Mittel über die Reihe (bis zu 10 Jahre), etwa für Zykliker über den Zyklus (SPEC 3.11)."""
+    _cp01(r, werte, mindest)
+    r.pruefe("CP-02", "Werte sind endliche Zahlen", all(w.wert.is_finite() for w in werte))
+    namen = {f"x{i}": w for i, w in enumerate(werte)}
+    return r.schritt("mittelwert", f"({' + '.join(namen)}) / {len(werte)}", **namen)
+
+
 def stdabw(r: Rechenweg, werte: Sequence[Eingabe], mindest: int) -> Decimal:
     _cp01(r, werte, mindest)
     namen = {f"x{i}": w for i, w in enumerate(werte)}
@@ -243,6 +252,7 @@ def trend(
         "cagr_5j": einzeln("cagr_5j", lambda r: cagr(r, werte, 5)),
         "stdabw": einzeln("stdabw", lambda r: stdabw(r, werte, mindest)),
         "steigung": einzeln("steigung", lambda r: steigung(r, werte, mindest)),
+        "mittel": einzeln("mittel", lambda r: mittel(r, werte, mindest)),
     }
     # Kennzahlen mit Börsenkurs springen mit dem Markt, das ist kein Datenfehler. Kursfehler
     # fangen die Prüfungen beim Kursabruf ab (prices_update.py)

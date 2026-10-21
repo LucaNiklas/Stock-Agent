@@ -4,8 +4,8 @@ Ablauf je angefragter ISIN:
 
 1. Eigene Daten sicherstellen: Abschlusswerte (SEC), Kurse, Zinsen, Damodaran, Wechselkurse,
    Kennzahlen.
-2. Scorecard und Branche aus dem SIC-Code (`config/scorecards.yaml`, `config/sectors.yaml`).
-   Andere Scorecards als Standard: Status N mit Grund, bis Schritt 8.
+2. Scorecard und Branche aus dem SIC-Code und den Kennzahlregeln (`config/scorecards.yaml`,
+   `config/sectors.yaml`, Bauschritt 8). Holdings: Status N mit Grund (Summe der Teile).
 3. Vergleichsgruppe: dieselbe Scorecard, Unterbranche und Region, sonst stufenweise breiter
    (Unterbranche global, Scorecard in der Region, Scorecard global), bis mindestens 15 Titel.
    Bei mehr als 50 die mit dem ähnlichsten Umsatz (Umsatz aller SEC-Melder aus der
@@ -37,7 +37,7 @@ from stockagent import (
     prices_update,
     sec_update,
 )
-from stockagent.core import dq, fx, marktrisiko, note, sektoren, vergleichsgruppe
+from stockagent.core import dq, fx, gscore, marktrisiko, note, sektoren, vergleichsgruppe
 from stockagent.core.calc import Rechenweg
 from stockagent.data import concepts, inputs, quality, store
 from stockagent.data.sources import sec
@@ -164,10 +164,36 @@ def _veraltet(conn: duckdb.DuckDBPyConnection, issuer_id: str, jetzt: datetime, 
     return not dq.juenger_als(row[0].date(), jetzt.date(), tage)
 
 
-def _wachstum_ohne_gewinn(werte: dict[tuple[str, str], Decimal | None]) -> bool:
-    marge = werte.get(("ebit_margin", "wert"))
+def _regel(cfg: Konfig, name: str) -> dict[str, Any]:
+    return next(r for r in cfg.scorecards["zuordnung"] if r.get("regel") == name)
+
+
+def _wachstum_ohne_gewinn(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    werte: dict[tuple[str, str], Decimal | None],
+    regel: dict[str, Any],
+) -> bool:
+    """EBIT-Marge in den letzten `jahre` Geschäftsjahren negativ und Umsatzwachstum (3 Jahre
+    je Jahr) über der Schwelle (SPEC 3.11)."""
+    jahre = int(regel["jahre"])
+    margen = sorted(
+        (r for r in store.load_metrics(conn, issuer_id, metric_id="ebit_margin", statistik="wert")),
+        key=lambda r: r.period_end,
+        reverse=True,
+    )[:jahre]
     wachstum = werte.get(("revenue_cagr_3y", "wert"))
-    return marge is not None and marge < 0 and wachstum is not None and wachstum > Decimal("0.15")
+    return (
+        len(margen) == jahre
+        and all(r.value is not None and r.value < 0 for r in margen)
+        and wachstum is not None
+        and wachstum > Decimal(str(regel["umsatzwachstum"]))
+    )
+
+
+def _holding(werte: dict[tuple[str, str], Decimal | None], regel: dict[str, Any]) -> bool:
+    anteil = werte.get(("holding_share", "wert"))
+    return anteil is not None and anteil > Decimal(str(regel["schwelle"]))
 
 
 def _kappungen(
@@ -176,8 +202,23 @@ def _kappungen(
     werte: dict[tuple[str, str], Decimal | None],
     metrics_cfg: dict[str, Any],
     scoring: dict[str, Any],
+    erlaubt: list[str] | None = None,
 ) -> tuple[list[str], bool]:
-    """Kappungen nach SPEC 6.2 Nr. 6 und ob ein Stopp-Flag (3.9) vorliegt."""
+    """Kappungen nach SPEC 6.2 Nr. 6 und ob ein Stopp-Flag (3.9) vorliegt. `erlaubt`: die
+    Kappungen, die für die Scorecard gelten (None = alle)."""
+    alle, stopp = _alle_kappungen(conn, issuer_id, werte, metrics_cfg, scoring)
+    if erlaubt is None:
+        return alle, stopp
+    return [k for k in alle if k in erlaubt], stopp and "stopp_flag" in erlaubt
+
+
+def _alle_kappungen(
+    conn: duckdb.DuckDBPyConnection,
+    issuer_id: str,
+    werte: dict[tuple[str, str], Decimal | None],
+    metrics_cfg: dict[str, Any],
+    scoring: dict[str, Any],
+) -> tuple[list[str], bool]:
     schwellen = {d["id"]: d.get("schwellen", {}) for d in metrics_cfg["metrics"]}
     out: list[str] = []
     stopp = False
@@ -398,16 +439,15 @@ def bewerten(
             i = store.load_issuer(conn, issuer)
             sic = int(i.sector_sic) if i and i.sector_sic and i.sector_sic.isdigit() else None
             eigen = Titel(isin, issuer, sic, (store.listing_info(conn, isin) or ("", None))[1])
-        sc = sektoren.scorecard(eigen.sic, _wachstum_ohne_gewinn(werte), cfg.scorecards)
-        if sc.ab_schritt > 5:
-            return _n(
-                paths,
-                isin,
-                issuer,
-                now,
-                f"Scorecard {sc.id} folgt in Schritt {sc.ab_schritt}",
-                conn,
-            )
+        sc = sektoren.scorecard(
+            eigen.sic,
+            _wachstum_ohne_gewinn(conn, issuer, werte, _regel(cfg, "wachstum_ohne_gewinn")),
+            cfg.scorecards,
+            holding=_holding(werte, _regel(cfg, "holding")),
+        )
+        sc_cfg = cfg.scorecards["scorecards"][sc.id]
+        if "nicht_bewertbar" in sc_cfg:
+            return _n(paths, isin, issuer, now, str(sc_cfg["nicht_bewertbar"]), conn)
     finally:
         conn.close()
 
@@ -508,30 +548,46 @@ def _note(
             f"Vergleichsgruppe zu klein ({len(gruppe_werte)} Titel mit Kennzahlen)",
             conn,
         )
-    kappungen, stopp = _kappungen(conn, issuer, werte, cfg.metrics, cfg.scoring)
+    sc_cfg = cfg.scorecards["scorecards"][scorecard_id]
+    kappungen, stopp = _kappungen(
+        conn, issuer, werte, cfg.metrics, cfg.scoring, sc_cfg.get("kappungen")
+    )
+    # Eigene Säulengewichte der Scorecard (SPEC 3.11), sonst die aus config/scoring.yaml
+    scoring = {
+        **cfg.scoring,
+        "saeulen_gewichte": sc_cfg.get("saeulen_gewichte", cfg.scoring["saeulen_gewichte"]),
+    }
+    gscore_weg: dict[str, object] | None = None
+    if any(k["kennzahl"] == gscore.KENNZAHL[0] for s in sc_cfg["saeulen"].values() for k in s):
+        werte, gruppe_werte, gscore_weg = gscore.ergaenzen(
+            issuer, now.date().isoformat(), werte, gruppe_werte
+        )
     erg = note.note(
         issuer,
         now.date().isoformat(),
         werte,
         gruppe_werte,
-        cfg.scorecards["scorecards"][scorecard_id],
-        cfg.scoring,
+        sc_cfg,
+        scoring,
         kappungen,
     )
     if erg.note == "N":
         return _n(paths, isin, issuer, now, erg.grund or "Note nicht berechenbar", conn)
 
-    # Konfidenz
+    # Konfidenz. Historie = Geschäftsjahre mit Jahreswerten in den Kennzahlen der Scorecard
+    # (vorher Bruttomarge und FCF, die es bei Banken und Versicherern nicht gibt: dort immer K4)
+    eigene_kz = {
+        str(k["kennzahl"])
+        for s in sc_cfg["saeulen"].values()
+        for k in s
+        if k["statistik"] == "wert" and k["kennzahl"] != gscore.KENNZAHL[0]
+    }
     jahre = len(
         {
             r.period_end
-            for r in store.load_metrics(conn, issuer, metric_id="gross_margin")
-            if r.statistik == "wert" and r.value is not None
-        }
-        | {
-            r.period_end
-            for r in store.load_metrics(conn, issuer, metric_id="fcf")
-            if r.statistik == "wert" and r.value is not None
+            for kz in sorted(eigene_kz)
+            for r in store.load_metrics(conn, issuer, metric_id=kz, statistik="wert")
+            if r.value is not None
         }
     )
     flags = store.load_dq_flags(conn, issuer)
@@ -542,6 +598,13 @@ def _note(
     konf, konf_gruende = note.konfidenz(
         jahre, erg.abdeckung, groesse, quellen_ok, True, cfg.scoring["konfidenz"]
     )
+    konf, konf_abschlag = note.konfidenz_abschlag(
+        konf,
+        int(sc_cfg.get("konfidenz_abschlag", 0)),
+        f"Scorecard {sc_cfg['name']} mit Hilfsmaß ohne eigene Prüfung (SPEC 3.11)",
+    )
+    if konf_abschlag:
+        konf_gruende.append(konf_abschlag)
 
     # Risiko
     unter = yaml.safe_load((paths.config / "sources.yaml").read_text("utf-8"))["ecb"][
@@ -551,7 +614,13 @@ def _note(
     risiko_eingaben: dict[str, Decimal | str | None] = {
         "volatilitaet_3j": marktrisiko.volatilitaet(tage),
         "drawdown_5j": marktrisiko.drawdown(tage),
-        "verschuldung_ebitda": werte.get(("net_debt_to_ebitda", "wert")),
+        "verschuldung_ebitda": (
+            werte.get((str(sc_cfg["risiko_verschuldung"]), "wert"))
+            if sc_cfg.get("risiko_verschuldung")
+            else None
+        )
+        if "risiko_verschuldung" in sc_cfg
+        else werte.get(("net_debt_to_ebitda", "wert")),
         "amihud": marktrisiko.amihud(tage),
         "ebit_marge_streuung": werte.get(("ebit_margin", "stdabw")),
         "groesse": groesse,
@@ -560,10 +629,16 @@ def _note(
 
     # Bewertungsbedingung (SPEC 3.6)
     r = Rechenweg("bewertungsbedingung", note.VERSION, issuer, now.date().isoformat(), pflicht=())
-    multiples = {k: werte.get((k, "aktuell")) for k in ("ev_ebit", "pe", "fcf_yield")}
+    mult_cfg = sc_cfg.get("multiples") or [
+        {"kennzahl": "ev_ebit", "richtung": "niedrig"},
+        {"kennzahl": "pe", "richtung": "niedrig"},
+        {"kennzahl": "fcf_yield", "richtung": "hoch"},
+    ]
+    multiples = {str(k["kennzahl"]): werte.get((str(k["kennzahl"]), "aktuell")) for k in mult_cfg}
     gruppe_mult = [{k: w.get((k, "aktuell")) for k in multiples} for w in gruppe_werte]
-    abschlag = vergleichsgruppe.multiples_abschlag(r, multiples, gruppe_mult)
-    luecke = werte.get(("growth_gap", "aktuell"))
+    hoch = {str(k["kennzahl"]) for k in mult_cfg if k["richtung"] == "hoch"}
+    abschlag = vergleichsgruppe.multiples_abschlag(r, multiples, gruppe_mult, hoch)
+    luecke = werte.get(("growth_gap", "aktuell")) if sc_cfg.get("reverse_dcf", True) else None
     bull = werte.get(("dcf_bull", "aktuell"))
     preis = store.price_on_or_before(conn, isin, now.date())
     min_abschlag = Decimal(str(cfg.scoring["bewertungsbedingung"]["min_discount_to_multiples"]))
@@ -631,6 +706,8 @@ def _note(
         "kategorie_grund": kat_grund,
         "rechenweg_note": erg.rechenweg,
         "boersenwert_eur": str(mc_eur) if mc_eur is not None else None,
+        "scorecard": sc_cfg["name"],
+        "g_score": gscore_weg,
     }
     g = store.GradeRow(
         isin,

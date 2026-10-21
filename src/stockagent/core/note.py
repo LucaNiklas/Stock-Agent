@@ -206,6 +206,15 @@ def konfidenz(
     return "K4", gruende
 
 
+def konfidenz_abschlag(stufe: str, stufen: int, grund: str) -> tuple[str, str | None]:
+    """Konfidenz um `stufen` Stufen senken, höchstens bis K4 (SPEC 3.11: G-Score als Hilfsmaß)."""
+    if stufen <= 0:
+        return stufe, None
+    reihe = ("K1", "K2", "K3", "K4")
+    neu = reihe[min(reihe.index(stufe) + stufen, len(reihe) - 1)]
+    return neu, f"Abschlag {stufe} -> {neu}: {grund}"
+
+
 # ------------------------------------------------------------------ Risiko
 
 
