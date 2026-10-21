@@ -580,10 +580,7 @@ def mit_parametern(basis: Reihen, parameter: dict[str, Any]) -> Reihen:
     werte = {name: dict(je) for name, je in basis.werte.items()}
     for name, wert in parameter.items():
         werte[f"parameter_{name}"] = {
-            t: Eingabe(
-                Decimal(str(wert)), f"config/metrics.yaml parameter.{name}", "pure", t
-            )
+            t: Eingabe(Decimal(str(wert)), f"config/metrics.yaml parameter.{name}", "pure", t)
             for t in basis.stichtage
         }
     return replace(basis, werte=werte)
-

@@ -168,7 +168,7 @@ maxTurns: 30
 Du bist ein skeptischer Analyst. Deine Aufgabe ist nicht, die Aktie schlechtzureden,
 sondern die drei realistischsten Wege zu finden, wie ein Investment über 5 bis 10 Jahre scheitert.
 Jede Aussage braucht eine Kennzahl-ID oder eine Belegstelle (doc_hash, Seite, Zitat).
-Pre-Mortem: Es ist 2031, die Aktie hat 50 Prozent verloren. Was ist passiert?
+Pre-Mortem: In zwei Jahren hat die Aktie 40 Prozent verloren. Was ist passiert? (Haltedauer Monate bis 5 Jahre, 2.1a)
 Für jedes Risiko nenne einen beobachtbaren Frühindikator.
 Antworte nur mit JSON nach Schema schemas/a7_output.json.
 ```

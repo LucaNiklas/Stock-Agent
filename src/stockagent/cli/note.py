@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Annotated
 
 import typer
@@ -23,6 +25,7 @@ SAEULEN = {
     "wachstum": "Wachstum und Trend",
     "kapitalallokation": "Kapitalallokation",
     "insider": "Insider",
+    "momentum": "Momentum (Kurstrend)",
 }
 
 
@@ -41,6 +44,19 @@ def zeige(g: store.GradeRow) -> None:
         f"  Vergleichsgruppe: {len(d.get('gruppe', []))} Titel ({g.peer_level}), "
         f"Abdeckung {formatiere(d.get('abdeckung'), 'percent', 0)}"
     )
+    if d.get("horizonte"):
+        t = Table(title="Note je Anlagehorizont (gleiche Kennzahlen, Gewicht Momentum je Horizont)")
+        for c in ("Horizont", "Note", "Gesamtwert", "Momentum-Anteil", "Kategorie"):
+            t.add_column(c)
+        for h in d["horizonte"].values():
+            t.add_row(
+                h["name"],
+                h["note"],
+                formatiere(h["score"], "faktor", 1) if h.get("score") else "-",
+                formatiere(h["momentum_anteil"], "percent", 0),
+                h["kategorie"],
+            )
+        console.print(t)
     t = Table(title="Säulen (Perzentil in der Vergleichsgruppe, 100 = beste)")
     t.add_column("Säule")
     t.add_column("Wert")
@@ -103,8 +119,15 @@ def bewerten(
 @app.command()
 def screen(
     note: Annotated[str | None, typer.Option("--note", help="Nur diese Noten, etwa A,B.")] = None,
+    horizont: Annotated[
+        str | None,
+        typer.Option(
+            "--horizont", help="Anlagehorizont kurz, mittel oder lang (config/horizonte.yaml)."
+        ),
+    ] = None,
 ) -> None:
-    """Bisher bewertete Titel mit Note, Konfidenz, Risiko und Kategorie (ohne Modellaufrufe)."""
+    """Bisher bewertete Titel mit Note, Konfidenz, Risiko und Kategorie (ohne Modellaufrufe).
+    Mit --horizont Note, Gesamtwert und Kategorie dieses Horizonts."""
     paths = Paths.default()
     conn = connect(paths)
     try:
@@ -112,10 +135,14 @@ def screen(
         namen = dict(conn.execute("SELECT isin, name FROM listings").fetchall())
     finally:
         conn.close()
+    if horizont:
+        grades = [_im_horizont(g, horizont) for g in grades]
     if note:
         erlaubt = {n.strip().upper() for n in note.split(",")}
         grades = [g for g in grades if g.grade in erlaubt]
-    t = Table(title=f"Bewertete Titel: {len(grades)}")
+    t = Table(
+        title=f"Bewertete Titel: {len(grades)}" + (f" (Horizont {horizont})" if horizont else "")
+    )
     for c in ("ISIN", "Name", "Note", "Wert", "K", "R", "Kategorie", "Branche", "Stand"):
         t.add_column(c)
     for g in sorted(grades, key=lambda g: (g.grade, -(g.score or 0))):
@@ -132,6 +159,20 @@ def screen(
         )
     console.print(t)
     typer.echo("Einzelner Titel: stockagent bewerten <ISIN>")
+
+
+def _im_horizont(g: store.GradeRow, horizont: str) -> store.GradeRow:
+    """Note, Gesamtwert und Kategorie eines Horizonts. Ältere Bewertungen ohne Horizonte
+    bleiben unverändert."""
+    h = (json.loads(g.detail_json or "{}").get("horizonte") or {}).get(horizont)
+    if not h:
+        return g
+    return replace(
+        g,
+        grade=h["note"],
+        score=Decimal(h["score"]) if h.get("score") else None,
+        kategorie=h["kategorie"],
+    )
 
 
 @app.command()

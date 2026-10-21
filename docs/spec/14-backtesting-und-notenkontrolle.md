@@ -12,7 +12,7 @@ Sobald die ersten quantitativen Noten vorliegen (Schritt 5 in 16.10), friert das
 
 ### 14.3 Erfolgsmaße
 
-- Rendite je Notenstufe nach 6, 12 und 24 Monaten gegen den Vergleichsindex.
+- Rendite je Notenstufe nach 6, 12 und 24 Monaten gegen den Vergleichsindex, je Anlagehorizont (6.2): Horizont kurz vor allem nach 6 und 12 Monaten, mittel nach 12 und 24 Monaten. Die Noten aller Horizonte stehen im Tagesstand (`grade_snapshots.horizonte_json`).
 - Rangkorrelation (Spearman) zwischen Note und Folgerendite.
 - Prüferqualität aus 11.6.
 - Kosten je Lauf.

@@ -43,6 +43,9 @@ pre{white-space:pre-wrap;background:var(--card);padding:8px;border-radius:8px;ma
 <form id="suche"><input id="q" placeholder="Name, ISIN oder etwa: Tier 1 Aktien aus Deutschland, Branche Industrie" aria-label="Suche">
 <button class="primary">Suchen</button></form>
 <div id="chips"></div>
+<div id="horizontwahl" style="margin:6px 0">Anlagehorizont: <select id="horizont" aria-label="Anlagehorizont"></select>
+<label><input type="checkbox" id="sortwert"> nach Gesamtwert sortieren</label>
+<span class="muted" id="horizonthinweis"></span></div>
 <div><a id="export" href="/api/export.csv">Liste als CSV</a> · <label><input type="checkbox" id="nurstern"> nur Beobachtungsliste</label>
 · <label><input type="checkbox" id="nurbewertet"> nur bewertete</label></div>
 </header>
@@ -55,7 +58,9 @@ pre{white-space:pre-wrap;background:var(--card);padding:8px;border-radius:8px;ma
 <div id="detail"><div class="panel" id="panel"></div></div>
 <script>
 const NAMEN={tier:"Indexstufe",land:"Land",region:"Region",branche:"Branche",groesse:"Größe",note:"Note",konfidenz:"Konfidenz",
-risiko:"Risiko",kategorie:"Kategorie",tr:"Trade Republic",datenlage:"Datenlage",art:"Art"};
+risiko:"Risiko",kategorie:"Kategorie",tr:"Trade Republic",datenlage:"Datenlage",art:"Art",horizont:"Horizont",sortierung:"Sortierung"};
+const hinweis=h=>{if(!h)return"";const a=Math.round(Number(h.momentum_anteil)*100);
+  return a?`Kurstrend (Momentum) zählt ${a} %, der Rest Qualität, Bewertung, Stabilität, Wachstum.`+(h.mindest!=null?` Attraktiv nur mit Momentum ab ${h.mindest}.`:""):"Ohne Kurstrend, nur Fundamentaldaten."};
 let F=Object.fromEntries(new URLSearchParams(location.search));
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const noteHtml=n=>n?`<span class="note" style="background:var(--${n})">${n}</span>`:"";
@@ -65,6 +70,10 @@ async function laden(){
   history.replaceState(null,"","?"+new URLSearchParams(F));
   document.getElementById("export").href="/api/export.csv?"+new URLSearchParams(F);
   const d=await api("/api/liste?"+new URLSearchParams(F));
+  const sel=document.getElementById("horizont");
+  sel.innerHTML=Object.entries(d.horizonte).map(([k,h])=>`<option value="${k}"${k===d.horizont?" selected":""}>${esc(h.name)}</option>`).join("");
+  document.getElementById("horizonthinweis").textContent=hinweis(d.horizonte[d.horizont]);
+  document.getElementById("sortwert").checked=F.sortierung==="wert";
   document.getElementById("abdeckung").textContent=`${d.gesamt.toLocaleString("de")} Aktien, davon ${d.bewertet} bewertet`+(d.stand?` (zuletzt ${d.stand})`:"")+". Unbewertete haben den Knopf „Bewerten“.";
   document.getElementById("anzahl").textContent=`${d.anzahl.toLocaleString("de")} Treffer`+(d.anzahl>d.zeilen.length?`, angezeigt ${d.zeilen.length}`:"");
   document.getElementById("chips").innerHTML=Object.entries(F).map(([k,v])=>`<span class="chip" data-k="${k}">${esc(NAMEN[k]||k)}: ${esc(v)} ✕</span>`).join("");
@@ -98,6 +107,8 @@ async function zeige(isin){
   let h=`<button onclick="document.getElementById('detail').style.display='none'" style="float:right">Schließen</button>
   <h2>${esc(d.name)}</h2><div class="muted">${d.isin} · ${esc(d.land)}${d.kurs?` · Kurs ${d.kurs.wert.slice(0,10)} ${d.kurs.waehrung} am ${d.kurs.datum}`:""}</div>`;
   if(n&&n.grade!=="N"){h+=`<p style="font-size:18px">${noteHtml(n.grade)} · ${n.konfidenz} · ${n.risiko} · ${esc(n.kategorie)} <span class="muted">(Gesamtwert ${Number(n.score).toFixed(1)}, ${esc(n.branche||"")})</span></p>`;
+    if(det.horizonte){h+=`<table><tr><th>Anlagehorizont</th><th>Note</th><th>Gesamtwert</th><th>Kategorie</th></tr>`+
+      Object.values(det.horizonte).map(x=>`<tr><td>${esc(x.name)}</td><td>${noteHtml(x.note)}</td><td>${x.score?Number(x.score).toFixed(1):"–"}</td><td title="${esc(x.kategorie_grund)}">${esc(x.kategorie)}</td></tr>`).join("")+`</table>`}
     h+=`<p class="muted">${esc(det.kategorie_grund)}. Vergleichsgruppe: ${det.gruppe.length} Titel (${esc(n.peer_level)}).</p><div class="grid2">`;
     for(const [s,w] of Object.entries(det.saeulen)){h+=`<div>${s}: ${w===null?"–":Number(w).toFixed(0)}<div class="bar"><i style="width:${w||0}%"></i></div></div>`}
     h+=`</div><h3>Kennzahlen in der Vergleichsgruppe</h3><table><tr><th>Säule</th><th>Kennzahl</th><th>Wert</th><th>Perzentil</th></tr>`+
@@ -131,6 +142,9 @@ document.getElementById("suche").onsubmit=async e=>{e.preventDefault();const t=d
   const f=await api("/api/freitext?text="+encodeURIComponent(t));F=f;laden()};
 document.getElementById("nurstern").onchange=e=>setF("stern",e.target.checked?"1":"");
 document.getElementById("nurbewertet").onchange=e=>setF("bewertet",e.target.checked?"1":"");
+document.getElementById("horizont").onchange=e=>{F.horizont=e.target.value;try{localStorage.setItem("horizont",e.target.value)}catch(_){}laden()};
+document.getElementById("sortwert").onchange=e=>setF("sortierung",e.target.checked?"wert":"");
+try{const h=localStorage.getItem("horizont");if(h&&!F.horizont)F.horizont=h}catch(_){}
 document.getElementById("detail").onclick=e=>{if(e.target.id==="detail")e.target.style.display="none"};
 laden();
 </script></body></html>

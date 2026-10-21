@@ -83,6 +83,11 @@ Bewusst verschoben (Lucas Entscheidung 13.10.2026): Kennzahlen mit Börsenkurs n
 - **Gebaut (21.10.2026, ADR 0010):** `core/branchenkennzahlen.py` mit 30 Kennzahlen, `core/gscore.py`, `config/scorecards.yaml` 2.0 mit allen Scorecards, Zuordnung über SIC und die Regeln Holding und Wachstum ohne Gewinn, je Scorecard Kappungen, Multiples und Risikoeingang, Konzeptzuordnung 1.3 für Banken, Versicherer, REITs. Holdings: Status N mit Grund. Offen: CET1, notleidende Kredite, Combined Ratio, Solvency-Quote, NAV und Leerstand (nicht in XBRL), NACE-Codes für Firmen ohne SIC.
 - **Abnahme:** Je Scorecard 3 Unternehmen von Hand geprüft.
 
+### Zwischenschritt: Anlagehorizont (21.10.2026, ADR 0011)
+
+- **Ziel:** Aktien für Haltedauern von einigen Monaten bis 5 Jahren finden (Lucas Vorgabe).
+- **Gebaut:** `config/horizonte.yaml`, `core/momentum.py`, Säule Momentum, Note je Horizont in `bewertung.py`, Schema 11 (`grade_snapshots.horizonte_json`), Auswahl, Filter und Sortierung im Dashboard, `screen --horizont`, A7-Vorlage 1.1.0, SPEC 2.1a, 6.2, 6.5, 14.3.
+
 ### Schritt 9: Insider
 
 - **Ziel:** Insider-Signal aus SEC Form 4 und BaFin (SPEC 3.8).

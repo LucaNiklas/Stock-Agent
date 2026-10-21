@@ -1,0 +1,44 @@
+# Anlagehorizonte (Lucas Vorgabe 21.10.2026, ADR 0011, SPEC 6.2). Version bei Änderung erhöhen
+# und im METHODOLOGY_CHANGELOG eintragen. Gewichte vorab festgelegt, nie an dem Zeitraum
+# angepasst, auf dem sie geprüft werden (SPEC 6.5, 14.4).
+#
+# Kennzahlen, Rechenwege und Säulen sind für alle Horizonte gleich. Je Horizont ändert sich nur
+# das Gewicht der Säule Momentum: Die übrigen Säulen behalten ihr Verhältnis untereinander
+# (Gewichte der Scorecard oder aus config/scoring.yaml) und teilen sich den Rest.
+#
+# Grundlage: Kursmomentum über 3 bis 12 Monate sagt die Rendite der folgenden Monate voraus
+# (Jegadeesh und Titman 1993, Journal of Finance), über mehrere Jahre kehrt es sich teilweise um.
+# Bewertung und Qualität wirken langsamer und über mehrere Jahre (Asness, Moskowitz und Pedersen
+# 2013, "Value and Momentum Everywhere", Journal of Finance; Asness, Frazzini und Pedersen 2019,
+# "Quality Minus Junk"). Nähe zum 52-Wochen-Hoch: George und Hwang (2004, Journal of Finance).
+# Kursdrift nach Berichten: Bernard und Thomas (1989), Chan, Jegadeesh und Lakonishok (1996).
+# Idee aus den Trading-Skills (pead-screener, earnings-trade-analyzer), gebaut aus eigenen Daten.
+version: "1.0"
+
+standard: mittel   # Horizont der Hauptnote (grades.grade, Notenkontrolle)
+
+horizonte:
+  kurz:
+    name: "Monate bis 1 Jahr"
+    momentum_anteil: "0.40"
+    # Attraktiv nur mit Momentum-Säule mindestens so hoch: günstige Titel mit fallendem Kurs
+    # bleiben über Monate oft günstig. Sonst Beobachten
+    kategorie_momentum_mindest: 50
+  mittel:
+    name: "1 bis 5 Jahre"
+    momentum_anteil: "0.15"
+  lang:
+    name: "über 5 Jahre"
+    momentum_anteil: "0"
+
+momentum:
+  max_abstand_tage: 7     # letzter Kurs höchstens so alt, sonst kein Momentum
+  bericht_max_tage: 120   # Kursreaktion auf den Bericht nur, wenn er höchstens so alt ist
+  kennzahlen:             # Säule Momentum, Rang in der Vergleichsgruppe wie die übrigen
+    - {kennzahl: momentum_12_1, statistik: aktuell, richtung: hoch}    # 12 Monate ohne den letzten
+    - {kennzahl: momentum_6_1, statistik: aktuell, richtung: hoch}     # 6 Monate ohne den letzten
+    - {kennzahl: naehe_52w_hoch, statistik: aktuell, richtung: hoch}   # Kurs / Hoch der 52 Wochen
+    - {kennzahl: abstand_ma200, statistik: aktuell, richtung: hoch}    # Kurs zur 200-Tage-Linie
+    - {kennzahl: reaktion_bericht, statistik: aktuell, richtung: hoch} # Kursreaktion letzter Bericht
+    - {kennzahl: revenue_growth, statistik: wert, richtung: hoch}      # Umsatzwachstum letztes Jahr
+    - {kennzahl: ebit_margin, statistik: veraenderung_vj, richtung: hoch}   # Margenverbesserung

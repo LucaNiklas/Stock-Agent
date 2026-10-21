@@ -32,7 +32,7 @@ Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abs
 - uv run stockagent metrics update [--isin <ISIN>] [--as-of JJJJ-MM-TT] | show <ISIN> [--rechenweg <id> [--jahr J | --trend T | --aktuell | --ttm]]
 - uv run stockagent markt update | show | branche <ISIN> <BRANCHE>
 - uv run stockagent bewerten <ISIN> [--ohne-laden]   Note mit Vergleichsgruppe
-- uv run stockagent screen [--note A] | status
+- uv run stockagent screen [--note A] [--horizont kurz|mittel|lang] | status   Note je Anlagehorizont (ADR 0011)
 - uv run stockagent tiers import <INDEX> <DATEI> [--stand JJJJ-MM-TT] | show
 - uv run stockagent app [--port 8765]   Dashboard (Doppelklick: Stockagent.command)
 - uv run stockagent run [--profile scheduled --yes]

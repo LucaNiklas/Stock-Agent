@@ -22,7 +22,7 @@ import threading
 import traceback
 import uuid
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -113,6 +113,8 @@ class Zeile:
     tr: str
     stern: bool
     datenlage: str
+    # Note, Kategorie und Gesamtwert je Anlagehorizont (ADR 0011)
+    horizonte: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 class Daten:
@@ -123,6 +125,17 @@ class Daten:
         self.lock = threading.Lock()
         self.zeilen: list[Zeile] = []
         self.stand = ""
+        h = yaml.safe_load((paths.config / "horizonte.yaml").read_text("utf-8"))
+        self.horizont_standard = str(h["standard"])
+        self.horizont_namen = {k: str(v["name"]) for k, v in h["horizonte"].items()}
+        self.horizont_info = {
+            k: {
+                "name": str(v["name"]),
+                "momentum_anteil": str(v["momentum_anteil"]),
+                "mindest": v.get("kategorie_momentum_mindest"),
+            }
+            for k, v in h["horizonte"].items()
+        }
         self.neu_laden()
 
     def neu_laden(self) -> None:
@@ -151,6 +164,7 @@ class Daten:
             b = sektoren.branche(int(sic) if sic and str(sic).isdigit() else None, cfg_sec)
             g = grades.get(isin)
             c = checks.get(isin)
+            hz = (json.loads(g.detail_json or "{}").get("horizonte") or {}) if g else {}
             zeilen.append(
                 Zeile(
                     isin=isin,
@@ -170,6 +184,14 @@ class Daten:
                     tr=c.status.value if c else "ungeprueft",
                     stern=isin in sterne,
                     datenlage="SEC" if cik else "keine strukturierten Daten",
+                    horizonte={
+                        h: {
+                            "note": str(v.get("note") or ""),
+                            "kategorie": str(v.get("kategorie") or ""),
+                            "score": str(v.get("score") or ""),
+                        }
+                        for h, v in hz.items()
+                    },
                 )
             )
         with self.lock:
@@ -193,6 +215,22 @@ FILTER = (
 )
 
 
+def _ansicht(z: Zeile, horizont: str) -> Zeile:
+    """Zeile mit Note, Kategorie und Gesamtwert des gewählten Horizonts. Ältere Bewertungen
+    ohne Horizonte behalten die Hauptnote."""
+    h = z.horizonte.get(horizont)
+    if not h or z.note == "N":
+        return z
+    return replace(z, note=h["note"], kategorie=h["kategorie"], score=h["score"])
+
+
+def _wert(z: Zeile) -> float:
+    try:
+        return float(z.score)
+    except ValueError:
+        return -1.0
+
+
 def _passt(z: Zeile, f: dict[str, str]) -> bool:
     for k in FILTER:
         if f.get(k) and str(getattr(z, k)) != f[k]:
@@ -206,9 +244,15 @@ def _passt(z: Zeile, f: dict[str, str]) -> bool:
 
 
 def liste(daten: Daten, f: dict[str, str]) -> dict[str, Any]:
+    horizont = f.get("horizont") or daten.horizont_standard
+    if horizont not in daten.horizont_namen:
+        horizont = daten.horizont_standard
     with daten.lock:
-        alle = list(daten.zeilen)
+        alle = [_ansicht(z, horizont) for z in daten.zeilen]
     treffer = [z for z in alle if _passt(z, f)]
+    if f.get("sortierung") == "wert":
+        # Bewertete zuerst, nach Gesamtwert des Horizonts absteigend (nur Anzeige, kein Rang)
+        treffer.sort(key=lambda z: -_wert(z))
     facetten: dict[str, list[tuple[str, int]]] = {}
     for k in FILTER:
         ohne = {kk: v for kk, v in f.items() if kk != k}
@@ -222,6 +266,8 @@ def liste(daten: Daten, f: dict[str, str]) -> dict[str, Any]:
         "stand": daten.stand,
         "zeilen": [asdict(z) for z in treffer[:MAX_ZEILEN]],
         "facetten": facetten,
+        "horizont": horizont,
+        "horizonte": daten.horizont_info,
     }
 
 
@@ -286,6 +332,15 @@ def freitext(text: str, daten: Daten) -> dict[str, str]:
     if m := re.search(r"tier[ -]?([1-4])", t):
         f["tier"] = m.group(1)
         t = t.replace(m.group(0), " ")
+    for muster, h in (
+        (r"kurzfristig|kurze? sicht|paar monate|monate", "kurz"),
+        (r"mittelfristig|1 bis 5 jahre|1-5 jahre|ein paar jahre|wenige jahre", "mittel"),
+        (r"langfristig|lange sicht|jahrzehnt", "lang"),
+    ):
+        if m := re.search(muster, t):
+            f["horizont"] = h
+            t = t.replace(m.group(0), " ")
+            break
     if m := re.search(r"note ([a-e])\b", t):
         f["note"] = m.group(1).upper()
         t = t.replace(m.group(0), " ")
@@ -578,10 +633,16 @@ def handler_fuer(
             elif pfad == "/api/export.csv":
                 buf = io.StringIO()
                 w = csv.writer(buf, delimiter=";")
-                felder = list(Zeile.__dataclass_fields__)
-                w.writerow(felder)
+                felder = [f for f in Zeile.__dataclass_fields__ if f != "horizonte"]
+                namen = list(daten.horizont_namen)
+                w.writerow([*felder, *(f"note_{h}" for h in namen)])
                 for z in liste(daten, self._filter())["zeilen"]:
-                    w.writerow([z[f] for f in felder])
+                    w.writerow(
+                        [
+                            *(z[f] for f in felder),
+                            *(z["horizonte"].get(h, {}).get("note", "") for h in namen),
+                        ]
+                    )
                 self._text(buf.getvalue(), "text/csv; charset=utf-8")
             else:
                 self._json({"fehler": "nicht gefunden"}, HTTPStatus.NOT_FOUND)

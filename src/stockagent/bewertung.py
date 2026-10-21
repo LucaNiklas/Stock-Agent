@@ -37,7 +37,16 @@ from stockagent import (
     prices_update,
     sec_update,
 )
-from stockagent.core import dq, fx, gscore, marktrisiko, note, sektoren, vergleichsgruppe
+from stockagent.core import (
+    dq,
+    fx,
+    gscore,
+    marktrisiko,
+    momentum,
+    note,
+    sektoren,
+    vergleichsgruppe,
+)
 from stockagent.core.calc import Rechenweg
 from stockagent.data import concepts, inputs, quality, store
 from stockagent.data.sources import sec
@@ -112,6 +121,7 @@ class Konfig:
     sectors: dict[str, Any]
     metrics: dict[str, Any]
     cmap: dict[str, Any]
+    horizonte: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def laden(cls, config: Any) -> Konfig:
@@ -125,6 +135,7 @@ class Konfig:
             yml("sectors.yaml"),
             yml("metrics.yaml"),
             yml("concept_map.yaml"),
+            yml("horizonte.yaml"),
         )
 
 
@@ -538,7 +549,8 @@ def _note(
     now: datetime,
 ) -> Bewertung:
     werte = store.metrics_map(conn, issuer)
-    gruppe_werte = [w for t in gruppe if (w := store.metrics_map(conn, t.issuer_id))]
+    mit_werten = [(t, w) for t in gruppe if (w := store.metrics_map(conn, t.issuer_id))]
+    gruppe_werte = [w for _, w in mit_werten]
     if len(gruppe_werte) < int(cfg.scoring["vergleichsgruppe"]["mindest"]) - 1:
         return _n(
             paths,
@@ -562,15 +574,52 @@ def _note(
         werte, gruppe_werte, gscore_weg = gscore.ergaenzen(
             issuer, now.date().isoformat(), werte, gruppe_werte
         )
-    erg = note.note(
-        issuer,
-        now.date().isoformat(),
-        werte,
-        gruppe_werte,
-        sc_cfg,
-        scoring,
-        kappungen,
-    )
+
+    # Kursmomentum der Firma und der Gruppe (ADR 0011), als Statistik `aktuell`
+    unter = yaml.safe_load((paths.config / "sources.yaml").read_text("utf-8"))["ecb"][
+        "unterwaehrungen"
+    ]
+    mcfg = cfg.horizonte["momentum"]
+    tage = _risikotage(conn, isin, unter)
+
+    def mit_momentum(
+        isin_: str, w: dict[tuple[str, str], Decimal | None], reihe: list[marktrisiko.Tag]
+    ) -> tuple[dict[tuple[str, str], Decimal | None], dict[str, object]]:
+        m, weg = momentum.momentum(
+            isin_,
+            reihe,
+            now.date(),
+            int(mcfg["max_abstand_tage"]),
+            store.last_report_date(conn, issuer_von.get(isin_, ""), now),
+            int(mcfg["bericht_max_tage"]),
+        )
+        return {**w, **{(k, "aktuell"): v for k, v in m.items()}}, weg
+
+    issuer_von = {isin: issuer, **{t.isin: t.issuer_id for t, _ in mit_werten}}
+    werte, momentum_weg = mit_momentum(isin, werte, tage)
+    gruppe_werte = [
+        mit_momentum(t.isin, w, _risikotage(conn, t.isin, unter))[0]
+        for (t, _), w in zip(mit_werten, gruppe_werte, strict=True)
+    ]
+
+    # Note je Anlagehorizont: gleiche Säulen, nur das Gewicht von Momentum ändert sich
+    sc_mit = {**sc_cfg, "saeulen": {**sc_cfg["saeulen"], "momentum": mcfg["kennzahlen"]}}
+    je_horizont: dict[str, note.NotenErgebnis] = {}
+    for h, hcfg in cfg.horizonte["horizonte"].items():
+        gewichte = note.gewichte_horizont(
+            scoring["saeulen_gewichte"], Decimal(str(hcfg["momentum_anteil"]))
+        )
+        je_horizont[h] = note.note(
+            issuer,
+            now.date().isoformat(),
+            werte,
+            gruppe_werte,
+            sc_mit,
+            {**scoring, "saeulen_gewichte": gewichte},
+            kappungen,
+        )
+    standard = str(cfg.horizonte["standard"])
+    erg = je_horizont[standard]
     if erg.note == "N":
         return _n(paths, isin, issuer, now, erg.grund or "Note nicht berechenbar", conn)
 
@@ -604,10 +653,6 @@ def _note(
         konf_gruende.append(konf_abschlag)
 
     # Risiko
-    unter = yaml.safe_load((paths.config / "sources.yaml").read_text("utf-8"))["ecb"][
-        "unterwaehrungen"
-    ]
-    tage = _risikotage(conn, isin, unter)
     risiko_eingaben: dict[str, Decimal | str | None] = {
         "volatilitaet_3j": marktrisiko.volatilitaet(tage),
         "drawdown_5j": marktrisiko.drawdown(tage),
@@ -653,25 +698,51 @@ def _note(
     if kurs_ueber_bull:
         bedingung = False
 
-    # Kategorie mit Hysterese
-    vorher = [g for d, g in store.snapshot_grades(conn, isin) if d < now.date()]
-    vor_score = conn.execute(
-        "SELECT score FROM grade_snapshots WHERE isin = ? AND snapshot_date < ? "
+    # Kategorie mit Hysterese, je Horizont
+    vor = conn.execute(
+        "SELECT score, horizonte_json FROM grade_snapshots WHERE isin = ? AND snapshot_date < ? "
         "ORDER BY snapshot_date DESC LIMIT 1",
         [isin, now.date()],
     ).fetchone()
-    aufwaerts = bool(
-        vor_score and vor_score[0] and erg.gesamt is not None and erg.gesamt > Decimal(vor_score[0])
-    )
-    kat, kat_grund = note.kategorie(
-        erg.note,
-        konf,
-        stopp,
-        bedingung,
-        vorher,
-        aufwaerts,
-        int(cfg.scoring["kategorie"]["hysterese_laeufe"]),
-    )
+    vor_h = json.loads(vor[1]) if vor and vor[1] else {}
+    horizonte: dict[str, dict[str, Any]] = {}
+    for h, e in je_horizont.items():
+        hcfg = cfg.horizonte["horizonte"][h]
+        if h == standard:
+            vorher = [g for d, g in store.snapshot_grades(conn, isin) if d < now.date()]
+            vor_score = vor[0] if vor else None
+        else:
+            vorher = [g for d, g in store.snapshot_grades_horizont(conn, isin, h) if d < now.date()]
+            vor_score = (vor_h.get(h) or {}).get("score")
+        aufwaerts = bool(vor_score and e.gesamt is not None and e.gesamt > Decimal(vor_score))
+        k, k_grund = note.kategorie(
+            e.note,
+            konf,
+            stopp,
+            bedingung,
+            vorher,
+            aufwaerts,
+            int(cfg.scoring["kategorie"]["hysterese_laeufe"]),
+        )
+        mindest = hcfg.get("kategorie_momentum_mindest")
+        mom = e.saeulen.get("momentum")
+        if k == "Attraktiv" and mindest is not None and (mom is None or mom < Decimal(mindest)):
+            k = "Beobachten"
+            k_grund = (
+                f"{k_grund}, aber Kurstrend schwach (Momentum "
+                f"{'unbekannt' if mom is None else f'{mom:.0f}'} unter {mindest}) für den Horizont "
+                f"{hcfg['name']}"
+            )
+        horizonte[h] = {
+            "name": hcfg["name"],
+            "note": e.note,
+            "score": str(e.gesamt) if e.gesamt is not None else None,
+            "kategorie": k,
+            "kategorie_grund": k_grund,
+            "momentum_anteil": str(hcfg["momentum_anteil"]),
+            "saeulen": {s: (str(v) if v is not None else None) for s, v in e.saeulen.items()},
+        }
+    kat, kat_grund = horizonte[standard]["kategorie"], horizonte[standard]["kategorie_grund"]
 
     branche = sektoren.branche(eigen.sic, cfg.sectors)
     detail = {
@@ -705,6 +776,9 @@ def _note(
         "boersenwert_eur": str(mc_eur) if mc_eur is not None else None,
         "scorecard": sc_cfg["name"],
         "g_score": gscore_weg,
+        "horizont_standard": standard,
+        "horizonte": horizonte,
+        "momentum": momentum_weg,
     }
     g = store.GradeRow(
         isin,
@@ -727,7 +801,12 @@ def _note(
     )
     store.save_grade(conn, g)
     store.save_snapshot(
-        conn, now.date(), g, preis.close if preis else None, preis.currency if preis else None
+        conn,
+        now.date(),
+        g,
+        preis.close if preis else None,
+        preis.currency if preis else None,
+        {h: {k: v[k] for k in ("note", "score", "kategorie")} for h, v in horizonte.items()},
     )
     return Bewertung(isin, erg.note, None, g, [t.isin for t in gruppe], stufe)
 
