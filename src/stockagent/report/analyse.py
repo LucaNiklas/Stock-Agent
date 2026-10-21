@@ -66,6 +66,20 @@ THEMEN_NAME = {
     "bilanzpolitik": "Bilanzpolitik",
     "pruefungsschwerpunkte": "Prüfungsschwerpunkte",
 }
+BEWERTUNG = (
+    "wacc",
+    "implied_growth",
+    "growth_gap",
+    "dcf_bear",
+    "dcf_base",
+    "dcf_bull",
+    "margin_of_safety",
+    "ev_ebit",
+    "pe",
+    "fcf_yield",
+    "ev_ebit_normalized",
+)
+
 PRUEFUNGEN = [
     "Datenqualität DQ-01 bis DQ-08 (Bilanzgleichung, Summen, zweiter Weg, Ausreißer)",
     "Prüfpunkte CP-01 bis CP-07 in jeder Rechnung (INC-15)",
@@ -254,8 +268,13 @@ def kontext(paths: Paths, z: Zustand, ent: dict[str, Any]) -> dict[str, Any]:
         if s["status"] == "rejected" and any(g.startswith("J2") for g in s["gruende"]):
             ungereimt.append({"id": "INC-11", "text": f"{key}: {'; '.join(s['gruende'])}"})
 
+    # Nur Vermerke zu Kennzahlen, die der Bericht zeigt oder die Note nutzt (Scorecard)
+    genutzt = {r["kennzahl"] for r in ent["note"].get("raenge", [])}
+    genutzt |= {*KENNZAHLEN_TABELLE, *ERTRAGSQUALITAET, *BEWERTUNG}
     vermerke: dict[str, set[str]] = {}
     for r in rows:
+        if r.metric_id not in genutzt:
+            continue
         if r.period_end == (lauf[2] if lauf else None) and r.statistik == "wert":
             for v in r.vermerke:
                 vermerke.setdefault(v, set()).add(r.metric_id)
@@ -325,19 +344,7 @@ def kontext(paths: Paths, z: Zustand, ent: dict[str, Any]) -> dict[str, Any]:
         "bewertung": {
             "kennzahlen": [
                 {"name": defs[m]["name"], "wert": _wert(w, f"{m}@aktuell")}
-                for m in (
-                    "wacc",
-                    "implied_growth",
-                    "growth_gap",
-                    "dcf_bear",
-                    "dcf_base",
-                    "dcf_bull",
-                    "margin_of_safety",
-                    "ev_ebit",
-                    "pe",
-                    "fcf_yield",
-                    "ev_ebit_normalized",
-                )
+                for m in BEWERTUNG
                 if m in defs
             ],
             "a5_wahl": a5["wahl"],

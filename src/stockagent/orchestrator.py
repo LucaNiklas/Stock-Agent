@@ -610,14 +610,21 @@ def _nach_annahme(z: Zustand, a: Auftrag, p: runner.Pruefung, cfg: dict[str, Any
 
 
 def _abschliessen(paths: Paths, z: Zustand, now: datetime) -> None:
+    from stockagent.judges import final_check
     from stockagent.report import analyse as bericht
 
     entscheidung = eingaben.entscheidung(paths, z)
     ordner = _ordner(paths, z.run_id)
+    md, html = bericht.erzeugen(paths, z, entscheidung)
+    # J4 Endkontrolle (SPEC 11.2 Ebene 4): Befunde eskalieren den Lauf, der Bericht bleibt zur
+    # Durchsicht erhalten
+    befunde = final_check.pruefen(md, entscheidung, bericht.kontext(paths, z, entscheidung))
+    entscheidung["j4"] = [{"pruefung": b.pruefung, "text": b.text} for b in befunde]
+    if befunde:
+        entscheidung["eskalationen"].extend(f"J4 {b.pruefung}: {b.text}" for b in befunde)
     (ordner / "decision.json").write_text(
         json.dumps(entscheidung, ensure_ascii=False, indent=2, default=str), "utf-8"
     )
-    md, html = bericht.erzeugen(paths, z, entscheidung)
     (ordner / "report.md").write_text(md, "utf-8")
     (ordner / "report.html").write_text(html, "utf-8")
     z.status = "eskaliert" if entscheidung["eskalationen"] else "fertig"

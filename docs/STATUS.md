@@ -85,4 +85,29 @@ uv run pytest && uv run ruff check . && uv run mypy
 
 ## Nächster Schritt
 
-Abnahme Schritt 8 abschließen (Ergebnisse in ADR 0010), dann Bauschritt 9: Insider.
+Pausiert am 21.10.2026 auf Lucas Wunsch. Weiter hier:
+
+1. PR #21 (Schritt 9 Insider): CI abwarten, mergen. Danach `main` in `schritt-10-pruefer` mergen.
+2. Abnahme Schritt 8 (Lauf war bei Prologis, 47 von 50 Vergleichstiteln): fertig bisher JPM C·K4·R2
+   (veraltete Kennzahlen, mit `bewerten --ohne-laden` neu), BAC D·K1·R2, WFC D·K2·R3,
+   Progressive C·K1·R2, Travelers C·K1·R2, Allstate C·K1·R3. Offen: Prologis, Realty Income,
+   Simon, Duke, Southern, NextEra, Freeport, Dow, Nucor, Snowflake, Cloudflare, MongoDB.
+   Ergebnisse von Hand prüfen, in ADR 0010 und hier eintragen (eigener PR).
+3. Intel live: `stockagent insider update -i US4581401001`, dann `insider show`.
+4. Schritt 10 (Branch `schritt-10-pruefer`, Stand WIP):
+   - J4 Endkontrolle (`judges/final_check.py`) ist im Orchestrator eingebaut. Offen: der Test
+     `test_full_run_with_recorded_answers` eskaliert, weil die geprüfte Aussage „Die Marge blieb
+     trotz Konflikten hoch: 46,9 %.“ (A3E-Erwiderung) nicht im Bericht steht. Klären, ob der
+     Bericht die Erwiderungen in Abschnitt 11 vollständig zeigt oder J4 Erwiderungen anders sucht.
+     Danach `tests/test_final_check.py` (je Prüfung ein Fehlerfall).
+   - Bericht Abschnitt 8 zeigt nur noch Vermerke zu genutzten Kennzahlen (vorher REIT-Vermerke
+     bei Apple).
+   - Noch zu bauen: J3 Jury, F1 Forensik, Eskalations-Warteschlange (Dashboard,
+     `stockagent entscheiden`, Skill review-escalations), Goldstandard (20 Fälle aus Apple, JPM,
+     Progressive, Realty Income, Intel) mit `eval/run_eval.py` und CI-Workflow, Gemini-Anbindung
+     mit Rückfall, ADR 0013, Changelog, BAUPLAN.
+
+Fragen an Luca (gesammelt): BaFin-Domain `portal.mvp.bafin.de` freigeben, Abdeckung DAX,
+CHF/DKK-Kurse, ADR-Verhältnisse (Philips, ASML NY, Ericsson), `claude -p` und Hooks auf dem Mac
+testen, Zeitlimit 60 statt 20 Minuten, Goldstandard live nur auf dem Mac, Kennzahlen im
+Goldstandard von Hand gegenprüfen.
