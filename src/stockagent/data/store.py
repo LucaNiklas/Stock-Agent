@@ -1453,10 +1453,24 @@ def fx_on_or_before(conn: duckdb.DuckDBPyConnection, currency: str, day: date) -
     return None if row is None else FxRate(row[0], row[1], Decimal(row[2]), row[3], row[4])
 
 
+def fx_series(conn: duckdb.DuckDBPyConnection, currency: str) -> list[tuple[date, Decimal]]:
+    """Alle Referenzkurse einer Währung, ältester zuerst (für viele Umrechnungen am Stück)."""
+    rows = conn.execute(
+        "SELECT date, per_eur FROM fx_rates WHERE currency = ? ORDER BY date", [currency]
+    ).fetchall()
+    return [(r[0], Decimal(r[1])) for r in rows]
+
+
 def price_on_or_before(conn: duckdb.DuckDBPyConnection, isin: str, day: date) -> PriceRow | None:
     """Schlusskurs am Tag oder am letzten Handelstag davor."""
-    rows = load_prices(conn, isin, bis=day)
-    return rows[-1] if rows else None
+    r = conn.execute(
+        "SELECT isin, date, close, adj_close, volume, currency, symbol, source FROM prices "
+        "WHERE isin = ? AND date <= ? ORDER BY date DESC LIMIT 1",
+        [isin, day],
+    ).fetchone()
+    if r is None:
+        return None
+    return PriceRow(r[0], r[1], Decimal(r[2]), _dec(r[3]), r[4], r[5], r[6], r[7])
 
 
 def first_price_date(conn: duckdb.DuckDBPyConnection, isin: str) -> date | None:
