@@ -238,3 +238,8 @@ Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit 
 - Lucas Entscheidung zu eskalierten Fällen: Freigeben führt auf die Kategorie vor der Eskalation zurück, nie höher.
 - Auftrag an J2 nennt die Regel für das Feld `claim` ausdrücklich (nur die Kennung).
 - Goldstandard mit 21 Kandidaten aus 5 Unternehmen, Mindestwerte J1 95 %, J2 85 % in `config/models.yaml`.
+
+## 5.7 (22.10.2026, Bauschritt 11, Start und Dashboard, ADR 0014, `config/scoring.yaml` 1.1, `config/kapitalkosten.yaml` 1.1)
+
+- Korrektur: Norwegen stand in `config/scoring.yaml` (Region Europa), `config/kapitalkosten.yaml` (Steuersatz), `config/sources.yaml` (Kurskürzel `.OL`, ESEF-Börsen) als `NO` ohne Anführungszeichen. YAML liest das als „falsch“, norwegische Titel hatten deshalb keine Region (Vergleichsgruppe ohne Regionsfilter), keinen Steuersatz (WACC unbekannt) und kein Kurskürzel. Jetzt `"NO"`. Wirkung: nur norwegische Titel, ihre Noten können sich beim nächsten Bewerten ändern. Test `test_no_boolean_country_codes_in_config`.
+- Sonst keine Änderung an Noten, Kennzahlen oder Gewichten. Neu sind Auswahl und Ablauf: Anlagestile als Filter auf schon berechnete Säulen und Kennzahlen (`config/run_profiles.yaml`, ohne Einfluss auf die Note), Laufplan mit Grenze von 3 Tiefenanalysen je Lauf (HR-18) und 250 Bewertungen je Lauf.

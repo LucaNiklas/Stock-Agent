@@ -11,3 +11,4 @@ j2-belegpruefer: "1.0.0"
 a9-synthese: "1.0.0"
 f1-forensik: "1.0.0"   # Bauschritt 10
 j3-jury: "1.0.0"   # Bauschritt 10, eine Vorlage für drei Richter
+uebersetzer: "1.0.0"   # Bauschritt 11, Satz in Filter (agents/prompts/uebersetzer.md)

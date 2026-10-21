@@ -180,8 +180,11 @@ def test_dashboard_horizon_filter_and_sort(paths: Paths) -> None:
     werte = [float(z["score"]) for z in sortiert["zeilen"]]
     assert werte == sorted(werte, reverse=True) and len(werte) == 2
     assert sortiert["horizonte"]["kurz"]["mindest"] == 50
-    assert dashboard.freitext("kurzfristig Note A", daten) == {"horizont": "kurz", "note": "A"}
-    assert dashboard.freitext("1 bis 5 Jahre halten", daten)["horizont"] == "mittel"
+    assert dashboard.freitext("kurzfristig Note A", daten)["filter"] == {
+        "horizont": "kurz",
+        "note": "A",
+    }
+    assert dashboard.freitext("1 bis 5 Jahre halten", daten)["filter"]["horizont"] == "mittel"
 
 
 def test_risk_days_convert_usd_with_cached_series(paths: Paths) -> None:

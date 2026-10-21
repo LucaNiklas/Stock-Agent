@@ -745,7 +745,7 @@ def test_escalation_queue_and_lucas_decision(paths: Paths) -> None:
     with pytest.raises(eskalationen.EskalationFehler):
         eskalationen.entscheiden(paths, z.run_id, "aufwerten", "")
 
-    srv = dashboard.server(paths, 0)
+    srv = dashboard.server(paths, 0, modell=None)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     try:
         c = HTTPConnection("127.0.0.1", srv.server_address[1])

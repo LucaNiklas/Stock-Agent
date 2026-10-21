@@ -1,7 +1,7 @@
 # Gewichte und Schwellen der Bewertungsskala (SPEC 6). Version bei Änderung erhöhen und im
 # METHODOLOGY_CHANGELOG eintragen. Nie an dem Zeitraum anpassen, auf dem sie getestet werden
 # (SPEC 6.5, 14.4).
-version: "1.0"
+version: "1.1"
 
 saeulen_gewichte:
   qualitaet: "0.25"
@@ -35,7 +35,7 @@ vergleichsgruppe:
   erneuern_tage: 7     # Kennzahlen und Kurse der Vergleichsgruppe jünger als das: nicht neu laden
   regionen:            # Land des Hauptsitzes (ISO) -> Region (SPEC 6.2 Nr. 1)
     nordamerika: [US, CA]
-    europa: [DE, AT, CH, FR, NL, BE, LU, IT, ES, PT, IE, GB, DK, SE, NO, FI, IS, PL, CZ, HU, GR, SI, SK, EE, LV, LT, RO, BG, HR, MT, CY, LI, MC, JE, GG, IM, BM]
+    europa: [DE, AT, CH, FR, NL, BE, LU, IT, ES, PT, IE, GB, DK, SE, "NO", FI, IS, PL, CZ, HU, GR, SI, SK, EE, LV, LT, RO, BG, HR, MT, CY, LI, MC, JE, GG, IM, BM]
     asien_pazifik: [JP, AU, NZ, HK, SG, KR, TW]
     schwellenlaender: [CN, IN, BR, MX, ZA, TR, ID, TH, MY, PH, CL, PE, CO, AR, SA, AE, QA, KW, EG, IL, RU]
 

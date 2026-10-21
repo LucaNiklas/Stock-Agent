@@ -108,6 +108,7 @@ Bewusst verschoben (Lucas Entscheidung 13.10.2026): Kennzahlen mit Börsenkurs n
 - **Entsteht:** Befehl `stockagent run` mit Dialog (`questionary`), Laufplan, alle Ansichten aus SPEC 13.3 (Änderungen, Karte Branche mal Land, Vergleich, Eskalationen, Historie, Methodik).
 - **Neu (Oberfläche, SPEC 9.9 und 13.5):** Eingabefeld des Dashboards versteht ganze Sätze („Tier 1 Griechenland Automobil, bewerte sie“): Wortliste zuerst, sonst Übersetzung über `claude -p` mit `--json-schema` ohne Werkzeuge. Verstandener Filter als änderbare Schaltflächen mit Trefferzahl, Vorschlag bei null Treffern, „Alle bewerten“ mit Laufplan und Bestätigung, gespeicherte Ansichten in `state/views.yaml`. Der Dialog `stockagent run` und `/stockagent` bleiben als zweiter Weg.
 - **Abnahme:** Alle Startwege aus SPEC 9.6 funktionieren, Antworten in `request.json`. Zehn Beispielsätze aus einer Testliste werden in den richtigen Filter übersetzt, ein Satz mit unbekanntem Land oder unbekannter Branche wird abgelehnt statt geraten.
+- **Gebaut (22.10.2026, ADR 0014):** Anfrage als festes Schema (`anfrage.py`, `request.json`), Wortliste `config/vokabular.yaml`, Übersetzung von Resten über `claude -p --json-schema` ohne Werkzeuge (`claude_cli.py`, Vorlage `agents/prompts/uebersetzer.md`), Titelliste mit Mehrfachfiltern und Stilen (`titelliste.py`), Laufplan und Lauf mit Laufübersicht (`lauf.py`, `core/laufplan.py`, `runs/_laeufe/`), `stockagent run` mit Dialog in zwei Runden, Optionen, Profilen und Ansichten, `stockagent anfrage`, Skill `/stockagent`, Dashboard mit Reitern Suchen und Bewerten, Änderungen, Karte, Vergleich, Historie, Methodik, Eskalationen, „Alle bewerten“ und „Auswahl bewerten“ mit Laufplan, gespeicherte Ansichten (`state/views.yaml`), Handyansicht. Abnahme: 12 Beispielsätze richtig, 3 Sätze abgelehnt (`tests/fixtures/anfragen.yaml`), alle Startwege schreiben `request.json` (`tests/test_start.py`). Nicht gebaut: Chancen-Karte, Themen über A0, Abo-Verbrauch aus `log.jsonl`, Neuanalyse statt Wiederholung (SPEC 9.4).
 
 ### Schritt 12: Zeitplan (optional)
 
@@ -180,8 +181,6 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 | 9 | `config/insider_thresholds.yaml` | Meldeschwellen je Land (SPEC 3.8 Nr. 9) | Schwelle in EUR je Land mit Gültigkeit ab Datum und Quelle (Deutschland 50.000 EUR ab 2026, EU-Standard 20.000 EUR) |
 | 9 | `src/stockagent/core/insider.py` | Insider-Signal (SPEC 3.8) | Nur Käufe am offenen Markt, routinemäßig gegen opportunistisch (Cohen, Malloy, Pomorski), Cluster, Rollengewicht, Abklingen mit 90 Tagen Halbwertszeit, Höchstgewicht 15 Prozent |
 | 9 | `src/stockagent/data/sources/bafin.py` | Insidergeschäfte Deutschland (SPEC 7.3) | BaFin-Datenbank Geschäfte von Führungskräften, höflich mit Pausen und Cache, robots.txt beachten. Meldeschwelle 50.000 EUR seit 2026 beachten |
-| 11 | `.claude/skills/stockagent/SKILL.md` | Skill /stockagent | Freitext-Abfrage nach SPEC 9.9 oder Kategorie-Abfrage in zwei Runden mit AskUserQuestion (SPEC 9.7), Abarbeiten der Warteschlange aus `state/analysis_queue.yaml`, Laufplan zeigen, nach Bestätigung `stockagent run` starten, Fortschritt melden, Ergebnis zusammenfassen, Dashboard öffnen |
-| 11 | `config/run_profiles.yaml` | Laufprofile (SPEC 9.6, 9.7) | Profile für `stockagent run --profile`: Kategorie, Größenklassen, Tiefe, Höchstzahl Tiefenanalysen. In Schritt 12 das Profil `scheduled` |
 
 ## Neue Dateien ohne heutigen Platzhalter
 
@@ -193,7 +192,6 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 | 5 | `Stockagent.command` | Doppelklick-Start unter macOS: `uv run stockagent app` im Projektordner |
 | 5 | `state/notes.yaml` | Lucas Notizen je Titel |
 | 6 | `state/analysis_queue.yaml` | Warteschlange angeforderter Tiefenanalysen |
-| 11 | `state/views.yaml` | Gespeicherte Ansichten und Abfragen |
 | 4 | `src/stockagent/data/sources/damodaran.py` | Risikoprämie, Branchenbetas und -multiples als datierter Stand |
 | 6 | `agents_src/<agent>.md` | Vorlagen A1, A3, A4, A5, A7, A9, J1, J2 mit Pflicht-Präambel |
 | 7 | `src/stockagent/data/sources/pdf.py` | PDF-Rückfall mit Docling (SPEC 7.4) |

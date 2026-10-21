@@ -324,7 +324,7 @@ def test_tier_import_and_level(paths: Paths, tmp_path: Path) -> None:
 @pytest.fixture
 def server(paths: Paths):  # type: ignore[no-untyped-def]
     bewertung.bewerten(paths, FIRMEN[-1][0], lader=Attrappe().lader(), now=NOW)
-    srv = dashboard.server(paths, 0)
+    srv = dashboard.server(paths, 0, modell=None)
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     t.start()
     yield srv
@@ -381,7 +381,7 @@ def test_dashboard_star_and_note(server, paths: Paths) -> None:  # type: ignore[
 
 def test_freitext_to_filters(paths: Paths) -> None:
     daten = dashboard.Daten(paths)
-    f = dashboard.freitext("Tier 1 Aktien aus Deutschland, Note B", daten)
+    f = dashboard.freitext("Tier 1 Aktien aus Deutschland, Note B", daten)["filter"]
     assert f == {"tier": "1", "note": "B", "land": "DE"}
-    f = dashboard.freitext("Technologie aus Nordamerika", daten)
+    f = dashboard.freitext("Technologie aus Nordamerika", daten)["filter"]
     assert f["region"] == "nordamerika" and f.get("branche") == "Informationstechnik"

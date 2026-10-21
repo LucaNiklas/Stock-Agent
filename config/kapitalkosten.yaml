@@ -1,6 +1,6 @@
 # Kapitalkosten, Reverse-DCF und DCF (SPEC 3.6, ADR 0006). Version bei jeder Änderung erhöhen
 # und in docs/METHODOLOGY_CHANGELOG.md eintragen.
-version: "1.0"
+version: "1.1"
 
 # Risikofreier Zins je Berichtswährung (Reihe in Tabelle `rates`). Andere Währungen: kein WACC,
 # bis eine Quelle eingetragen ist (Umrechnung über die Inflationsdifferenz, SPEC 5.2 Nr. 6, offen).
@@ -30,7 +30,7 @@ steuersatz:
   IT: "0.279"
   LU: "0.2494"
   NL: "0.258"
-  NO: "0.22"
+  "NO": "0.22"
   PL: "0.19"
   PT: "0.315"
   SE: "0.206"

@@ -1,5 +1,54 @@
-# Laufprofile (SPEC 9.6, 9.7).
-# PLATZHALTER: wird in Bauschritt 11 gebaut (docs/BAUPLAN.md).
-#
-# Inhalt: Profile für `stockagent run --profile`: Kategorie, Größenklassen, Tiefe, Höchstzahl
-#   Tiefenanalysen. In Schritt 12 das Profil `scheduled`.
+# Laufprofile, Tiefe, Grenzen und Anlagestile (SPEC 9.6, 9.7, 9.9, ADR 0014). Version bei
+# Änderung erhöhen. Die Auswahl ändert keine Note (HR-13), sie bestimmt nur, welche Titel
+# bewertet werden und welche eine Tiefenanalyse bekommen.
+version: "1.0"
+
+# Tiefe der Analyse (SPEC 9.7 Runde 1): wie viele der besten Treffer eine Tiefenanalyse bekommen
+# sollen. Die harte Grenze je Lauf (unten) gilt immer zusätzlich.
+tiefe:
+  schnell: {name: "Schnell (nur Noten)", tiefenanalysen: 0}
+  standard: {name: "Standard (beste 10)", tiefenanalysen: 10}
+  tief: {name: "Tief (beste 25)", tiefenanalysen: 25}
+
+grenzen:
+  max_tiefenanalysen_je_lauf: 3     # HR-18 max_deep_analyses_per_run (Default 3)
+  max_bewertungen_je_lauf: 250      # Noten (ohne Sprachmodell) je Lauf, schützt vor Stundenläufen
+  tiefenanalyse_konfidenz: [K1, K2, K3]   # SPEC 9.7: Tiefenanalyse nur für K1 bis K3
+
+# Schätzung für den Laufplan (SPEC 9.6): Minuten je Bewertung und je Tiefenanalyse. Erfahrungswerte
+# aus den Abnahmeläufen der Schritte 5 bis 10, keine Zusage.
+schaetzung:
+  minuten_je_bewertung: "1.5"
+  minuten_je_tiefenanalyse: "40"
+  abo_hinweis: >-
+    Eine Tiefenanalyse nutzt das Kontingent des Claude-Abos (bis zu 20 Agentenaufträge, davon
+    mehrere mit Opus). Mehrere Tiefenanalysen hintereinander können das Kontingent für einige
+    Stunden aufbrauchen.
+
+# Anlagestile (SPEC 9.7 Runde 2). Ein Stil ist ein Filter auf schon berechnete Werte: Säule der
+# Note (Perzentil 0 bis 100) oder Kennzahl. Ohne Note gilt ein Stil als nicht erfüllt.
+stile:
+  qualitaet: {name: Qualität, saeule: qualitaet, mindest: "70"}
+  bewertung: {name: Günstige Bewertung, saeule: bewertung, mindest: "70"}
+  wachstum: {name: Wachstum, saeule: wachstum, mindest: "70"}
+  dividende: {name: Dividende, kennzahl: dividend_yield, statistik: aktuell, mindest: "0.03"}
+  insider: {name: Insider-Käufe, insider: Käufe}
+  turnaround: {name: Turnaround, gebaut: false, grund: "Kein deterministisches Merkmal für Turnaround festgelegt (Frage an Luca)"}
+
+# Profile für `stockagent run --profile <name>`. Felder wie in `request.json` (anfrage.Anfrage).
+profile:
+  tier1_europa_qualitaet:
+    beschreibung: Tier 1 Europa, Stil Qualität, nur Noten
+    stufen: [1]
+    region: europa
+    stile: [qualitaet]
+    tiefe: schnell
+  beobachtungsliste:
+    beschreibung: Beobachtungsliste mit Tiefenanalyse der besten
+    beobachtungsliste: nur
+    tiefe: standard
+  scheduled:   # Bauschritt 12 (optional), bis dahin aus
+    beschreibung: Lauf nach Zeitplan ohne Rückfragen (Bauschritt 12)
+    aktiv: false
+    beobachtungsliste: nur
+    tiefe: schnell

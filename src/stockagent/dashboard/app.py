@@ -1,13 +1,15 @@
-"""Dashboard als Bedienzentrale (SPEC 13.5, ADR 0004).
+"""Dashboard als Bedienzentrale (SPEC 13.3, 13.5, ADR 0004, ADR 0014).
 
 Ein lokaler Server nur auf 127.0.0.1. Er zeigt die Liste aller Aktien mit Filtern, die Seite
-jeder Aktie mit Notenzerlegung und startet das Bewerten im Hintergrund. Er schreibt nur nach
-`state/` (Stern, Notizen, Trade-Republic-Prüfung) und über die normalen Abläufe in die
-Datenbank. Anfragen mit fremdem Host oder fremder Herkunft werden abgelehnt (Schutz gegen
-DNS-Rebinding und fremde Webseiten).
+jeder Aktie mit Notenzerlegung, die Ansichten Änderungen, Karte, Vergleich, Historie, Methodik
+und Eskalationen. Er bewertet im Hintergrund und startet Tiefenanalysen über Claude Code. Er
+schreibt nur nach `state/` und `runs/` und über die normalen Abläufe in die Datenbank. Anfragen
+mit fremdem Host oder fremder Herkunft werden abgelehnt (Schutz gegen DNS-Rebinding und fremde
+Webseiten).
 
-Kein Sprachmodell: Freitext wird über eine feste Wortliste in Filter übersetzt (SPEC 9.9, die
-Übersetzung mit `claude -p` folgt in Schritt 11).
+Suche in eigenen Worten (SPEC 9.9): erst die feste Wortliste, dann `claude -p` ohne Werkzeuge,
+nur mit Werten aus den Listen (`anfrage.py`). „Alle bewerten“ zeigt zuerst den Laufplan und
+startet erst nach Bestätigung (`lauf.py`).
 """
 
 from __future__ import annotations
@@ -16,372 +18,94 @@ import csv
 import io
 import json
 import re
-import shutil
 import subprocess
 import threading
 import traceback
 import uuid
-from collections import Counter
-from dataclasses import asdict, dataclass, field, replace
-from datetime import UTC, datetime
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, date, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
-from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-import yaml
-
-from stockagent import bewertung, eskalationen, orchestrator, tiers, tr_checks
-from stockagent.core import sektoren
+from stockagent import (
+    anfrage,
+    bewertung,
+    claude_cli,
+    eskalationen,
+    historie,
+    lauf,
+    orchestrator,
+    tr_checks,
+)
 from stockagent.data import store
 from stockagent.paths import Paths
-
-ERLAUBTE_HOSTS = {"127.0.0.1", "localhost"}
-MAX_ZEILEN = 500
-
-
-# ------------------------------------------------------------------ Merkliste und Notizen
-
-
-def _yaml(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    data = yaml.safe_load(path.read_text("utf-8")) or {}
-    return dict(data)
-
-
-def _yaml_schreiben(path: Path, kopf: str, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        "\n".join([kopf, yaml.safe_dump(data, sort_keys=True, allow_unicode=True)]), "utf-8"
-    )
-
-
-@dataclass
-class Merkliste:
-    root: Path
-
-    @property
-    def stern_datei(self) -> Path:
-        return self.root / "state" / "watchlist.yaml"
-
-    @property
-    def notiz_datei(self) -> Path:
-        return self.root / "state" / "notes.yaml"
-
-    def sterne(self) -> set[str]:
-        return set(_yaml(self.stern_datei).get("isins", []))
-
-    def stern(self, isin: str, an: bool) -> None:
-        s = self.sterne()
-        s = s | {isin} if an else s - {isin}
-        _yaml_schreiben(self.stern_datei, "# Beobachtungsliste (Dashboard)", {"isins": sorted(s)})
-
-    def notizen(self) -> dict[str, str]:
-        return {str(k): str(v) for k, v in _yaml(self.notiz_datei).items()}
-
-    def notiz(self, isin: str, text: str) -> None:
-        n = self.notizen()
-        if text.strip():
-            n[isin] = text.strip()
-        else:
-            n.pop(isin, None)
-        _yaml_schreiben(self.notiz_datei, "# Notizen je Titel (Dashboard)", n)
-
-
-# ------------------------------------------------------------------ Liste
-
-
-@dataclass(frozen=True)
-class Zeile:
-    isin: str
-    name: str
-    land: str
-    region: str
-    art: str
-    tier: int
-    branche: str
-    unterbranche: str
-    groesse: str
-    note: str
-    konfidenz: str
-    risiko: str
-    kategorie: str
-    score: str
-    tr: str
-    stern: bool
-    datenlage: str
-    # Note, Kategorie und Gesamtwert je Anlagehorizont (ADR 0011)
-    horizonte: dict[str, dict[str, str]] = field(default_factory=dict)
-    # Insider-Signal (Bauschritt 9): Käufe, Verkäufe, kein Signal oder leer (nicht bewertet)
-    insider: str = ""
-
-
-class Daten:
-    """Liste aller Aktien, einmal geladen und nach jedem Bewerten neu."""
-
-    def __init__(self, paths: Paths) -> None:
-        self.paths = paths
-        self.lock = threading.Lock()
-        self.zeilen: list[Zeile] = []
-        self.stand = ""
-        h = yaml.safe_load((paths.config / "horizonte.yaml").read_text("utf-8"))
-        self.horizont_standard = str(h["standard"])
-        self.horizont_namen = {k: str(v["name"]) for k, v in h["horizonte"].items()}
-        self.horizont_info = {
-            k: {
-                "name": str(v["name"]),
-                "momentum_anteil": str(v["momentum_anteil"]),
-                "mindest": v.get("kategorie_momentum_mindest"),
-            }
-            for k, v in h["horizonte"].items()
-        }
-        self.neu_laden()
-
-    def neu_laden(self) -> None:
-        cfg_sec = yaml.safe_load((self.paths.config / "sectors.yaml").read_text("utf-8"))
-        cfg_sc = yaml.safe_load((self.paths.config / "scoring.yaml").read_text("utf-8"))
-        regionen = cfg_sc["vergleichsgruppe"]["regionen"]
-        merk = Merkliste(self.paths.root)
-        sterne = merk.sterne()
-        checks = tr_checks.load(self.paths.tr_checks)
-        stufen = tiers.stufen_aller(self.paths)
-        conn = store.connect(self.paths.db)
-        try:
-            rows = conn.execute(
-                "SELECT l.isin, l.name, l.country, l.is_receipt, i.sector_sic, m.cik "
-                "FROM listings l LEFT JOIN isin_cik m ON m.isin = l.isin "
-                "AND m.status = 'zugeordnet' "
-                "LEFT JOIN issuers i ON i.issuer_id = 'sec:' || m.cik WHERE l.listed "
-                "ORDER BY l.name"
-            ).fetchall()
-            grades = {g.isin: g for g in store.load_grades(conn)}
-            stand = conn.execute("SELECT max(computed_at) FROM grades").fetchone()
-        finally:
-            conn.close()
-        zeilen = []
-        for isin, name, land, receipt, sic, cik in rows:
-            b = sektoren.branche(int(sic) if sic and str(sic).isdigit() else None, cfg_sec)
-            g = grades.get(isin)
-            c = checks.get(isin)
-            det = json.loads(g.detail_json or "{}") if g else {}
-            hz = det.get("horizonte") or {}
-            zeilen.append(
-                Zeile(
-                    isin=isin,
-                    name=name,
-                    land=land or "",
-                    region=sektoren.region(land, regionen) or "",
-                    art="Hinterlegungsschein" if receipt else "Aktie",
-                    tier=stufen.get(isin, (4, []))[0],
-                    branche=b.haupt_name if b else "",
-                    unterbranche=b.unter_name if b else "",
-                    groesse=(g.groessenklasse or "") if g else "",
-                    note=g.grade if g else "",
-                    konfidenz=(g.konfidenz or "") if g else "",
-                    risiko=(g.risiko or "") if g else "",
-                    kategorie=(g.kategorie or "") if g else "",
-                    score=str(g.score) if g and g.score is not None else "",
-                    tr=c.status.value if c else "ungeprueft",
-                    stern=isin in sterne,
-                    datenlage="SEC" if cik else "keine strukturierten Daten",
-                    horizonte={
-                        h: {
-                            "note": str(v.get("note") or ""),
-                            "kategorie": str(v.get("kategorie") or ""),
-                            "score": str(v.get("score") or ""),
-                        }
-                        for h, v in hz.items()
-                    },
-                    insider=_insider_text(det.get("insider")),
-                )
-            )
-        with self.lock:
-            self.zeilen = zeilen
-            self.stand = f"{stand[0]:%d.%m.%Y %H:%M}" if stand and stand[0] else ""
-
-
-FILTER = (
-    "tier",
-    "land",
-    "region",
-    "branche",
-    "groesse",
-    "note",
-    "konfidenz",
-    "risiko",
-    "kategorie",
-    "tr",
-    "datenlage",
-    "art",
-    "insider",
+from stockagent.titelliste import (
+    MAX_ZEILEN,
+    Daten,
+    Merkliste,
+    Zeile,
+    karte,
+    liste,
+    lockerungen,
+    passt,
+    yaml_schreiben,
 )
 
+__all__ = ["MAX_ZEILEN", "Daten", "Merkliste", "Zeile", "liste"]
 
-def _insider_text(d: dict[str, Any] | None) -> str:
-    """Kurzform des Insider-Signals für den Filter (50 = neutral, SPEC 3.8)."""
-    if d is None:
-        return ""
-    if d.get("saeule") is None:
-        return "kein Signal"
-    wert = float(d["saeule"])
-    return "Käufe" if wert > 50 else "Verkäufe" if wert < 50 else "kein Signal"
+ERLAUBTE_HOSTS = {"127.0.0.1", "localhost"}
+ERLAUBTE_WERKZEUGE = claude_cli.ERLAUBTE_WERKZEUGE
+claude_befehl = claude_cli.analyse_befehl
+LAUF_ID = re.compile(r"^[0-9T:-]+Z_lauf$")
+RUN_ID = re.compile(r"^[0-9T:-]+Z_[A-Z0-9]{12}$")
 
 
-def _ansicht(z: Zeile, horizont: str) -> Zeile:
-    """Zeile mit Note, Kategorie und Gesamtwert des gewählten Horizonts. Ältere Bewertungen
-    ohne Horizonte behalten die Hauptnote."""
-    h = z.horizonte.get(horizont)
-    if not h or z.note == "N":
-        return z
-    return replace(z, note=h["note"], kategorie=h["kategorie"], score=h["score"])
+# ------------------------------------------------------------------ Freitext (SPEC 9.9)
 
 
-def _wert(z: Zeile) -> float:
-    try:
-        return float(z.score)
-    except ValueError:
-        return -1.0
+def freitext(
+    text: str,
+    daten: Daten,
+    vok: anfrage.Vokabular | None = None,
+    modell: anfrage.Modell | None = None,
+) -> dict[str, Any]:
+    """Satz in Filter. Gespeicherte Ansicht mit diesem Namen zuerst, dann Wortliste, dann
+    Modell. Antwort mit verstandenem Filter, Schaltflächen, Trefferzahl und bei null Treffern
+    dem engsten lockernden Vorschlag."""
+    vok = vok or anfrage.Vokabular.laden(daten.paths)
+    gespeichert = anfrage.ansicht(daten.paths, text)
+    if gespeichert is not None:
+        a = anfrage.aus_filter(gespeichert, vok, "ansicht")
+        v = anfrage.Verstanden(a)
+        filter_ = gespeichert
+    else:
 
+        def namens_treffer(q: str) -> int:
+            return sum(1 for z in daten.zeilen if passt(z, {"q": q}, daten.stile))
 
-def _passt(z: Zeile, f: dict[str, str]) -> bool:
-    for k in FILTER:
-        if f.get(k) and str(getattr(z, k)) != f[k]:
-            return False
-    if f.get("stern") == "1" and not z.stern:
-        return False
-    if f.get("bewertet") == "1" and not z.note:
-        return False
-    q = f.get("q", "").strip().lower()
-    return not q or q in z.name.lower() or q.upper() == z.isin
-
-
-def liste(daten: Daten, f: dict[str, str]) -> dict[str, Any]:
-    horizont = f.get("horizont") or daten.horizont_standard
-    if horizont not in daten.horizont_namen:
-        horizont = daten.horizont_standard
-    with daten.lock:
-        alle = [_ansicht(z, horizont) for z in daten.zeilen]
-    treffer = [z for z in alle if _passt(z, f)]
-    if f.get("sortierung") == "wert":
-        # Bewertete zuerst, nach Gesamtwert des Horizonts absteigend (nur Anzeige, kein Rang)
-        treffer.sort(key=lambda z: -_wert(z))
-    facetten: dict[str, list[tuple[str, int]]] = {}
-    for k in FILTER:
-        ohne = {kk: v for kk, v in f.items() if kk != k}
-        zaehler = Counter(str(getattr(z, k)) for z in alle if _passt(z, ohne))
-        facetten[k] = sorted(zaehler.items(), key=lambda x: (-x[1], x[0]))
-    bewertet = sum(1 for z in alle if z.note and z.note != "N")
-    return {
-        "anzahl": len(treffer),
-        "gesamt": len(alle),
-        "bewertet": bewertet,
-        "stand": daten.stand,
-        "zeilen": [asdict(z) for z in treffer[:MAX_ZEILEN]],
-        "facetten": facetten,
-        "horizont": horizont,
-        "horizonte": daten.horizont_info,
+        v = anfrage.uebersetzen(text, vok, namens_treffer=namens_treffer, modell=modell)
+        filter_ = anfrage.als_filter(v.anfrage, vok)
+    antwort: dict[str, Any] = {
+        "ok": v.ok,
+        "abgelehnt": v.abgelehnt,
+        "hinweise": v.hinweise,
+        "rest": v.rest,
+        "weg": v.anfrage.weg,
+        "filter": filter_,
+        "schaltflaechen": anfrage.beschreibung(v.anfrage, vok),
+        "bewerten": v.anfrage.bewerten,
+        "tiefe": v.anfrage.tiefe,
     }
-
-
-# ------------------------------------------------------------------ Freitext (Wortliste)
-
-
-LAENDER = {
-    "deutschland": "DE",
-    "usa": "US",
-    "amerika": "US",
-    "vereinigte staaten": "US",
-    "frankreich": "FR",
-    "griechenland": "GR",
-    "italien": "IT",
-    "spanien": "ES",
-    "schweiz": "CH",
-    "österreich": "AT",
-    "niederlande": "NL",
-    "großbritannien": "GB",
-    "uk": "GB",
-    "japan": "JP",
-    "kanada": "CA",
-    "china": "CN",
-    "schweden": "SE",
-    "dänemark": "DK",
-    "norwegen": "NO",
-    "finnland": "FI",
-    "belgien": "BE",
-    "irland": "IE",
-    "portugal": "PT",
-    "polen": "PL",
-    "australien": "AU",
-    "hongkong": "HK",
-}
-REGIONEN = {
-    "europa": "europa",
-    "nordamerika": "nordamerika",
-    "asien": "asien_pazifik",
-    "schwellenländer": "schwellenlaender",
-}
-
-# Umgangssprachliche Wörter für Hauptbranchen (Namen aus config/sectors.yaml)
-BRANCHEN_WOERTER = {
-    "technologie": "Informationstechnik",
-    "tech": "Informationstechnik",
-    "software": "Informationstechnik",
-    "halbleiter": "Informationstechnik",
-    "banken": "Finanzen",
-    "versicherungen": "Finanzen",
-    "pharma": "Gesundheit",
-    "medizin": "Gesundheit",
-    "rohstoffe": "Grundstoffe",
-    "öl": "Energie",
-    "telekom": "Kommunikation",
-}
-
-
-def freitext(text: str, daten: Daten) -> dict[str, str]:
-    """Einfache Sätze in Filter: Tier, Land, Region, Branche, Note. Unbekanntes wird Suche."""
-    t = text.lower()
-    f: dict[str, str] = {}
-    if m := re.search(r"tier[ -]?([1-4])", t):
-        f["tier"] = m.group(1)
-        t = t.replace(m.group(0), " ")
-    for muster, h in (
-        (r"kurzfristig|kurze? sicht|paar monate|monate", "kurz"),
-        (r"mittelfristig|1 bis 5 jahre|1-5 jahre|ein paar jahre|wenige jahre", "mittel"),
-        (r"langfristig|lange sicht|jahrzehnt", "lang"),
-    ):
-        if m := re.search(muster, t):
-            f["horizont"] = h
-            t = t.replace(m.group(0), " ")
-            break
-    if m := re.search(r"note ([a-e])\b", t):
-        f["note"] = m.group(1).upper()
-        t = t.replace(m.group(0), " ")
-    for wort, code in LAENDER.items():
-        if re.search(rf"\b{re.escape(wort)}\b", t):
-            f["land"] = code
-            t = t.replace(wort, " ")
-    for wort, code in REGIONEN.items():
-        if wort in t:
-            f["region"] = code
-            t = t.replace(wort, " ")
-    with daten.lock:
-        branchen = {z.branche for z in daten.zeilen if z.branche}
-    for b in sorted(branchen, key=len, reverse=True):
-        if b.lower() in t:
-            f["branche"] = b
-            t = t.replace(b.lower(), " ")
-    for wort, b in BRANCHEN_WOERTER.items():
-        if "branche" not in f and b in branchen and re.search(rf"\b{wort}\b", t):
-            f["branche"] = b
-            t = re.sub(rf"\b{wort}\b", " ", t)
-    rest = re.sub(r"\b(aktien|aus|der|die|das|branche|und|mit|bewerte|sie|zeige)\b", " ", t)
-    rest = " ".join(rest.replace(",", " ").split())
-    if rest:
-        f["q"] = rest
-    return f
+    if v.ok:
+        d = liste(daten, filter_)
+        antwort["anzahl"] = d["anzahl"]
+        if d["anzahl"] == 0:
+            lockern = lockerungen(daten, filter_)
+            antwort["vorschlag"] = lockern[0] if lockern else None
+    return antwort
 
 
 # ------------------------------------------------------------------ Hintergrundaufgaben
@@ -407,7 +131,7 @@ class Aufgaben:
         with self.lock:
             self.alle[a.id] = a
 
-        def lauf() -> None:
+        def ausfuehren() -> None:
             try:
                 a.ergebnis = arbeit(lambda m: a.meldungen.append(m))
                 a.status = "fertig"
@@ -416,42 +140,11 @@ class Aufgaben:
                 a.meldungen.append(traceback.format_exc(limit=3))
                 a.status = "fehler"
 
-        threading.Thread(target=lauf, daemon=True).start()
+        threading.Thread(target=ausfuehren, daemon=True).start()
         return a
 
 
 # ------------------------------------------------------------------ Tiefenanalyse (Bauschritt 6)
-
-RUN_ID = re.compile(r"^[0-9T:-]+Z_[A-Z0-9]{12}$")
-# Rechte des Hintergrundlaufs: nur das CLI, Lesen, Schreiben unter runs/, Subagents. Die Rechte
-# der Subagents selbst stehen in ihrem Frontmatter (.claude/agents/).
-ERLAUBTE_WERKZEUGE = [
-    "Bash(uv run stockagent *)",
-    "Read",
-    "Grep",
-    "Write(./runs/**)",
-    "Agent",
-    "WebSearch",
-    "WebFetch",
-]
-
-
-def claude_befehl(isin: str) -> list[str]:
-    """`claude -p` im Hintergrund über Lucas Abo (SPEC 13.5). Rechte nur über die Liste oben."""
-    return [
-        shutil.which("claude") or "claude",
-        "-p",
-        f"/analyze-stock {isin}",
-        "--output-format",
-        "stream-json",
-        "--verbose",
-        "--permission-mode",
-        "dontAsk",
-        "--allowedTools",
-        *ERLAUBTE_WERKZEUGE,
-        "--max-turns",
-        "300",
-    ]
 
 
 class Analysen:
@@ -464,11 +157,11 @@ class Analysen:
         self.laufend: dict[str, Any] = {}  # ISIN -> Prozess
 
     @property
-    def datei(self) -> Path:
-        return self.paths.root / "state" / "analysis_queue.yaml"
+    def datei(self) -> Any:
+        return lauf.warteschlange_datei(self.paths)
 
     def warteschlange(self) -> list[str]:
-        return [str(x) for x in _yaml(self.datei).get("isins", [])]
+        return lauf.warteschlange(self.paths)
 
     def _aktiv(self) -> list[str]:
         return [i for i, p in self.laufend.items() if p.poll() is None]
@@ -478,13 +171,13 @@ class Analysen:
             if isin in self._aktiv() or isin in self.warteschlange():
                 return {"status": "schon_geplant"}
             if self._aktiv():
-                _yaml_schreiben(
+                yaml_schreiben(
                     self.datei,
                     "# Warteschlange Tiefenanalysen",
                     {"isins": [*self.warteschlange(), isin]},
                 )
                 return {"status": "wartet", "vor_dir": len(self.warteschlange()) - 1}
-            if shutil.which("claude") is None and self.starter is subprocess.Popen:
+            if claude_cli.pfad() is None and self.starter is subprocess.Popen:
                 return {"status": "fehler", "grund": "Claude Code (claude) nicht gefunden"}
             log = self.paths.runs / "_dashboard"
             log.mkdir(parents=True, exist_ok=True)
@@ -505,7 +198,7 @@ class Analysen:
             schlange = self.warteschlange()
             if self._aktiv() or not schlange:
                 return
-            _yaml_schreiben(self.datei, "# Warteschlange Tiefenanalysen", {"isins": schlange[1:]})
+            yaml_schreiben(self.datei, "# Warteschlange Tiefenanalysen", {"isins": schlange[1:]})
         self.starten(schlange[0])
 
     def stand(self, isin: str) -> dict[str, Any]:
@@ -522,7 +215,7 @@ class Analysen:
         }
 
 
-# ------------------------------------------------------------------ Server
+# ------------------------------------------------------------------ Titel, Vergleich, Historie
 
 
 def titel_detail(paths: Paths, isin: str) -> dict[str, Any]:
@@ -539,10 +232,10 @@ def titel_detail(paths: Paths, isin: str) -> dict[str, Any]:
         kennzahlen = []
         hinweise = []
         if issuer:
-            lauf = store.load_metric_run(conn, issuer)
-            if lauf:
+            metrik_lauf = store.load_metric_run(conn, issuer)
+            if metrik_lauf:
                 for r in store.load_metrics(conn, issuer):
-                    if r.period_end == lauf[2] and r.statistik in ("wert", "aktuell", "ttm"):
+                    if r.period_end == metrik_lauf[2] and r.statistik in ("wert", "aktuell", "ttm"):
                         kennzahlen.append(
                             {
                                 "id": r.metric_id,
@@ -560,6 +253,8 @@ def titel_detail(paths: Paths, isin: str) -> dict[str, Any]:
     finally:
         conn.close()
     merk = Merkliste(paths.root)
+    checks = tr_checks.load(paths.tr_checks)
+    pruefung = checks.get(isin)
     return {
         "isin": isin,
         "name": info[0] if info else isin,
@@ -575,17 +270,90 @@ def titel_detail(paths: Paths, isin: str) -> dict[str, Any]:
         else None,
         "stern": isin in merk.sterne(),
         "notiz": merk.notizen().get(isin, ""),
-        "tr": tr_checks.load(paths.tr_checks).get(isin).status.value  # type: ignore[union-attr]
-        if isin in tr_checks.load(paths.tr_checks)
-        else "ungeprueft",
+        "tr": pruefung.status.value if pruefung else "ungeprueft",
+        "verlauf": historie.notenverlauf(paths, isin),
     }
 
 
+def vergleich(paths: Paths, isins: list[str]) -> list[dict[str, Any]]:
+    """Zwei bis vier Titel nebeneinander (SPEC 13.3 Vergleich): Note und Säulen, Kennzahlen der
+    Note mit Perzentil, Bewertungsbedingung, Risiko."""
+    out = []
+    for isin in isins[:4]:
+        t = titel_detail(paths, isin)
+        n, det = t["note"] or {}, t["detail"] or {}
+        out.append(
+            {
+                "isin": isin,
+                "name": t["name"],
+                "land": t["land"],
+                "note": n.get("grade"),
+                "konfidenz": n.get("konfidenz"),
+                "risiko": n.get("risiko"),
+                "kategorie": n.get("kategorie"),
+                "score": n.get("score"),
+                "branche": n.get("branche"),
+                "saeulen": det.get("saeulen", {}),
+                "horizonte": {
+                    k: {"name": v.get("name"), "note": v.get("note")}
+                    for k, v in (det.get("horizonte") or {}).items()
+                },
+                "kennzahlen": {
+                    f"{r['kennzahl']} ({r['statistik']})": {
+                        "wert": r["wert"],
+                        "perzentil": r["perzentil"],
+                        "saeule": r["saeule"],
+                    }
+                    for r in det.get("raenge", [])
+                },
+                "bewertungsbedingung": det.get("bewertungsbedingung"),
+                "kappungen": det.get("kappungen", []),
+                "risiko_stufen": det.get("risiko_stufen"),
+                "grund": n.get("grund"),
+            }
+        )
+    return out
+
+
+def historie_daten(paths: Paths) -> dict[str, Any]:
+    analysen = [
+        {
+            "run_id": z.run_id,
+            "isin": z.isin,
+            "status": z.status,
+            "erstellt": z.erstellt,
+            "bericht": f"/bericht/{z.run_id}"
+            if (paths.runs / z.run_id / "report.html").exists()
+            else None,
+        }
+        for z in sorted(orchestrator.laufende(paths), key=lambda z: z.erstellt, reverse=True)
+    ]
+    return {
+        "laeufe": lauf.laeufe(paths),
+        "analysen": analysen,
+        "notenkontrolle": historie.notenkontrolle(paths),
+    }
+
+
+# ------------------------------------------------------------------ Server
+
+
 def handler_fuer(
-    paths: Paths, daten: Daten, aufgaben: Aufgaben, analysen: Analysen | None = None
+    paths: Paths,
+    daten: Daten,
+    aufgaben: Aufgaben,
+    analysen: Analysen | None = None,
+    modell: anfrage.Modell | bool | None = True,
 ) -> type[BaseHTTPRequestHandler]:
+    """`modell`: Übersetzer für Freitext. True: `claude -p`, falls installiert. None oder
+    False: nur die Wortliste. Sonst eine Funktion (Tests)."""
     seite = files("stockagent.dashboard").joinpath("template.html").read_text("utf-8")
     tief = analysen or Analysen(paths)
+    vok = anfrage.Vokabular.laden(paths)
+    uebersetzer = (
+        anfrage.claude_modell(vok) if modell is True else modell if callable(modell) else None
+    )
+    plaene: dict[str, lauf.Plan] = {}
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "stockagent"
@@ -625,17 +393,44 @@ def handler_fuer(
                 self._json({"fehler": "nur lokal"}, HTTPStatus.FORBIDDEN)
                 return
             pfad = urlparse(self.path).path
+            f = self._filter()
             if pfad == "/":
                 self._text(seite, "text/html; charset=utf-8")
             elif pfad == "/api/liste":
-                self._json(liste(daten, self._filter()))
+                self._json(liste(daten, f))
             elif pfad == "/api/freitext":
-                self._json(freitext(self._filter().get("text", ""), daten))
+                self._json(freitext(f.get("text", ""), daten, vok, uebersetzer))
+            elif pfad == "/api/lockern":
+                self._json(lockerungen(daten, f))
+            elif pfad == "/api/karte":
+                self._json(karte(daten, f))
+            elif pfad == "/api/vergleich":
+                isins = [i.upper() for i in f.get("isins", "").split(",") if i]
+                self._json(vergleich(paths, isins))
+            elif pfad == "/api/aenderungen":
+                seit = date.fromisoformat(f["seit"]) if f.get("seit") else None
+                self._json(historie.aenderungen(paths, seit))
+            elif pfad == "/api/historie":
+                self._json(historie_daten(paths))
+            elif pfad == "/api/methodik":
+                self._json(historie.methodik(paths))
+            elif pfad == "/api/ansichten":
+                self._json(anfrage.ansichten(paths))
+            elif pfad == "/api/status":
+                self._json(
+                    {
+                        "claude": claude_cli.pfad() is not None,
+                        "warteschlange": tief.warteschlange(),
+                        "letzte_anfrage": a.model_dump()
+                        if (a := lauf.letzte_anfrage(paths))
+                        else None,
+                    }
+                )
             elif pfad.startswith("/api/titel/"):
                 self._json(titel_detail(paths, pfad.rsplit("/", 1)[1].upper()))
             elif pfad.startswith("/api/aufgabe/"):
-                a = aufgaben.alle.get(pfad.rsplit("/", 1)[1])
-                self._json(asdict(a) if a else {"fehler": "unbekannt"})
+                aufgabe = aufgaben.alle.get(pfad.rsplit("/", 1)[1])
+                self._json(asdict(aufgabe) if aufgabe else {"fehler": "unbekannt"})
             elif pfad.startswith("/api/analyse/"):
                 self._json(tief.stand(pfad.rsplit("/", 1)[1].upper()))
             elif pfad.startswith("/bericht/"):
@@ -645,18 +440,26 @@ def handler_fuer(
                     self._text(datei.read_text("utf-8"), "text/html; charset=utf-8")
                 else:
                     self._json({"fehler": "nicht gefunden"}, HTTPStatus.NOT_FOUND)
+            elif pfad.startswith("/lauf/"):
+                lauf_id = pfad.rsplit("/", 1)[1]
+                datei = lauf.ordner(paths, lauf_id) / "report.md"
+                if LAUF_ID.match(lauf_id) and datei.exists():
+                    self._text(datei.read_text("utf-8"), "text/plain; charset=utf-8")
+                else:
+                    self._json({"fehler": "nicht gefunden"}, HTTPStatus.NOT_FOUND)
             elif pfad == "/api/eskalationen":
-                self._json([asdict(f) for f in eskalationen.faelle(paths)])
+                self._json([asdict(fall) for fall in eskalationen.faelle(paths)])
             elif pfad == "/api/export.csv":
                 buf = io.StringIO()
                 w = csv.writer(buf, delimiter=";")
-                felder = [f for f in Zeile.__dataclass_fields__ if f != "horizonte"]
+                ohne = {"horizonte", "saeulen"}
+                felder = [x for x in Zeile.__dataclass_fields__ if x not in ohne]
                 namen = list(daten.horizont_namen)
                 w.writerow([*felder, *(f"note_{h}" for h in namen)])
-                for z in liste(daten, self._filter())["zeilen"]:
+                for z in liste(daten, f)["zeilen"]:
                     w.writerow(
                         [
-                            *(z[f] for f in felder),
+                            *(z[x] for x in felder),
                             *(z["horizonte"].get(h, {}).get("note", "") for h in namen),
                         ]
                     )
@@ -682,6 +485,56 @@ def handler_fuer(
                     return {"note": erg.note, "grund": erg.grund}
 
                 self._json(asdict(aufgaben.starte("bewerten", isin, arbeit)))
+            elif pfad == "/api/laufplan":
+                # „Alle bewerten“ oder „Auswahl bewerten“: zuerst nur der Plan (SPEC 9.6)
+                filter_ = {str(k): str(v) for k, v in (body.get("filter") or {}).items() if v}
+                a = anfrage.aus_filter(filter_, vok)
+                a.text = str(body.get("text", ""))
+                if body.get("isins"):
+                    a.isins = [str(i).upper() for i in body["isins"]][:50]
+                if body.get("tiefe") in vok.tiefen:
+                    a.tiefe = body["tiefe"]
+                a.bewerten = True
+                fehler = anfrage.pruefen(a, vok)
+                if fehler:
+                    self._json({"fehler": "; ".join(fehler)}, HTTPStatus.BAD_REQUEST)
+                    return
+                plan = lauf.planen(paths, daten, a, vok)
+                plaene[plan.lauf_id] = plan
+                self._json(asdict(plan))
+            elif pfad == "/api/lauf":
+                # Erst nach Lucas Bestätigung im Dashboard (SPEC 9.6), nur ein gezeigter Plan
+                plan_ = plaene.pop(str(body.get("lauf_id", "")), None)
+                if plan_ is None or body.get("bestaetigt") is not True:
+                    self._json({"fehler": "Laufplan unbekannt oder nicht bestätigt"}, 400)
+                    return
+
+                def lauf_arbeit(melde: Any) -> dict[str, Any]:
+                    erg = lauf.ausfuehren(paths, plan_, daten, vok, tief=tief.starten, melde=melde)
+                    return {
+                        "lauf_id": erg.lauf_id,
+                        "bericht": f"/lauf/{erg.lauf_id}",
+                        "bewertet": len(erg.bewertet),
+                        "fehler": len(erg.fehler),
+                        "tiefenanalysen": erg.tiefenanalysen,
+                    }
+
+                self._json(asdict(aufgaben.starte("lauf", None, lauf_arbeit)))
+            elif pfad == "/api/ansichten":
+                try:
+                    filter_ = {str(k): str(v) for k, v in (body.get("filter") or {}).items()}
+                    anfrage.ansicht_speichern(paths, str(body.get("name", "")), filter_)
+                except ValueError as exc:
+                    self._json({"fehler": str(exc)}, HTTPStatus.BAD_REQUEST)
+                    return
+                self._json({"ok": True})
+            elif pfad == "/api/ansichten/loeschen":
+                try:
+                    anfrage.ansicht_speichern(paths, str(body.get("name", "")), None)
+                except ValueError as exc:
+                    self._json({"fehler": str(exc)}, HTTPStatus.BAD_REQUEST)
+                    return
+                self._json({"ok": True})
             elif pfad.startswith("/api/analyse/"):
                 self._json(tief.starten(isin))
             elif pfad.startswith("/api/stern/"):
@@ -715,6 +568,14 @@ def handler_fuer(
     return Handler
 
 
-def server(paths: Paths, port: int = 8765) -> ThreadingHTTPServer:
+def server(
+    paths: Paths,
+    port: int = 8765,
+    *,
+    analysen: Analysen | None = None,
+    modell: anfrage.Modell | bool | None = True,
+) -> ThreadingHTTPServer:
     daten = Daten(paths)
-    return ThreadingHTTPServer(("127.0.0.1", port), handler_fuer(paths, daten, Aufgaben()))
+    return ThreadingHTTPServer(
+        ("127.0.0.1", port), handler_fuer(paths, daten, Aufgaben(), analysen, modell)
+    )
