@@ -202,3 +202,14 @@ Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit 
 | Start | Dialog in zwei Runden (9.7) | dazu Anfrage in eigenen Worten (9.9) |
 | Oberfläche | statische Seite | Dashboard als Bedienzentrale mit Bewerten per Klick (13.5) |
 
+## 5.3 (21.10.2026, Bauschritt 8, `methodology_version` der Kennzahlen 1.7, Scorecards 2.0, Konzeptzuordnung 1.3)
+
+- Alle Scorecards aus SPEC 3.11 aktiv: Banken, Versicherer, Immobilien, Versorger, Zykliker, Wachstum ohne Gewinn. Holdings bekommen Status N mit Grund (ADR 0010).
+- 30 neue Kennzahlen in `core/branchenkennzahlen.py`, darunter ROTE, Kosten-Ertrags-Verhältnis, TCE-Quote, Risikokosten, Ausfallquote, Schadenquote, Reserveabwicklung, FFO, Beleihungsquote, EV/EBITDA, Dividendendeckung und die Signale des G-Scores.
+- Ersatz, wo SPEC 3.11 Größen nennt, die nicht ohne Dimension in den XBRL-Daten stehen: TCE-Quote statt CET1, Ausfallquote statt Quote notleidender Kredite, Schadenquote statt Schaden-Kosten-Quote, Kurs-Buchwert statt Kurs zu NAV bei REITs.
+- Banken und Versicherer: Eigenkapitalkosten mit dem Beta der Branche wie gemessen, Bewertung über den Abstand zum gerechtfertigten Kurs-Buchwert nach der Residualgewinnlogik (g = 0 in `config/metrics.yaml`).
+- Je Scorecard eigene Kappungen, Multiples der Bewertungsbedingung, Risikoeingang Verschuldung und bei den Zyklikern eigene Säulengewichte. Zinsdeckung, Altman Z und Verschuldung zu EBITDA kappen bei Banken und Versicherern nicht mehr.
+- Mohanram G-Score beim Benoten gegen den Median der Vergleichsgruppe (`core/gscore.py`), Konfidenz der Scorecard Wachstum ohne Gewinn eine Stufe tiefer.
+- Wachstum ohne Gewinn: EBIT-Marge in beiden letzten Jahren negativ (vorher nur im letzten Jahr).
+- Neue Trendstatistik `mittel` (Mittel über bis zu 10 Jahre), für Zykliker über den Zyklus.
+

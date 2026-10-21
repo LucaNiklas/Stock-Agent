@@ -218,6 +218,7 @@ scorecards:
         - {kennzahl: ffo_payout, statistik: wert, richtung: niedrig}
         - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
       insider: []
+    kappungen: [stopp_flag, beneish_ueber_schwelle]   # Altman Z passt nicht zu Immobilienbilanzen
     multiples:
       - {kennzahl: ffo_yield, richtung: hoch}
       - {kennzahl: ev_ebitda, richtung: niedrig}
@@ -248,6 +249,7 @@ scorecards:
         - {kennzahl: dividend_cover, statistik: steigung, richtung: hoch}
         - {kennzahl: share_count_change_3y, statistik: wert, richtung: niedrig}
       insider: []
+    kappungen: [stopp_flag, beneish_ueber_schwelle]   # Bau der Netze auf Kredit: FCF meist negativ, Verschuldung hoch, Altman Z passt nicht
     multiples:
       - {kennzahl: ev_ebitda, richtung: niedrig}
       - {kennzahl: pe, richtung: niedrig}
