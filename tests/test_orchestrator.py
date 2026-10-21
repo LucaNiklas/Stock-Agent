@@ -272,6 +272,37 @@ def j2(paths: Paths, run: str, urteil: str = "supported") -> str:
     )
 
 
+KRITERIEN = (
+    "faktentreue",
+    "vollstaendigkeit",
+    "konsistenz",
+    "gegenargumente",
+    "bewertungsdisziplin",
+    "gesamtbegruendung",
+)
+
+
+def j3(run: str, richter: str, punkte: int = 4, claim: str = "A3:c-0001") -> str:
+    return antwort(
+        run,
+        richter,
+        bewertungen=[
+            {
+                "kriterium": k,
+                "begruendung": "Die Aussage zur Marge ist geprüft und belegt.",
+                "claim_ids": [claim],
+                "punkte": punkte,
+            }
+            for k in KRITERIEN
+        ],
+    )
+
+
+def _jury(paths: Paths, run: str, punkte: tuple[int, int, int] = (4, 4, 4)) -> None:
+    for richter, p in zip(("J3_1", "J3_2", "J3_3"), punkte, strict=True):
+        assert orchestrator.annehmen(paths, run, j3(run, richter, p), now=NOW).angenommen
+
+
 def _ids(liste: list[orchestrator.Auftrag]) -> list[str]:
     return [a.id for a in liste]
 
@@ -344,6 +375,18 @@ def test_full_run_with_recorded_answers(paths: Paths) -> None:
     )
     assert orchestrator.annehmen(paths, run, these, now=NOW).angenommen
 
+    # Jury: drei Richter, anonymisiert, beim zweiten die Gegenposition vorn (SPEC 11.4)
+    assert _ids(orchestrator.naechste(paths, run, now=NOW)) == ["J3_1", "J3_2", "J3_3"]
+    ein1 = json.loads((paths.runs / run / "eingaben" / "J3_1.json").read_text())
+    ein2 = json.loads((paths.runs / run / "eingaben" / "J3_2.json").read_text())
+    assert "Apple" not in json.dumps(ein1, ensure_ascii=False)
+    assert ein1["daten"]["these"].startswith("das Unternehmen verdient")
+    assert ein1["daten"]["reihenfolge"] == ["fuer", "gegen"]
+    assert list(ein2["daten"]).index("gegen") < list(ein2["daten"]).index("fuer")
+    fremd = orchestrator.annehmen(paths, run, j3(run, "J3_1", claim="A3:c-0099"), now=NOW)
+    assert not fremd.angenommen and "steht nicht im Fall" in fremd.meldung
+    _jury(paths, run)
+
     # Ende: Entscheidung und Bericht
     assert orchestrator.naechste(paths, run, now=NOW) == []
     z = orchestrator.laden(paths, run)
@@ -356,7 +399,10 @@ def test_full_run_with_recorded_answers(paths: Paths) -> None:
     assert ent["kategorie_deterministisch"] == "Attraktiv"
     assert ent["kategorie"] == "Beobachten"
     assert ent["uebergaenge"][0]["art"] == "downgrade"
+    assert ent["jury"]["status"] == "verified" and ent["j4"] == []
+    assert [r["modell"] for r in ent["jury"]["richter"]] == ["opus", "sonnet", "haiku"]
     bericht = (paths.runs / run / "report.md").read_text()
+    assert "Jury J3 (verified" in bericht and "| gesamtbegruendung | 4 / 4 / 4 | 4 | 0 |" in bericht
     for nr in range(1, 15):
         assert f"\n## {nr}. " in bericht
     assert "{{" not in bericht  # alle Platzhalter ersetzt
@@ -376,10 +422,16 @@ def test_llm_cannot_upgrade(paths: Paths) -> None:
     assert ent["kategorie"] == "Neutral" and ent["uebergaenge"] == []
 
 
-def _durchlaufen(paths: Paths, run: str, j2_urteil: str = "supported") -> None:
+def _durchlaufen(
+    paths: Paths,
+    run: str,
+    j2_urteil: str = "supported",
+    jury: tuple[int, int, int] = (4, 4, 4),
+    f1: str | None = None,
+) -> None:
     _a1_erledigen(paths, run)
-    for text in (a3(run), a4(run)):
-        orchestrator.annehmen(paths, run, text, now=NOW)
+    for text in (a3(run), a4(run), *([f1] if f1 else [])):
+        assert orchestrator.annehmen(paths, run, text, now=NOW).angenommen
     for schritt in (a5, a7, a3e):
         orchestrator.naechste(paths, run, now=NOW)
         assert orchestrator.annehmen(paths, run, schritt(run), now=NOW).angenommen
@@ -391,6 +443,74 @@ def _durchlaufen(paths: Paths, run: str, j2_urteil: str = "supported") -> None:
         paths, run, antwort(run, "A9", these="Kurz.", these_claims=["A3:c-0001"]), now=NOW
     )
     orchestrator.naechste(paths, run, now=NOW)
+    for richter, p in zip(("J3_1", "J3_2", "J3_3"), jury, strict=True):
+        orchestrator.annehmen(paths, run, j3(run, richter, p), now=NOW)
+    orchestrator.naechste(paths, run, now=NOW)
+
+
+def test_divided_jury_escalates(paths: Paths) -> None:
+    """Spannweite 3 bei jedem Kriterium: Jury uneinig, der Fall geht an Luca (SPEC 11.2)."""
+    z = orchestrator.anlegen(paths, APPLE_ISIN, lader=_lader(), now=NOW)
+    _durchlaufen(paths, z.run_id, jury=(5, 2, 4))
+    z = orchestrator.laden(paths, z.run_id)
+    ent = json.loads((paths.runs / z.run_id / "decision.json").read_text())
+    assert z.status == "eskaliert" and ent["kategorie"] == "Eskaliert"
+    assert ent["jury"]["status"] == "escalated"
+    assert any("Jury uneinig (Spannweite 3)" in g for g in ent["jury"]["gruende"])
+    assert any(e.startswith("J3 Jury:") for e in ent["eskalationen"])
+
+
+def _beneish_hinweis(paths: Paths) -> None:
+    conn = store.connect(paths.db)
+    try:
+        conn.execute(
+            "INSERT INTO hinweise VALUES ('test', ?, 'H-01', 'F1', 'Prüfung', 'Beneish über der "
+            "Schwelle', 'beneish_m_score', DATE '2025-09-27', 'M-Score -1,5', 'offen', ?)",
+            [ISSUER, NOW],
+        )
+    finally:
+        conn.close()
+
+
+def f1(run: str, urteil: str) -> str:
+    return antwort(
+        run,
+        "F1",
+        claims=[
+            _claim(
+                "c-0001",
+                "Der Prüfer nennt unsichere Steuerpositionen als Schwerpunkt.",
+                [_beleg_doc(3, "Critical Audit Matter. Uncertain Tax Positions.")],
+            )
+        ],
+        befunde=[{"hinweis": "H-01", "urteil": urteil, "claim_ids": ["c-0001"]}],
+    )
+
+
+@pytest.mark.parametrize(
+    ("urteil", "j2_urteil", "wirksam"),
+    [
+        ("entkraeftet", "supported", "entkraeftet"),
+        ("entkraeftet", "not_supported", "offen"),  # Beleg nicht gedeckt: Signal bleibt offen
+        ("bestaetigt", "supported", "bestaetigt"),
+    ],
+)
+def test_forensics_f1_on_beneish_hint(
+    paths: Paths, urteil: str, j2_urteil: str, wirksam: str
+) -> None:
+    """F1 nur bei Warnsignal, neben A3 und A4, vor J1 und J2. Nicht entkräftet: eskaliert
+    (SPEC 11.5). Die Kappung der Note bleibt in jedem Fall (HR-13)."""
+    _beneish_hinweis(paths)
+    z = orchestrator.anlegen(paths, APPLE_ISIN, lader=_lader(), now=NOW)
+    assert [a.id for a in z.auftraege if a.id in ("F1", "J1")] == ["F1", "J1"]
+    assert z.auftrag("J1").deps == ["A3E", "F1"]
+    _durchlaufen(paths, z.run_id, j2_urteil=j2_urteil, f1=f1(z.run_id, urteil))
+    ent = json.loads((paths.runs / z.run_id / "decision.json").read_text())
+    assert ent["forensik"][0]["wirksam"] == wirksam
+    eskaliert = any(e.startswith("F1 Forensik: H-01") for e in ent["eskalationen"])
+    assert eskaliert == (wirksam != "entkraeftet")
+    bericht = (paths.runs / z.run_id / "report.md").read_text()
+    assert f"**Forensik H-01 (beneish_m_score): {wirksam}**" in bericht
 
 
 def test_contradicted_claim_escalates(paths: Paths) -> None:
@@ -484,14 +604,24 @@ def test_rendered_agents_match_models_and_turns(tmp_path: Path) -> None:
     from stockagent.agents.render import render_all
 
     cfg = yaml.safe_load((ROOT / "config" / "models.yaml").read_text())
+    quelle = {
+        a["vorlage"]: a["quelle"] for a in cfg["tiefenanalyse"]["agenten"].values() if "quelle" in a
+    }
     for datei in render_all(ROOT / "agents_src", tmp_path, ROOT / "config" / "models.yaml"):
         kopf = yaml.safe_load(datei.read_text().split("---")[1])
-        assert kopf["maxTurns"] == cfg["aufwand"]["max_turns"][kopf["name"]]
+        vorlage = quelle.get(kopf["name"], kopf["name"])
+        assert kopf["maxTurns"] == cfg["aufwand"]["max_turns"][vorlage]
         assert "Agent" in kopf["disallowedTools"]  # keine verschachtelten Subagents (SPEC 8.1)
         if "Bash" in kopf["tools"]:
             assert "nur_werkzeuge.sh" in datei.read_text()
     a1 = yaml.safe_load((tmp_path / "a1-datenbeschaffung.md").read_text().split("---")[1])
     assert a1["model"] == "haiku" and "Bash" in a1["disallowedTools"]  # HR-17
+    # Jury: drei Dateien aus einer Vorlage, ohne Gemini Haiku auf Platz 3 (SPEC 11.2)
+    richter = [
+        yaml.safe_load((tmp_path / f"j3-jury-{i}.md").read_text().split("---")[1])["model"]
+        for i in (1, 2, 3)
+    ]
+    assert richter == ["opus", "sonnet", "haiku"] and not (tmp_path / "j3-jury.md").exists()
 
 
 def test_dashboard_starts_claude_in_background_with_queue(tmp_path: Path) -> None:
@@ -589,3 +719,54 @@ def test_insider_agent_a6_with_form4_documents(paths: Paths) -> None:
     assert _ids(orchestrator.naechste(paths, run, now=NOW)) == ["A7"]
     a7_daten = json.loads((paths.runs / run / "eingaben" / "A7.json").read_text())["daten"]
     assert any(c["schluessel"].startswith("A6:") for c in a7_daten["claims_der_auswertung"])
+
+
+def test_escalation_queue_and_lucas_decision(paths: Paths) -> None:
+    """SPEC 11.5: Eskalierte Fälle mit Streitpunkten, Lucas Entscheidung in state/decisions.yaml.
+    Freigeben führt auf die Kategorie vor der Eskalation zurück, nie höher (HR-13)."""
+    import threading
+    from http.client import HTTPConnection
+
+    import yaml
+
+    from stockagent import eskalationen
+    from stockagent.dashboard import app as dashboard
+
+    z = orchestrator.anlegen(paths, APPLE_ISIN, lader=_lader(), now=NOW)
+    _durchlaufen(paths, z.run_id, j2_urteil="contradicted", jury=(5, 2, 4))
+    faelle = eskalationen.faelle(paths)
+    assert [f.run_id for f in faelle] == [z.run_id]
+    arten = [s.art for s in faelle[0].streitpunkte]
+    assert "J2" in arten and "J3" in arten
+    j2 = next(s for s in faelle[0].streitpunkte if s.art == "J2")
+    assert j2.werte["belege"][0]["zitat"]  # beide Seiten: Aussage und Zitat aus der Quelle
+    assert faelle[0].kategorie_vor_eskalation == "Beobachten"
+
+    with pytest.raises(eskalationen.EskalationFehler):
+        eskalationen.entscheiden(paths, z.run_id, "aufwerten", "")
+
+    srv = dashboard.server(paths, 0)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        c = HTTPConnection("127.0.0.1", srv.server_address[1])
+        c.request("GET", "/api/eskalationen")
+        assert json.loads(c.getresponse().read())[0]["run_id"] == z.run_id
+        body = json.dumps({"entscheidung": "freigeben", "notiz": "Zitat geprüft, passt."})
+        c.request(
+            "POST",
+            f"/api/entscheiden/{z.run_id}",
+            body=body,
+            headers={"Content-Type": "application/json"},
+        )
+        assert json.loads(c.getresponse().read()) == {"ok": True, "kategorie": "Beobachten"}
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
+    gespeichert = yaml.safe_load((paths.root / "state" / "decisions.yaml").read_text())
+    e = gespeichert["entscheidungen"][z.run_id]
+    assert (e["human_decision"], e["human_note"]) == ("freigeben", "Zitat geprüft, passt.")
+    ent = json.loads((paths.runs / z.run_id / "decision.json").read_text())
+    assert ent["kategorie"] == "Eskaliert" and ent["luca"]["kategorie"] == "Beobachten"
+    assert eskalationen.faelle(paths) == []
+    assert len(eskalationen.faelle(paths, alle=True)) == 1

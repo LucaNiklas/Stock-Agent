@@ -1,6 +1,7 @@
-"""J3 Jury (SPEC 11.2, 11.3).
+"""J3 Jury (SPEC 11.2 Ebene 3, 11.3, Bauschritt 10).
 
-PLATZHALTER: wird in Bauschritt 10 gebaut (docs/BAUPLAN.md).
-Inhalt: Drei Richter (Opus, Sonnet, Gemini oder Haiku), Rubrik mit sechs Kriterien, Median je
-Kriterium, Uneinigkeit bei Spannweite über 2, Reihenfolge Bull/Bear in der Hälfte vertauscht.
+Gebaut in Bauschritt 10: Der Fall für die Richter entsteht in `agents/eingaben.py` (`jury_fall`,
+anonymisiert, Gegenposition beim zweiten Richter vorn), die Richter laufen als drei Agent-Dateien
+aus `agents_src/j3-jury.md`, Median und Spannweite rechnet `core/jury.py` über den Rechenweg.
+Schwellen in `config/models.yaml` (pruefung.jury).
 """

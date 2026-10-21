@@ -1,6 +1,6 @@
 # Projektstand (Übergabe)
 
-Stand: 21.10.2026, Bauschritte bis 8 gebaut, dazu der Anlagehorizont. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
+Stand: 21.10.2026, Bauschritte bis 10 gebaut, dazu der Anlagehorizont. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
 
 ## Was das System ist
 
@@ -29,16 +29,18 @@ Luca hält Einzelaktien einige Monate bis etwa 5 Jahre (SPEC 2.1a). Die Note gib
 | 7 | IFRS über 20-F, ESEF über filings.xbrl.org, Hinterlegungsscheine, Zins GBP (ADR 0009) | Branch `schritt-07-ifrs` |
 | 8 | Branchen-Scorecards: Banken, Versicherer, Immobilien, Versorger, Zykliker, Wachstum ohne Gewinn, Holdings als N (ADR 0010) | Branch `schritt-08-scorecards` |
 | Horizont | Säule Momentum, Note je Anlagehorizont, Auswahl und Filter im Dashboard (ADR 0011) | Branch `schritt-08-horizont` |
+| 9 | Insider aus SEC Form 4, Säule Insider, Agent A6 (ADR 0012) | LucaNiklas/Stock-Agent#21 |
+| 10 | Jury J3, Endkontrolle J4, Forensik F1, Eskalationen, Goldstandard, Gemini mit Rückfall (ADR 0013) | Branch `schritt-10-pruefer` |
 
 Die Pull Requests für diese Branches werden gestapelt angelegt und von unten nach oben gemergt.
 
 ## Stand der Daten (lokal, nicht im Repository)
 
-- `data/stockagent.duckdb` (Schema 11, ältere Versionen ab 3 werden beim Öffnen aufgerüstet): 14.509 Aktien. Von 4.021 US-ISINs sind 3.117 einer CIK zugeordnet.
+- `data/stockagent.duckdb` (Schema 12, ältere Versionen ab 3 werden beim Öffnen aufgerüstet): 14.509 Aktien. Von 4.021 US-ISINs sind 3.117 einer CIK zugeordnet.
 - Abschlusswerte und Kennzahlen für die bisher bewerteten Titel und ihre Vergleichsgruppen (je bis zu 50 Firmen), darunter die Abnahmefirmen der Schritte 2 bis 8.
 - Zinsen EUR, USD, GBP, Damodaran-Stand Januar 2026, Wechselkurse der EZB ab 2015.
 - `data/raw/`: Rohdateien mit SHA-256.
-- `state/`: Lucas Festlegungen (Trade-Republic-Prüfung, SEC-Zuordnung, Damodaran-Branche, Aktien je Hinterlegungsschein, Merkliste, Notizen).
+- `state/`: Lucas Festlegungen (Trade-Republic-Prüfung, SEC-Zuordnung, Damodaran-Branche, Aktien je Hinterlegungsschein, Merkliste, Notizen, Entscheidungen zu Eskalationen in `decisions.yaml`).
 
 ## Live geprüft
 
@@ -58,6 +60,8 @@ Die Pull Requests für diese Branches werden gestapelt angelegt und von unten na
 - ADR 0009: IFRS, ESEF, Hinterlegungsscheine.
 - ADR 0010: Branchen-Scorecards mit Ersatzgrößen, wo XBRL keine Werte hat.
 - ADR 0011: Anlagehorizont, Säule Momentum mit 40 / 15 / 0 Prozent je Horizont.
+- ADR 0012: Insider-Signal aus Form 4 als fester Säulenwert, A6 nur bei Geschäften in 24 Monaten.
+- ADR 0013: J4 ohne Sprachmodell, Jury aus drei Richtern, F1 nur bei Warnsignal, Goldstandard mit Kandidaten bis zu Lucas Prüfung.
 
 ## Offen und bekannt
 
@@ -66,7 +70,9 @@ Die Pull Requests für diese Branches werden gestapelt angelegt und von unten na
 - **Hinterlegungsscheine ohne Verhältnis im Börsennamen** (Philips, ASML NY, Ericsson): Festlegung in `state/adr_verhaeltnis.yaml` nötig.
 - **Banken und Versicherer:** CET1, notleidende Kredite, Combined Ratio und Solvency-Quote stehen nicht in XBRL. Ersatz siehe ADR 0010.
 - **Tiefenanalyse:** `claude -p` und die Hooks in den Agent-Dateien sind auf Lucas Mac noch nicht getestet. Zeitlimit 60 Minuten statt 20 laut SPEC.
-- **Goldstandard:** `eval/run_eval.py` ist Platzhalter bis Schritt 10. Die geänderte A7-Vorlage (1.1.0) wird dann geprüft.
+- **Goldstandard:** 21 Kandidaten in `eval/kandidaten/`, Luca prüft sie und verschiebt sie nach `eval/gold/`. J2 ist noch nicht offiziell aufgezeichnet (Live-Lauf auf dem Mac), A3 bis A9 und J3 haben noch keine Goldfälle. `eval/gold/README.md` ist noch der Platzhaltertext, der Ordner ist für Agenten gesperrt.
+- **Gemini:** nicht getestet, `extern.aktiv` aus. Test auf dem Mac mit `stockagent tool gemini-test`.
+- **BaFin-Insider:** `portal.mvp.bafin.de` in der Cloud-Umgebung gesperrt.
 - **Momentum:** Kursreaktion auf Berichte als Rohrendite ohne Marktindex, Gewinnüberraschungen gegen Analystenschätzungen fehlen (keine Quelle).
 - **PDF-Rückfall mit Docling und A2** (SPEC 7.4) nicht gebaut.
 - **Mehrfachlistings:** Zusammenführung über die LEI für die Emittentensuche gebaut, im Dashboard noch je Listing eine Zeile.
@@ -85,4 +91,16 @@ uv run pytest && uv run ruff check . && uv run mypy
 
 ## Nächster Schritt
 
-Abnahme Schritt 8 abschließen (Ergebnisse in ADR 0010), dann Bauschritt 9: Insider.
+1. PR für Schritt 10 (Branch `schritt-10-pruefer`): CI abwarten, mergen nach Lucas Freigabe.
+2. Abnahme Schritt 8 abschließen: Lauf `abnahme8c` (Duke bis MongoDB, danach Intel-Insider) prüfen,
+   Ergebnisse in ADR 0010 und hier eintragen (eigener PR). Bisher: JPM C·K1·R2 (nach Neuladen,
+   vorher K4 wegen veralteter Kennzahlen), BAC D·K1·R2, WFC D·K2·R3, Progressive C·K1·R2,
+   Travelers C·K1·R2, Allstate C·K1·R3, Prologis C·K1·R3, Realty Income D·K3·R2, Simon C·K1·R2.
+3. Auf Lucas Mac: `stockagent tool gemini-test`, `eval/run_eval.py --live` (Aufzeichnung
+   einchecken), eine Tiefenanalyse mit `/analyze-stock` und `/review-escalations` ausprobieren.
+4. Danach Bauschritt 11: Start und Dashboard.
+
+Fragen an Luca (gesammelt): BaFin-Domain `portal.mvp.bafin.de` freigeben, Abdeckung DAX,
+CHF/DKK-Kurse, ADR-Verhältnisse (Philips, ASML NY, Ericsson), `claude -p` und Hooks auf dem Mac
+testen, Zeitlimit 60 statt 20 Minuten, Goldkandidaten prüfen, Beneish-Kappung nach Entkräftung
+durch F1 aufheben oder nicht (ADR 0013).

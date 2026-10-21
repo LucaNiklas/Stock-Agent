@@ -75,6 +75,13 @@ Segmentzahlen aus den XBRL-Daten folgen mit der Segmentauswertung (SPEC 3.3).
 Einordnung der Ertragsqualität: {{ ertragsqualitaet.einordnung }}
 
 {{ claims(ertragsqualitaet.claims) }}
+{% for f in ertragsqualitaet.forensik %}
+**Forensik {{ f.hinweis }} ({{ f.kennzahl }}): {{ f.wirksam }}**{% if f.wirksam != f.urteil %} (F1 meldete {{ f.urteil }}, ohne geprüften Beleg zählt das Signal als offen){% endif %}
+
+{{ f.anlass }}
+
+{{ claims(f.claims) }}
+{% endfor %}
 
 ## 7. Bewertung
 
@@ -151,9 +158,9 @@ Nicht anwendbar: Die qualitative Analyse hat keine geprüften Befunde geliefert.
 Frühindikator: {{ r.fruehindikator }}
 
 {{ claims(r.claims) }}
-{% if r.offen %}Erwiderung: offen.{% else %}Erwiderung:
+{% if r.offen %}Erwiderung: offen.{% if r.erwiderung %} Teilantwort:{% endif %}{% else %}Erwiderung:{% endif %}
 
-{{ claims(r.erwiderung) }}{% endif %}
+{{ claims(r.erwiderung) }}
 
 {% else %}
 Nicht anwendbar: keine Gegenposition geliefert.
@@ -191,7 +198,25 @@ Claims: {% for k, v in protokoll.claims.items() %}{{ k }} {{ v }}{% if not loop.
 - entfernt oder abgelehnt in {{ e.auftrag }}: {{ e.grund }}
 {% endfor %}
 
-Ebene 3 (Jury J3) und Ebene 4 (Endkontrolle J4) folgen mit Bauschritt 10. Bis dahin prüfen nur Claude-Modelle, die Diversität der Prüfer ist eingeschränkt (HR-16).
+{% if protokoll.jury %}
+Jury J3 ({{ protokoll.jury.status }}, Richter: {% for r in protokoll.jury.richter %}{{ r.richter }} {{ r.modell }}{% if r.gegen_zuerst %} mit Gegenposition zuerst{% endif %}{% if r.punkte is none %} ohne Urteil{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}):
+
+| Kriterium | Punkte | Median | Spannweite |
+|---|---|---|---|
+{% for k in protokoll.jury.kriterien %}
+| {{ k.kriterium }} | {{ k.punkte | join(" / ") }} | {{ k.median or "–" }} | {{ k.spannweite or "–" }} |
+{% endfor %}
+
+{% for g in protokoll.jury.gruende %}
+- Jury: {{ g }}
+{% endfor %}
+{% if protokoll.jury.diversitaet_eingeschraenkt %}Alle Richter sind Claude-Modelle, die Diversität der Jury ist eingeschränkt (SPEC 11.2, HR-16).
+{% endif %}
+{% else %}
+Jury J3: nicht gelaufen.
+{% endif %}
+
+Endkontrolle J4 prüft diesen Bericht gegen `decision.json` (Aufbau, Urteil, These, Belege, Formulierung, Gegenposition). Befunde stehen in `decision.json` unter `j4` und eskalieren den Lauf.
 
 ## 14. Grenzen und Quellen
 

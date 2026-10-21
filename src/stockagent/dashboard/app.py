@@ -33,7 +33,7 @@ from urllib.parse import parse_qs, urlparse
 
 import yaml
 
-from stockagent import bewertung, orchestrator, tiers, tr_checks
+from stockagent import bewertung, eskalationen, orchestrator, tiers, tr_checks
 from stockagent.core import sektoren
 from stockagent.data import store
 from stockagent.paths import Paths
@@ -645,6 +645,8 @@ def handler_fuer(
                     self._text(datei.read_text("utf-8"), "text/html; charset=utf-8")
                 else:
                     self._json({"fehler": "nicht gefunden"}, HTTPStatus.NOT_FOUND)
+            elif pfad == "/api/eskalationen":
+                self._json([asdict(f) for f in eskalationen.faelle(paths)])
             elif pfad == "/api/export.csv":
                 buf = io.StringIO()
                 w = csv.writer(buf, delimiter=";")
@@ -689,6 +691,19 @@ def handler_fuer(
             elif pfad.startswith("/api/notiz/"):
                 merk.notiz(isin, str(body.get("text", "")))
                 self._json({"ok": True})
+            elif pfad.startswith("/api/entscheiden/"):
+                run_id = teile[-1]
+                if not RUN_ID.match(run_id):
+                    self._json({"fehler": "unbekannter Lauf"}, HTTPStatus.NOT_FOUND)
+                    return
+                try:
+                    e = eskalationen.entscheiden(
+                        paths, run_id, str(body.get("entscheidung", "")), str(body.get("notiz", ""))
+                    )
+                except (eskalationen.EskalationFehler, orchestrator.LaufFehler) as exc:
+                    self._json({"fehler": str(exc)}, HTTPStatus.BAD_REQUEST)
+                    return
+                self._json({"ok": True, "kategorie": e["kategorie"]})
             elif pfad.startswith("/api/tr/"):
                 handelbar = bool(body.get("handelbar"))
                 tr_checks.record(paths.tr_checks, isin, handelbar, datetime.now(UTC).date())

@@ -46,7 +46,7 @@ pre{white-space:pre-wrap;background:var(--card);padding:8px;border-radius:8px;ma
 <div id="horizontwahl" style="margin:6px 0">Anlagehorizont: <select id="horizont" aria-label="Anlagehorizont"></select>
 <label><input type="checkbox" id="sortwert"> nach Gesamtwert sortieren</label>
 <span class="muted" id="horizonthinweis"></span></div>
-<div><a id="export" href="/api/export.csv">Liste als CSV</a> · <label><input type="checkbox" id="nurstern"> nur Beobachtungsliste</label>
+<div><a href="#" id="esklink" onclick="eskalationen();return false">Eskalationen</a> · <a id="export" href="/api/export.csv">Liste als CSV</a> · <label><input type="checkbox" id="nurstern"> nur Beobachtungsliste</label>
 · <label><input type="checkbox" id="nurbewertet"> nur bewertete</label></div>
 </header>
 <div class="layout">
@@ -142,6 +142,18 @@ async function analyse(isin){const r=await api("/api/analyse/"+isin,{method:"POS
 async function stern(isin,an){await api("/api/stern/"+isin,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({an})});zeige(isin);laden()}
 async function tr(isin,h){await api("/api/tr/"+isin,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({handelbar:h})});zeige(isin);laden()}
 async function notiz(isin){await api("/api/notiz/"+isin,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:document.getElementById("notiz").value})})}
+async function eskZahl(){const f=await api("/api/eskalationen");document.getElementById("esklink").textContent=`Eskalationen (${f.length})`;return f}
+async function eskalationen(){const f=await eskZahl();
+  let h=`<button onclick="document.getElementById('detail').style.display='none'" style="float:right">Schließen</button><h2>Eskalationen</h2>`+
+  `<p class="muted">Fälle, die die Prüfer nicht freigeben konnten. Freigeben: Streitpunkte geklärt, die Kategorie geht auf den Stand vor der Eskalation zurück, nie höher. Verwerfen: der Bericht gilt nicht.</p>`;
+  if(!f.length)h+=`<p>Keine offenen Eskalationen.</p>`;
+  for(const x of f){h+=`<h3>${esc(x.name)} <span class="muted">${esc(x.run_id)}</span></h3>`+
+    `<p>Kategorie ohne Eskalation: ${esc(x.kategorie_vor_eskalation)}${x.bericht?` · <a href="${x.bericht}" target="_blank">Bericht öffnen</a>`:""}</p><ul>`+
+    x.streitpunkte.map(s=>`<li><b>${esc(s.art)}</b> ${esc(s.text)}`+(Object.keys(s.werte).length?`<pre>${esc(JSON.stringify(s.werte,null,1))}</pre>`:"")+`</li>`).join("")+`</ul>`+
+    `<textarea id="n_${x.run_id}" placeholder="Begründung"></textarea><button class="primary" onclick="entscheide('${x.run_id}','freigeben')">Freigeben</button> <button onclick="entscheide('${x.run_id}','verwerfen')">Verwerfen</button>`}
+  document.getElementById("panel").innerHTML=h;document.getElementById("detail").style.display="block"}
+async function entscheide(run,e){const r=await api("/api/entscheiden/"+run,{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({entscheidung:e,notiz:document.getElementById("n_"+run).value})});if(r.fehler)alert(r.fehler);eskalationen()}
 document.getElementById("suche").onsubmit=async e=>{e.preventDefault();const t=document.getElementById("q").value;
   const f=await api("/api/freitext?text="+encodeURIComponent(t));F=f;laden()};
 document.getElementById("nurstern").onchange=e=>setF("stern",e.target.checked?"1":"");
@@ -150,5 +162,5 @@ document.getElementById("horizont").onchange=e=>{F.horizont=e.target.value;try{l
 document.getElementById("sortwert").onchange=e=>setF("sortierung",e.target.checked?"wert":"");
 try{const h=localStorage.getItem("horizont");if(h&&!F.horizont)F.horizont=h}catch(_){}
 document.getElementById("detail").onclick=e=>{if(e.target.id==="detail")e.target.style.display="none"};
-laden();
+laden();eskZahl();
 </script></body></html>

@@ -140,6 +140,17 @@ def runs() -> None:
         typer.echo(f"{z.run_id}  {z.name[:30]:30}  {z.status:12}  {teile}")
 
 
+@tool_app.command("gemini-test")
+def tool_gemini_test() -> None:
+    """Prüft, ob die Gemini CLI mit deinem Google-Konto antwortet (SPEC 8.8, ADR 0013)."""
+    from stockagent.agents.tools import gemini
+
+    erg = gemini.test()
+    typer.echo(json.dumps(erg, ensure_ascii=False, default=str))
+    if not erg["ok"]:
+        raise typer.Exit(code=1)
+
+
 @tool_app.command("rechenweg")
 def tool_rechenweg(isin: str, ref: str) -> None:
     """Gespeicherter Rechenweg einer Zahl, etwa ebit_margin@2025 oder pe@aktuell."""

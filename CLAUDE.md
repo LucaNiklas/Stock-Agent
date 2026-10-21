@@ -40,8 +40,10 @@ Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abs
 - uv run stockagent analyze <ISIN>   Tiefenanalyse anlegen (in Claude Code: /analyze-stock <ISIN>)
 - uv run stockagent next <RUN> [--json] | accept <RUN> <AUFTRAG> --datei <F> | runs
 - uv run stockagent tool rechenweg|nachrechnen <ISIN> <ref> ...   Werkzeuge der Agenten
+- uv run stockagent tool gemini-test   antwortet die Gemini CLI (ADR 0013)?
+- uv run stockagent eskalationen [--alle] [--json] | entscheiden <RUN> freigeben|verwerfen --notiz "..."   (in Claude Code: /review-escalations)
 - uv run stockagent render-agents   Agent-Dateien aus agents_src/ erzeugen
-- uv run python eval/run_eval.py   Goldstandard
+- uv run python eval/run_eval.py [--live [--gemini]]   Goldstandard (eval/README.md)
 
 ## Konventionen
 - Neue Kennzahl: Eintrag in config/metrics.yaml (mit Prüfpunkten), Funktion in core/registry.py über den Rechenweg aus core/calc.py, Test mit schrittweiser Handrechnung aus echtem Bericht.

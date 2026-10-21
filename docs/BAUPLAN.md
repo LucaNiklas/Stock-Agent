@@ -100,6 +100,7 @@ Bewusst verschoben (Lucas Entscheidung 13.10.2026): Kennzahlen mit Börsenkurs n
 - **Ziel:** Jury, Endkontrolle, Forensik, Goldstandard, Test von Gemini als zweiter Modellfamilie.
 - **Neue Dateien:** `agents/tools/gemini.py`, `.github/workflows/eval.yml`, Agentenvorlagen J3, J4, F1, ADR zum Gemini-Test.
 - **Abnahme:** J1 findet mindestens 95 Prozent der eingebauten Zahlenfehler, J2 mindestens 85 Prozent der erfundenen Aussagen.
+- **Gebaut (21.10.2026, ADR 0013):** J4 Endkontrolle ohne Sprachmodell (`judges/final_check.py`), J3 Jury mit drei Richtern aus einer Vorlage (`agents_src/j3-jury.md`, Aggregation in `core/jury.py`), F1 Forensik bei Warnsignal (`agents_src/f1-forensik.md`), Eskalationen mit `stockagent eskalationen` und `entscheiden`, Dashboard und Skill `/review-escalations` (`state/decisions.yaml`), Goldstandard mit 21 Kandidaten aus 5 Unternehmen (`eval/kandidaten/`, `goldstandard.py`, `eval/run_eval.py`, `.github/workflows/eval.yml`), `agents/tools/gemini.py` mit Rückfall. Abnahme: J1 deterministisch 5 von 5, J2 im Probelauf 5 von 5 ohne Fehlalarm. Offen: Luca prüft die Kandidaten, Gemini-Test und Live-Aufzeichnung auf dem Mac.
 
 ### Schritt 11: Start und Dashboard
 
@@ -179,11 +180,6 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 | 9 | `config/insider_thresholds.yaml` | Meldeschwellen je Land (SPEC 3.8 Nr. 9) | Schwelle in EUR je Land mit Gültigkeit ab Datum und Quelle (Deutschland 50.000 EUR ab 2026, EU-Standard 20.000 EUR) |
 | 9 | `src/stockagent/core/insider.py` | Insider-Signal (SPEC 3.8) | Nur Käufe am offenen Markt, routinemäßig gegen opportunistisch (Cohen, Malloy, Pomorski), Cluster, Rollengewicht, Abklingen mit 90 Tagen Halbwertszeit, Höchstgewicht 15 Prozent |
 | 9 | `src/stockagent/data/sources/bafin.py` | Insidergeschäfte Deutschland (SPEC 7.3) | BaFin-Datenbank Geschäfte von Führungskräften, höflich mit Pausen und Cache, robots.txt beachten. Meldeschwelle 50.000 EUR seit 2026 beachten |
-| 10 | `.claude/skills/review-escalations/SKILL.md` | Skill /review-escalations | Geht eskalierte Fälle einzeln mit Luca durch: Streitpunkte, beide Werte mit Quellen, Lucas Entscheidung wird in `decisions` und im Goldstandard gespeichert |
-| 10 | `eval/gold/` | Goldstandard | Zunächst 5 Unternehmen mit von Luca geprüften Kernkennzahlen und absichtlich fehlerhaften Analysen (falsche Zahl, falsche Periode, erfundene Aussage, eingebettete Anweisung). Dateien sind per Hook schreibgeschützt |
-| 10 | `eval/run_eval.py` | Goldstandard-Lauf (SPEC 11.6) | Lässt die Prüfer gegen `eval/gold/` laufen und misst Fangquote je Fehlerart, Fehlalarme, Übereinstimmung mit Luca (Cohens Kappa). Mindestwerte: J1 95 Prozent, J2 85 Prozent |
-| 10 | `src/stockagent/judges/final_check.py` | J4 Endkontrolle (SPEC 11.2) | Prüft den fertigen Bericht: Zahlen gleich `decision.json`, Belege je Absatz, keine Kaufaufforderung, Gegenposition vollständig |
-| 10 | `src/stockagent/judges/jury.py` | J3 Jury (SPEC 11.2, 11.3) | Drei Richter (Opus, Sonnet, Gemini oder Haiku), Rubrik mit sechs Kriterien, Median je Kriterium, Uneinigkeit bei Spannweite über 2, Reihenfolge Bull/Bear in der Hälfte vertauscht |
 | 11 | `.claude/skills/stockagent/SKILL.md` | Skill /stockagent | Freitext-Abfrage nach SPEC 9.9 oder Kategorie-Abfrage in zwei Runden mit AskUserQuestion (SPEC 9.7), Abarbeiten der Warteschlange aus `state/analysis_queue.yaml`, Laufplan zeigen, nach Bestätigung `stockagent run` starten, Fortschritt melden, Ergebnis zusammenfassen, Dashboard öffnen |
 | 11 | `config/run_profiles.yaml` | Laufprofile (SPEC 9.6, 9.7) | Profile für `stockagent run --profile`: Kategorie, Größenklassen, Tiefe, Höchstzahl Tiefenanalysen. In Schritt 12 das Profil `scheduled` |
 
@@ -201,7 +197,6 @@ Jede dieser Dateien existiert schon und nennt im Kopf denselben Bauschritt und I
 | 4 | `src/stockagent/data/sources/damodaran.py` | Risikoprämie, Branchenbetas und -multiples als datierter Stand |
 | 6 | `agents_src/<agent>.md` | Vorlagen A1, A3, A4, A5, A7, A9, J1, J2 mit Pflicht-Präambel |
 | 7 | `src/stockagent/data/sources/pdf.py` | PDF-Rückfall mit Docling (SPEC 7.4) |
-| 10 | `src/stockagent/agents/tools/gemini.py` | Gemini CLI als externer Prüfer (SPEC 8.8) |
 | 10 | `.github/workflows/eval.yml` | Goldstandard-Lauf bei Änderungen an Prompts, Agenten oder Konfiguration |
 | 12 | `.github/workflows/scheduled-run.yml` | Zeitplan, nur bei API-Betrieb |
 

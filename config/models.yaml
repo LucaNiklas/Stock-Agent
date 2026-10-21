@@ -28,7 +28,7 @@ agenten:
   J2_belege: extern
   J3_jury: [strong, standard, extern]
   J3_jury_rueckfall_extern: fast
-  J4_endkontrolle: standard
+  J4_endkontrolle: standard   # nicht genutzt: J4 prüft deterministisch in Python (ADR 0013)
 
 # Bauschritt 6: Tiefenanalyse (SPEC 8.6, 8.10, HR-18). Agenten-Kennung im Lauf -> Vorlage in
 # agents_src/ und Eintrag unter `agenten` oben.
@@ -44,6 +44,12 @@ tiefenanalyse:
     J1: {vorlage: j1-zahlenpruefer, modell_von: J1_zahlen}
     J2: {vorlage: j2-belegpruefer, modell_von: J2_belege}
     A9: {vorlage: a9-synthese, modell_von: A9_synthese}
+    F1: {vorlage: f1-forensik, modell_von: F1_forensik}
+    # Jury (SPEC 11.2 Ebene 3): eine Vorlage, je Richter eine Agent-Datei mit eigenem Modell aus
+    # J3_jury (Platz 1 bis 3). Ist extern nicht aktiv, nimmt Platz 3 J3_jury_rueckfall_extern.
+    J3_1: {vorlage: j3-jury-1, quelle: j3-jury, modell_von: J3_jury, richter: 1}
+    J3_2: {vorlage: j3-jury-2, quelle: j3-jury, modell_von: J3_jury, richter: 2}
+    J3_3: {vorlage: j3-jury-3, quelle: j3-jury, modell_von: J3_jury, richter: 3}
 
 # Aufwand und harte Grenzen (HR-18, SPEC 8.10)
 aufwand:
@@ -57,6 +63,8 @@ aufwand:
     j1-zahlenpruefer: 60
     j2-belegpruefer: 40
     a9-synthese: 10
+    j3-jury: 15
+    f1-forensik: 30
   max_tiefenanalysen_gleichzeitig: 3   # HR-18 max_deep_analyses_per_run
   max_auftraege_je_lauf: 20            # alle Agentenaufträge einer Tiefenanalyse zusammen
   max_parallel: 3                      # gleichzeitige Aufträge, die `stockagent next` nennt
@@ -73,3 +81,18 @@ pruefung:
   # Ein mismatch bei einer dieser Kennzahlen eskaliert den Fall
   kernkennzahlen: [gross_margin, ebit_margin, fcf_margin, roic, fcf, net_debt, net_debt_to_ebitda,
                    market_cap, enterprise_value, pe, ev_ebit, fcf_yield, wacc, implied_growth]
+
+  # Jury J3 (SPEC 11.2 Ebene 3, 11.3, 11.4)
+  jury:
+    mindest_kriterium: 3      # kein Kriterium mit Median darunter
+    mindest_gesamt: 4         # Median Gesamtbegründung mindestens
+    uneinig_spannweite: 2     # Spannweite darüber: Jury uneinig
+    mindest_richter: 2        # weniger Urteile (Auftrag eskaliert): Fall eskaliert
+    anonymisieren: true       # anonymize_for_jury (11.4), Firmenname durch „das Unternehmen“
+    max_aussagen_je_seite: 12 # feste Länge der Fallbeschreibung gegen Längenbias (11.4)
+
+  # Goldstandard (SPEC 11.6 Nr. 3): Mindestwerte vor Produktivbetrieb, gemessen mit eval/run_eval.py
+  goldstandard:
+    j1_mindest: "0.95"   # Anteil erkannter Zahlenfehler
+    j2_mindest: "0.85"   # Anteil erkannter erfundener Aussagen und eingebetteter Anweisungen
+    kappa_ab_faellen: 5  # Übereinstimmung Jury mit Luca erst ab so vielen Entscheidungen
