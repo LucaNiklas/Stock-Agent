@@ -228,3 +228,13 @@ Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit 
 - Agent A6 ordnet die Geschäfte mit Zitaten aus den Meldungen ein, ohne Note oder Säule zu ändern.
 - Nachtrag 5.3: Kennzahlen aus einer älteren Methodik-Version gelten beim Bewerten als veraltet. Risikoeingang Ergebnisstreuung je Scorecard (Banken ROTE, Versicherer ROE).
 
+
+## 5.6 (21.10.2026, Bauschritt 10, Prüfer vollständig, ADR 0013)
+
+- Noten und Kennzahlen unverändert (methodology_version der Kennzahlen bleibt 1.7). Geändert hat sich, wann eine Tiefenanalyse als eskaliert endet.
+- J3 Jury aus drei Richtern nach der Rubrik aus SPEC 11.3, Median und Spannweite je Kriterium. Uneinig (Spannweite über 2), ein Median unter 3 oder Gesamtbegründung unter 4: eskaliert. Ohne Gemini ist der dritte Richter Haiku, der Bericht vermerkt das.
+- J4 Endkontrolle des fertigen Berichts. Jeder Befund eskaliert, die Kategorie in `decision.json` wird Eskaliert.
+- F1 Forensik bei Beneish über der Schwelle und hohen Periodenabgrenzungen. Ohne geprüfte Entkräftung eskaliert der Fall. Die Kappung der Note bleibt (HR-13, Frage an Luca).
+- Lucas Entscheidung zu eskalierten Fällen: Freigeben führt auf die Kategorie vor der Eskalation zurück, nie höher.
+- Auftrag an J2 nennt die Regel für das Feld `claim` ausdrücklich (nur die Kennung).
+- Goldstandard mit 21 Kandidaten aus 5 Unternehmen, Mindestwerte J1 95 %, J2 85 % in `config/models.yaml`.

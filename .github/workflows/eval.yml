@@ -1,0 +1,36 @@
+name: Goldstandard
+
+# SPEC 11.6 Nr. 4: Jede Prompt- oder Modelländerung läuft gegen den Goldstandard, eine
+# Verschlechterung blockiert die Änderung. In der CI deterministisch: Fälle stimmig, J1 gegen die
+# Toleranzen, J2 aus der letzten Aufzeichnung eines Live-Laufs. Passt die Aufzeichnung nicht mehr
+# zur Version der J2-Vorlage, schlägt der Lauf fehl, bis Luca `eval/run_eval.py --live` laufen
+# lässt und die neue Aufzeichnung eincheckt.
+
+on:
+  pull_request:
+    paths:
+      - "agents_src/**"
+      - "config/models.yaml"
+      - "src/stockagent/agents/**"
+      - "src/stockagent/goldstandard.py"
+      - "src/stockagent/core/goldstandard.py"
+      - "src/stockagent/core/pruefung.py"
+      - "eval/**"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Abhängigkeiten
+        run: uv sync --locked
+      - name: Goldstandard deterministisch
+        run: uv run python eval/run_eval.py

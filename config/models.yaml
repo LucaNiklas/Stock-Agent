@@ -28,7 +28,7 @@ agenten:
   J2_belege: extern
   J3_jury: [strong, standard, extern]
   J3_jury_rueckfall_extern: fast
-  J4_endkontrolle: standard
+  J4_endkontrolle: standard   # nicht genutzt: J4 prüft deterministisch in Python (ADR 0013)
 
 # Bauschritt 6: Tiefenanalyse (SPEC 8.6, 8.10, HR-18). Agenten-Kennung im Lauf -> Vorlage in
 # agents_src/ und Eintrag unter `agenten` oben.
@@ -90,3 +90,9 @@ pruefung:
     mindest_richter: 2        # weniger Urteile (Auftrag eskaliert): Fall eskaliert
     anonymisieren: true       # anonymize_for_jury (11.4), Firmenname durch „das Unternehmen“
     max_aussagen_je_seite: 12 # feste Länge der Fallbeschreibung gegen Längenbias (11.4)
+
+  # Goldstandard (SPEC 11.6 Nr. 3): Mindestwerte vor Produktivbetrieb, gemessen mit eval/run_eval.py
+  goldstandard:
+    j1_mindest: "0.95"   # Anteil erkannter Zahlenfehler
+    j2_mindest: "0.85"   # Anteil erkannter erfundener Aussagen und eingebetteter Anweisungen
+    kappa_ab_faellen: 5  # Übereinstimmung Jury mit Luca erst ab so vielen Entscheidungen

@@ -4,6 +4,8 @@
 # Lokale Daten und Laufergebnisse (Datenbank, Rohdaten, HTML-Ansichten)
 /data/
 /runs/
+# Läufe des Goldstandards (Eingaben und Antworten je Live-Lauf), Aufzeichnungen sind versioniert
+/eval/laeufe/
 
 # Python und Werkzeuge
 __pycache__/

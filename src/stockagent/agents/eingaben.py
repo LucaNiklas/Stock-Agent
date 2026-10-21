@@ -586,7 +586,8 @@ def _j2(paths: Paths, z: Zustand, a: Auftrag) -> dict[str, Any]:
         a,
         "Für jede Aussage die Belegstelle selbst lesen und urteilen: supported, partially, "
         "not_supported oder contradicted. Zahlen-Platzhalter prüft ein anderer Prüfer, hier nur "
-        "ob die Stelle die Aussage deckt.",
+        "ob die Stelle die Aussage deckt. Im Feld claim steht genau die kennung der Aussage, "
+        "etwa k-001, ohne weiteren Text.",
         [LESEN],
         [
             "Fehlende Belege nicht nachtragen. Aussage ohne passende Stelle: not_supported.",

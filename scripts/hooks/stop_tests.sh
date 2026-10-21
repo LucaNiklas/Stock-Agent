@@ -3,6 +3,8 @@
 # Läuft der Hook schon einmal (stop_hook_active), nicht erneut blockieren, damit keine Schleife entsteht.
 active=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("stop_hook_active", False))')
 [ "$active" = "True" ] && exit 0
+# Prüfer im Goldstandard-Lauf (eval/run_eval.py --live) sehen nur ihren Auftrag
+[ -n "$STOCKAGENT_EVAL" ] && exit 0
 cd "$CLAUDE_PROJECT_DIR" || exit 0
 if ! out=$(uv run pytest -q -x -m "not slow" 2>&1); then
   echo "Tests sind rot, bitte beheben:" >&2
