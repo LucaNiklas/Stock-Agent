@@ -291,6 +291,16 @@ def kapitalmarkt(
             land = (store.listing_info(conn, isin) or ("", ""))[1] if isin else ""
             if land and land != "US":
                 vermerke.append("BETA_USA: US-Branchenbeta, europäische Betas ab Schritt 7")
+        if b is not None and b.levered is not None and betas is not None:
+            # Banken und Versicherer: Beta der Branche wie gemessen, ohne Umrechnung über die
+            # Verschuldung (Schulden sind dort Rohstoff des Geschäfts, SPEC 3.11, ADR 0010)
+            quelle_l = (
+                f"Damodaran Betas USA Stand {betas.stand}, Branche {branche.name} "
+                f"({branche.herkunft}), Beta der Branche"
+            )
+            werte["beta_branche"] = {
+                t: Eingabe(b.levered, quelle_l, "faktor", t) for t in stichtage
+            }
         kd = store.industry_cost_of_debt(conn, branche.name)
         if kd is not None and wacc_meta is not None and wacc_meta.stand:
             monat = datetime.strptime(wacc_meta.stand, "%B %Y").date()
@@ -562,3 +572,18 @@ def reihen_aktuell(
     for name, je in neu.items():
         werte.setdefault(name, {}).update(je)
     return replace(basis, werte=werte)
+
+
+def mit_parametern(basis: Reihen, parameter: dict[str, Any]) -> Reihen:
+    """Feste Annahmen aus `config/metrics.yaml` (Abschnitt `parameter`) als Eingaben mit Quelle
+    an jedem Stichtag, Name `parameter_<name>` (Bauschritt 8). Reine Auswahl."""
+    werte = {name: dict(je) for name, je in basis.werte.items()}
+    for name, wert in parameter.items():
+        werte[f"parameter_{name}"] = {
+            t: Eingabe(
+                Decimal(str(wert)), f"config/metrics.yaml parameter.{name}", "pure", t
+            )
+            for t in basis.stichtage
+        }
+    return replace(basis, werte=werte)
+

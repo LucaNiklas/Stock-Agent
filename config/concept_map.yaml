@@ -24,7 +24,7 @@
 # Ob eine Firma Leasing schon in Borrowings zählt (etwa Shell), steht nicht in den XBRL-Daten.
 # Das prüft die Regel ACC für Leasing mit dem Bericht (offen, ADR 0009).
 
-version: "1.2"
+version: "1.3"
 
 us-gaap:
   revenue:
@@ -258,6 +258,97 @@ us-gaap:
   lease_finance_noncurrent:
     - us-gaap:FinanceLeaseLiabilityNoncurrent
     - ifrs-full:NoncurrentLeaseLiabilities
+
+  # ---------------------------------------------------------------- ab Bauschritt 8
+  # Größen der Branchen-Scorecards (SPEC 3.11, ADR 0010). Geprüft am 20.10.2026 gegen die
+  # Company Facts von JPMorgan, Bank of America, Wells Fargo (Banken), HSBC, Barclays, ING,
+  # Santander, Deutsche Bank (Banken nach IFRS, 20-F), Travelers, Allstate, Progressive, Chubb,
+  # MetLife (Versicherer), Prologis, Realty Income, Simon Property (REITs) und NextEra, Duke,
+  # Southern (Versorger). Kapitalquoten (CET1) und notleidende Kredite stehen nicht ohne
+  # Dimension in den Company Facts: dafür gibt es hier keine Größe (ADR 0010).
+  goodwill:
+    - us-gaap:Goodwill
+    - ifrs-full:Goodwill
+  intangibles_ex_goodwill:
+    - us-gaap:IntangibleAssetsNetExcludingGoodwill
+    - ifrs-full:IntangibleAssetsOtherThanGoodwill
+  goodwill_and_intangibles:
+    # Ein Posten für beides (HSBC, Barclays, ING, Santander). Geht vor den Teilen
+    - us-gaap:IntangibleAssetsNetIncludingGoodwill
+    - ifrs-full:IntangibleAssetsAndGoodwill
+  preferred_equity:
+    # Vorzugsaktien im Eigenkapital, unter IFRS zusätzliches Kernkapital (AT1, HSBC, Barclays)
+    - us-gaap:PreferredStockValue
+    - us-gaap:PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount
+    - us-gaap:PreferredStockIncludingAdditionalPaidInCapital
+    - us-gaap:PreferredStockValueOutstanding
+    - ifrs-full:OtherEquityInterest
+  net_income_common:
+    - us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic
+  net_interest_income:
+    - us-gaap:InterestIncomeExpenseNet
+    - ifrs-full:InterestRevenueExpense
+  noninterest_income:
+    - us-gaap:NoninterestIncome
+  noninterest_expense:
+    - us-gaap:NoninterestExpense
+    - ifrs-full:OperatingExpense
+  credit_provision:
+    # Risikovorsorge im Kreditgeschäft (Aufwand des Jahres)
+    - us-gaap:ProvisionForLoanLeaseAndOtherLosses
+    - us-gaap:ProvisionForLoanAndLeaseLosses
+    - us-gaap:FinancingReceivableExcludingAccruedInterestCreditLossExpenseReversal
+    - ifrs-full:ImpairmentLossImpairmentGainAndReversalOfImpairmentLossDeterminedInAccordanceWithIFRS9
+  loans:
+    - us-gaap:FinancingReceivableExcludingAccruedInterestBeforeAllowanceForCreditLoss
+    - us-gaap:LoansAndLeasesReceivableNetOfDeferredIncome
+    - us-gaap:LoansAndLeasesReceivableGrossCarryingAmount
+    - ifrs-full:LoansAndAdvancesToCustomers
+  loan_allowance:
+    - us-gaap:FinancingReceivableAllowanceForCreditLossExcludingAccruedInterest
+    - us-gaap:FinancingReceivableAllowanceForCreditLosses
+  net_charge_offs:
+    # Ausbuchungen nach Eingängen auf früher ausgebuchte Kredite
+    - us-gaap:FinancingReceivableExcludingAccruedInterestAllowanceForCreditLossWriteoffAfterRecovery
+    - us-gaap:AllowanceForLoanAndLeaseLossesWriteOffsNet
+  deposits:
+    - us-gaap:Deposits
+    - ifrs-full:DepositsFromCustomers
+  premiums_earned:
+    - us-gaap:PremiumsEarnedNet
+  claims_incurred:
+    # Schäden und Leistungen des Jahres netto nach Rückversicherung
+    - us-gaap:PolicyholderBenefitsAndClaimsIncurredNet
+    - us-gaap:SupplementaryInsuranceInformationBenefitsClaimsLossesAndSettlementExpense
+    - us-gaap:LiabilityForUnpaidClaimsAndClaimsAdjustmentExpenseIncurredClaims1
+  prior_year_development:
+    # Abwicklung der Reserven früherer Jahre, negativ = Auflösung (günstig)
+    - us-gaap:SupplementalInformationForPropertyCasualtyInsuranceUnderwritersPriorYearClaimsAndClaimsAdjustmentExpense
+    - us-gaap:SecSchedule1218SupplementalInformationPropertyCasualtyInsuranceUnderwritersPriorYearClaimAndClaimAdjustmentExpense
+    - us-gaap:LiabilityForUnpaidClaimsAndClaimsAdjustmentExpenseIncurredClaimsPriorYears
+  net_investment_income:
+    - us-gaap:NetInvestmentIncome
+    - us-gaap:SupplementaryInsuranceInformationNetInvestmentIncome
+  investments:
+    - us-gaap:Investments
+  real_estate_net:
+    - us-gaap:RealEstateInvestmentPropertyNet
+    - ifrs-full:InvestmentProperty
+  real_estate_gains:
+    # Gewinne aus dem Verkauf von Immobilien (aus FFO heraus)
+    - us-gaap:GainLossOnSaleOfProperties
+    - us-gaap:GainsLossesOnSalesOfInvestmentRealEstate
+    - us-gaap:GainLossOnSaleOfRealEstateInvestmentProperty
+    - us-gaap:GainLossOnDispositionOfAssets1
+  real_estate_impairment:
+    - us-gaap:ImpairmentOfRealEstate
+  rd_expense:
+    - us-gaap:ResearchAndDevelopmentExpense
+    - us-gaap:ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost
+    - ifrs-full:ResearchAndDevelopmentExpense
+  advertising_expense:
+    - us-gaap:AdvertisingExpense
+    - us-gaap:MarketingAndAdvertisingExpense
 
 # Investitionsposten, die immaterielle Werte schon enthalten (capex_intangibles entfällt)
 capex_inkl_immateriell:

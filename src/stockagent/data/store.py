@@ -1585,15 +1585,18 @@ class IndustryBeta:
     firms: int
     unlevered_cash: Decimal | None
     de_percent: Decimal | None
+    levered: Decimal | None = None  # Beta der Branche wie gemessen (Banken, Versicherer)
 
 
 def industry_beta(conn: duckdb.DuckDBPyConnection, industry: str) -> IndustryBeta | None:
     row = conn.execute(
-        "SELECT industry, firms, unlevered_cash, de_percent FROM damodaran_betas "
+        "SELECT industry, firms, unlevered_cash, de_percent, beta FROM damodaran_betas "
         "WHERE industry = ?",
         [industry],
     ).fetchone()
-    return None if row is None else IndustryBeta(row[0], row[1], _dec(row[2]), _dec(row[3]))
+    if row is None:
+        return None
+    return IndustryBeta(row[0], row[1], _dec(row[2]), _dec(row[3]), _dec(row[4] or None))
 
 
 @dataclass(frozen=True)
