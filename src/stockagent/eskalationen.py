@@ -72,7 +72,7 @@ def _json(pfad: Path) -> dict[str, Any]:
 
 
 def streitpunkte(paths: Paths, run_id: str) -> list[Streitpunkt]:
-    ordner = paths.runs / run_id
+    ordner = paths.runs.joinpath(run_id)
     ent = _json(ordner / "decision.json")
     out: list[Streitpunkt] = []
     kern = set(orchestrator.modelle(paths)["pruefung"]["kernkennzahlen"])
@@ -147,7 +147,7 @@ def faelle(paths: Paths, *, alle: bool = False) -> list[Fall]:
             continue
         if z.run_id in entschieden and not alle:
             continue
-        ent = _json(paths.runs / z.run_id / "decision.json")
+        ent = _json(paths.runs.joinpath(z.run_id) / "decision.json")
         out.append(
             Fall(
                 run_id=z.run_id,
@@ -158,7 +158,7 @@ def faelle(paths: Paths, *, alle: bool = False) -> list[Fall]:
                 streitpunkte=streitpunkte(paths, z.run_id),
                 entscheidung=entschieden.get(z.run_id),
                 bericht=f"/bericht/{z.run_id}"
-                if (paths.runs / z.run_id / "report.html").exists()
+                if (paths.runs.joinpath(z.run_id) / "report.html").exists()
                 else None,
             )
         )
@@ -173,7 +173,7 @@ def entscheiden(
     z = orchestrator.laden(paths, run_id)
     if z.status != "eskaliert":
         raise EskalationFehler(f"Lauf {run_id} ist {z.status}, nicht eskaliert")
-    pfad = paths.runs / run_id / "decision.json"
+    pfad = paths.runs.joinpath(run_id) / "decision.json"
     ent = _json(pfad)
     vor = ent.get("kategorie_vor_eskalation") or "Nicht bewertbar"
     eintrag = {
@@ -189,13 +189,10 @@ def entscheiden(
     alle[run_id] = eintrag
     f = datei(paths)
     f.parent.mkdir(parents=True, exist_ok=True)
-    f.write_text(
-        KOPF
-        + yaml.safe_dump(
-            {"entscheidungen": dict(sorted(alle.items()))}, allow_unicode=True, sort_keys=False
-        ),
-        "utf-8",
+    inhalt = yaml.safe_dump(
+        {"entscheidungen": dict(sorted(alle.items()))}, allow_unicode=True, sort_keys=False
     )
+    f.write_text(f"{KOPF}{inhalt}", "utf-8")
     ent["luca"] = {k: eintrag[k] for k in ("human_decision", "human_note", "datum", "kategorie")}
     pfad.write_text(json.dumps(ent, ensure_ascii=False, indent=2, default=str), "utf-8")
     return eintrag
