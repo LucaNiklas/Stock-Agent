@@ -31,6 +31,12 @@ Jede Methodikänderung hier eintragen und methodology_version erhöhen.
 - Kursquelle Yahoo Finance für alle Länder, Kurse wie geliefert gespeichert (SPEC 7.3).
 - Einordnung gegen den Gesamtmarkt nur, wenn es einen Lauf über alle Titel gibt (SPEC 3.3).
 
+## 4.9 (19.10.2026, Bauschritt 4 Teil 3b, `methodology_version` der Kennzahlen 1.4)
+
+- DCF in drei Szenarien (`dcf_bear`, `dcf_base`, `dcf_bull`, Wert je Aktie): Umsatzwachstum, EBIT-Marge, Netto-Investitionsquote und Working-Capital-Quote je in einer Stufe aus der eigenen Historie (25. Perzentil, Median, 75. Perzentil der letzten 10 Jahre), Zuordnung der Stufen in `config/kapitalkosten.yaml`. Wachstum aus rollierenden 3-Jahres-Raten, ab Jahr 6 linear zum Endwachstum. Endwert nach Gordon, Brücke zum Eigenkapital wie beim Unternehmenswert. Nicht aussagekräftig, wenn die Marge nach Steuern und Investitionen nicht positiv ist.
+- Sensitivität des Base-Szenarios über WACC ±1 Prozentpunkt und Endwachstum ±0,5 Prozentpunkte, Hinweis bei mehr als 75 % Endwertanteil (SPEC 3.6 Nr. 4 und 5).
+- TTM-Werte (Statistik `ttm`) aus dem letzten Quartal: Geschäftsjahr + seit Jahresbeginn - Vorjahreszeitraum, Stände am Quartalsende, Aktienzahl des letzten Quartals. Für Margen und Bewertungskennzahlen ohne Vorjahresvergleich (`ttm: true` in `config/metrics.yaml`).
+
 ## 4.8 (19.10.2026, Bauschritt 4 Teil 3a, `methodology_version` der Kennzahlen 1.3)
 
 - Kapitalkosten (`wacc`) nach ADR 0006: risikofreier Zins 10 Jahre der Berichtswährung, implizite Risikoprämie nach Damodaran, Branchenbeta nach Damodaran mit eigener Verschuldung neu verschuldet, Fremdkapitalkosten aus synthetischem Rating oder Branchenaufschlag, gesetzlicher Steuersatz je Land (`config/kapitalkosten.yaml`).

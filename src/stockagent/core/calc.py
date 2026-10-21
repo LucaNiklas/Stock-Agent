@@ -282,6 +282,29 @@ class Rechenweg:
         )
         return ergebnis
 
+    def perzentil(self, name: str, werte: Sequence[Wert], anteil: Decimal) -> Decimal:
+        """Perzentil mit linearer Interpolation (wie Excel PERZENTIL.INKL), protokolliert."""
+        s = sorted(_wert(w) for w in werte)
+        if not s or not (0 <= anteil <= 1):
+            text = f"Perzentil {anteil} von {len(s)} Werten nicht definiert"
+            self.pruefungen.append(Pruefung("CP-02", text, False, Stufe.STOPP))
+            raise PruefpunktVerletzt(self, "CP-02", text)
+        with localcontext() as ctx:
+            ctx.prec = _PRECISION
+            lage = anteil * (len(s) - 1)
+            unten = int(lage)
+            oben = min(unten + 1, len(s) - 1)
+            ergebnis = s[unten] + (s[oben] - s[unten]) * (lage - unten)
+        self.schritte.append(
+            Schritt(
+                name=name,
+                formel=f"perzentil(werte, {anteil}) mit linearer Interpolation",
+                eingaben={"werte": [str(w) for w in s]},
+                ergebnis=str(ergebnis),
+            )
+        )
+        return ergebnis
+
     def potenz(
         self, name: str, basis: Wert, exponent_zaehler: int, exponent_nenner: int
     ) -> Decimal:

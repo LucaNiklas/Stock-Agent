@@ -119,7 +119,13 @@ def test_database_matches_hand_calculation(geladen: Paths) -> None:
     db = _werte(geladen)
     assert set(db) == registry.ids()
     abweichend = {}
+    # Die DCF-Szenarien nutzen die Historie von bis zu 10 Jahren, die Handrechnung in
+    # tests/metrics/apple.py hat für Umlaufvermögen und Abschreibungen nur 2 bis 3 Jahre. Sie sind
+    # in tests/metrics/test_dcf_szenarien.py von Hand geprüft und hier in
+    # test_dcf_scenarios_ordered_and_repeatable.
     for metric_id, row in db.items():
+        if metric_id.startswith("dcf_"):
+            continue
         # Normalisiertes EV/EBIT braucht 10 Jahre EBIT (tests/metrics/apple.py APPLE_10J)
         hand = rechne(metric_id, APPLE_10J if metric_id == "ev_ebit_normalized" else APPLE)
         if hand.wert is None or row.value is None:
@@ -166,7 +172,7 @@ def test_hinweise_saved(geladen: Paths) -> None:
     h = store.load_hinweise(conn, ISSUER)
     run = store.load_metric_run(conn, ISSUER)
     conn.close()
-    assert run is not None and run[3] == "1.3"
+    assert run is not None and run[3] == "1.4"
     # Apple 2025: Piotroski 8, Altman Z'' 2,31, Beneish -2,23, Sloan 0,1 %: keine Schwellenregel
     assert not [x for x in h if x.regel in ("H-01", "H-02", "H-03", "H-04")]
     assert all(x.status == "offen" and x.an_agent for x in h)
@@ -295,3 +301,28 @@ def test_dividend_events_per_fiscal_year(geladen: Paths) -> None:
     # Der Zeitraum bis 30.09.2023 beginnt vor dem ersten gespeicherten Kurs (27.09.2019): keine
     # Aussage, also auch keine 0
     assert date(2023, 9, 30) not in je_jahr
+
+
+def test_dcf_scenarios_ordered_and_repeatable(geladen: Paths) -> None:
+    db = _werte(geladen)
+    assert db["dcf_bear"].value < db["dcf_base"].value < db["dcf_bull"].value
+    conn = store.connect(geladen.db)
+    run = store.load_metric_run(conn, ISSUER)
+    assert run is not None
+    cfg = metrics_update.Konfiguration.laden(geladen.config)
+    erg = metrics_update.nachrechnen(
+        conn, ISSUER, run[1].replace(tzinfo=UTC), "dcf_base", 2025, cfg
+    )
+    conn.close()
+    assert erg is not None and erg.wert == db["dcf_base"].value  # CP-08
+
+
+def test_ttm_valuation_from_quarterly_reports(geladen: Paths) -> None:
+    """Gewinn je Aktie TTM bis 27.06.2026: 7,46 (GJ 2025) + 6,88 (9 Monate 2026) - 5,62
+    (9 Monate 2025) = 8,72 (10-Q Accession 0000320193-26-000020). KGV TTM mit dem Kurs vom
+    13.10.2026: 341,2699890136719 / 8,72 = 39,1365."""
+    ttm = _werte(geladen, "ttm")
+    assert q(ttm["pe"].value, 4) == Decimal("39.1365")
+    trace = json.loads(ttm["pe"].calc_trace_json)
+    assert trace["periode"] == "2026-06-27"
+    assert "ebit_margin" in ttm and "shareholder_yield" not in ttm

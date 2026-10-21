@@ -115,6 +115,10 @@ def show(
         bool,
         typer.Option("--aktuell", "-a", help="Mit --rechenweg: Bewertung mit letztem Kurs zeigen."),
     ] = False,
+    ttm: Annotated[
+        bool,
+        typer.Option("--ttm", help="Mit --rechenweg: letzte 12 Monate bis zum letzten Quartal."),
+    ] = False,
 ) -> None:
     """Kennzahlen des letzten Geschäftsjahres mit Trend, Bewertung und Hinweisen anzeigen."""
     paths = Paths.default()
@@ -150,11 +154,12 @@ def show(
             typer.echo(f"Nachgerechnet zum Datenstand {as_of:%d.%m.%Y}")
             _rechenweg(erg.rechenweg, erg.grund, erg.vermerke)
             return
-        if aktuell:
-            if (rechenweg, "aktuell") not in je:
-                typer.echo(f"Für {rechenweg} gibt es keine Bewertung mit aktuellem Kurs.")
+        if aktuell or ttm:
+            stat = "ttm" if ttm else "aktuell"
+            if (rechenweg, stat) not in je:
+                typer.echo(f"Für {rechenweg} gibt es keinen Wert {stat}.")
                 raise typer.Exit(code=1)
-            row = je[(rechenweg, "aktuell")]
+            row = je[(rechenweg, stat)]
             trace = json.loads(row.calc_trace_json) if row.calc_trace_json else {}
             _rechenweg(trace, row.grund, row.vermerke)
             return
@@ -258,11 +263,12 @@ def _bewertung(
         title=f"Bewertung mit Börsenkurs (Kurs am Geschäftsjahresende {stichtag:%d.%m.%Y} "
         f"und aktuell{f' vom {tag}' if tag else ''})"
     )
-    for col in ("Kennzahl", "GJ-Ende", "Aktuell", "Rang in 10 Jahren", "Anmerkung"):
+    for col in ("Kennzahl", "GJ-Ende", "Aktuell", "TTM", "Rang in 10 Jahren", "Anmerkung"):
         table.add_column(col)
     for metric_id, d in bewertung.items():
         anz, st = d["rundung"]["anzeige"], int(d["rundung"]["nachkommastellen"])
         wert, jetzt = je.get((metric_id, "wert")), je.get((metric_id, "aktuell"))
+        ttm = je.get((metric_id, "ttm"))
         p = je.get((metric_id, "perzentil_historie"))
         rang = "-" if p is None or p.value is None else formatiere(p.value, "percent", 0)
         notiz = next((r.grund for r in (jetzt, wert, p) if r is not None and r.grund), "")
@@ -270,6 +276,7 @@ def _bewertung(
             d["name"],
             formatiere(wert.value if wert else None, anz, st, geld),
             formatiere(jetzt.value if jetzt else None, anz, st, geld),
+            formatiere(ttm.value if ttm else None, anz, st, geld),
             rang,
             (notiz or "")[:70],
         )
