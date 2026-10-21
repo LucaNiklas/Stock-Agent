@@ -26,6 +26,7 @@ Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abs
 - uv run stockagent universe update | show | html | serve
 - uv run stockagent sec update [--isin <ISIN>] | show <ISIN> | map <ISIN> <CIK>|keine
 - uv run stockagent tr-check <ISIN> ja|nein
+- uv run stockagent insider update -i <ISIN> | show <ISIN>   Insidergeschäfte (SEC Form 4)
 - uv run stockagent prices update -i <ISIN> [--refresh] | show <ISIN> | map <ISIN> <SYMBOL>|keine
 - uv run stockagent markt update [--refresh] | show | branche <ISIN> <Branche>
 - uv run stockagent fx update [--refresh] | show <WÄHRUNG> [--datum JJJJ-MM-TT]

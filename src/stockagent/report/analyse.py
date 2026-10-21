@@ -119,9 +119,11 @@ def kontext(paths: Paths, z: Zustand, ent: dict[str, Any]) -> dict[str, Any]:
         ).fetchall()
         quellen = conn.execute(
             "SELECT doc_type, period_end, source_url, doc_hash FROM documents "
-            "WHERE issuer_id = ? AND doc_hash IS NOT NULL ORDER BY period_end DESC",
+            "WHERE issuer_id = ? AND doc_hash IS NOT NULL AND doc_type <> 'FORM4' "
+            "ORDER BY period_end DESC",
             [z.issuer_id],
         ).fetchall()
+        grade = store.load_grade(conn, z.isin)
     finally:
         conn.close()
     status = ent["claims"]
@@ -158,8 +160,21 @@ def kontext(paths: Paths, z: Zustand, ent: dict[str, Any]) -> dict[str, Any]:
 
     a3 = eingaben.ausgabe(paths, z, "A3")
     a4 = eingaben.ausgabe(paths, z, "A4")
+    a6 = eingaben.ausgabe(paths, z, "A6")
     a7 = eingaben.ausgabe(paths, z, "A7")
     a3e = eingaben.ausgabe(paths, z, "A3E")
+    # Insider (SPEC 12.3 Abschnitt 9): Geschäfte und Signal aus Python, Einordnung von A6
+    ins = (json.loads(grade.detail_json or "{}").get("insider") if grade else None) or {}
+    insider_abschnitt = {
+        "saeule": ins.get("saeule"),
+        "grund": ins.get("grund"),
+        "geschaefte": ins.get("geschaefte", []),
+        "einordnung": (a6 or {}).get("einordnung"),
+        "befunde": [
+            {"muster": b["muster"], "claims": geprueft("A6", b["claim_ids"])}
+            for b in (a6 or {}).get("befunde", [])
+        ],
+    }
     a9 = eingaben.ausgabe(paths, z, "A9")
     themen = []
     for t in (a4 or {}).get("themen", []):
@@ -336,6 +351,7 @@ def kontext(paths: Paths, z: Zustand, ent: dict[str, Any]) -> dict[str, Any]:
             f"{text} ({', '.join(sorted(ids))})" for text, ids in sorted(vermerke.items())
         ],
         "themen": themen,
+        "insider": insider_abschnitt,
         "gegenposition": {
             "risiken": risiken,
             "pre_mortem": w.ersetze(a7["pre_mortem"]) if a7 else None,

@@ -12,12 +12,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
 
 from stockagent import metrics_update
+from stockagent.core import insider
 from stockagent.data import store
 from stockagent.data.http import FetchError, fetch
 from stockagent.data.sources import form4, sec
@@ -60,7 +61,7 @@ def update(
         fetcher=fetcher,
         now=lambda: now,
     )
-    seit = (now - timedelta(days=365 * int(fcfg["jahre"]))).date()
+    seit = insider.fenster_beginn(now.date(), int(fcfg["jahre"]))
     out = []
     conn = store.connect(paths.db)
     try:
@@ -86,9 +87,9 @@ def update(
             erg.meldungen = len(meldungen)
             bekannt = store.insider_filings_loaded(conn, iid)
             neu = [f for f in meldungen if f.accession not in bekannt]
-            for nr, f in enumerate(neu, start=1):
-                if nr % 25 == 1:
-                    progress(f"{isin}: Form 4 {nr} bis {min(nr + 24, len(neu))} von {len(neu)}")
+            if neu:
+                progress(f"{isin}: {len(neu)} neue Form-4-Meldungen laden")
+            for f in neu:
                 name = form4.xml_name(f.primary_document)
                 url = client.filing_url(cik, f.accession, name)
                 try:
@@ -105,6 +106,22 @@ def update(
                     store.save_insider(conn, f.accession, iid, [], now, fehler=str(exc)[:500])
                     continue
                 store.save_insider(conn, f.accession, iid, rows, now)
+                # Lesbare Seite als Dokument: Beleg für Aussagen von A6 (Zitat-Gate, J2)
+                store.save_document(
+                    conn,
+                    store.DocumentRow(
+                        doc_id=f"form4:{f.accession}",
+                        issuer_id=iid,
+                        doc_type="FORM4",
+                        period_end=None,
+                        published_at=sec.published_at(f.filing_date, f.accepted_at),
+                        retrieved_at=now,
+                        source_url=url,
+                        doc_hash=f"sha256:{ref.sha256}",
+                    ),
+                    [form4.textseite(rows, f.accession, sub.name)],
+                    "de",
+                )
                 erg.neu += 1
                 erg.geschaefte += len(rows)
     finally:

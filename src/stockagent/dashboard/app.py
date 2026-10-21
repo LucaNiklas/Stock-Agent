@@ -115,6 +115,8 @@ class Zeile:
     datenlage: str
     # Note, Kategorie und Gesamtwert je Anlagehorizont (ADR 0011)
     horizonte: dict[str, dict[str, str]] = field(default_factory=dict)
+    # Insider-Signal (Bauschritt 9): Käufe, Verkäufe, kein Signal oder leer (nicht bewertet)
+    insider: str = ""
 
 
 class Daten:
@@ -164,7 +166,8 @@ class Daten:
             b = sektoren.branche(int(sic) if sic and str(sic).isdigit() else None, cfg_sec)
             g = grades.get(isin)
             c = checks.get(isin)
-            hz = (json.loads(g.detail_json or "{}").get("horizonte") or {}) if g else {}
+            det = json.loads(g.detail_json or "{}") if g else {}
+            hz = det.get("horizonte") or {}
             zeilen.append(
                 Zeile(
                     isin=isin,
@@ -192,6 +195,7 @@ class Daten:
                         }
                         for h, v in hz.items()
                     },
+                    insider=_insider_text(det.get("insider")),
                 )
             )
         with self.lock:
@@ -212,7 +216,18 @@ FILTER = (
     "tr",
     "datenlage",
     "art",
+    "insider",
 )
+
+
+def _insider_text(d: dict[str, Any] | None) -> str:
+    """Kurzform des Insider-Signals für den Filter (50 = neutral, SPEC 3.8)."""
+    if d is None:
+        return ""
+    if d.get("saeule") is None:
+        return "kein Signal"
+    wert = float(d["saeule"])
+    return "Käufe" if wert > 50 else "Verkäufe" if wert < 50 else "kein Signal"
 
 
 def _ansicht(z: Zeile, horizont: str) -> Zeile:

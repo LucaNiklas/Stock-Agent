@@ -109,7 +109,7 @@ Sensitivität des Base-Szenarios (Wert je Aktie):
 
 ## 8. Anpassungen
 
-Normalisierungen nach SPEC 4.3 und Währungsumrechnungen nach SPEC 5.2 folgen mit Bauschritt 7. Vermerke der Rechnung:
+Normalisierungen nach SPEC 4.3 (Status je Regel in config/accounting_adjustments.yaml) und Währungsumrechnungen nach SPEC 5.2. Vermerke der Rechnung:
 {% for a in anpassungen %}
 - {{ a }}
 {% else %}
@@ -118,7 +118,19 @@ Normalisierungen nach SPEC 4.3 und Währungsumrechnungen nach SPEC 5.2 folgen mi
 
 ## 9. Insider
 
-Nicht anwendbar: Das Insider-Modul folgt mit Bauschritt 9.
+{% if insider.geschaefte %}Säule Insider: {{ insider.saeule if insider.saeule is not none else "kein Signal" }}{% if insider.grund %} ({{ insider.grund }}){% else %} (50 = neutral){% endif %}. Geschäfte am offenen Markt der letzten 12 Monate (SEC Form 4):
+
+| Tag | Person | Rolle | Art | Einordnung | Cluster | Beitrag |
+|---|---|---|---|---|---|---|
+{% for g in insider.geschaefte %}| {{ g.handelstag }} | {{ g.person }} | {{ g.rolle }} | {{ "Kauf" if g.art == "buy" else "Verkauf" }} | {{ g.klasse }} | {{ "ja" if g.cluster else "" }} | {{ g.beitrag }} |
+{% endfor %}
+{% if insider.einordnung %}Einordnung A6: {{ insider.einordnung }}
+{% for b in insider.befunde %}
+**{{ b.muster }}**
+
+{{ claims(b.claims) }}
+{% endfor %}{% endif %}{% else %}Nicht anwendbar: {{ insider.grund or "keine Insidergeschäfte geladen (nur US-Melder mit Form 4)" }}.
+{% endif %}
 
 ## 10. Qualitative Befunde
 

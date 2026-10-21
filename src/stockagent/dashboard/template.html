@@ -58,7 +58,7 @@ pre{white-space:pre-wrap;background:var(--card);padding:8px;border-radius:8px;ma
 <div id="detail"><div class="panel" id="panel"></div></div>
 <script>
 const NAMEN={tier:"Indexstufe",land:"Land",region:"Region",branche:"Branche",groesse:"Größe",note:"Note",konfidenz:"Konfidenz",
-risiko:"Risiko",kategorie:"Kategorie",tr:"Trade Republic",datenlage:"Datenlage",art:"Art",horizont:"Horizont",sortierung:"Sortierung"};
+risiko:"Risiko",kategorie:"Kategorie",tr:"Trade Republic",datenlage:"Datenlage",art:"Art",horizont:"Horizont",sortierung:"Sortierung",insider:"Insider"};
 const hinweis=h=>{if(!h)return"";const a=Math.round(Number(h.momentum_anteil)*100);
   return a?`Kurstrend (Momentum) zählt ${a} %, der Rest Qualität, Bewertung, Stabilität, Wachstum.`+(h.mindest!=null?` Attraktiv nur mit Momentum ab ${h.mindest}.`:""):"Ohne Kurstrend, nur Fundamentaldaten."};
 let F=Object.fromEntries(new URLSearchParams(location.search));
@@ -115,6 +115,10 @@ async function zeige(isin){
     det.raenge.map(r=>`<tr><td>${r.saeule}</td><td>${r.kennzahl} (${r.statistik})</td><td>${fmt(r.wert,r.kennzahl)}</td><td>${r.perzentil===null?"fehlt":Number(r.perzentil).toFixed(0)}</td></tr>`).join("")+`</table>`;
     const b=det.bewertungsbedingung;h+=`<p>Bewertungsbedingung: <b>${b.erfuellt?"erfüllt":"nicht erfüllt"}</b> (implizites minus historisches Wachstum ${fmt(b.growth_gap,"growth")}, Abschlag zu den Multiples der Gruppe ${fmt(b.multiples_abschlag,"safety")}${b.kurs_ueber_bull?", Kurs über Bull-Szenario":""})</p>`;
     if(det.kappungen.length)h+=`<p>Kappungen: ${det.kappungen.join(", ")}</p>`;
+    if(det.insider){const i=det.insider;h+=`<h3>Insider (letzte 12 Monate, Käufe und Verkäufe am offenen Markt)</h3>`+
+      `<p>Säule Insider: ${i.saeule===null?"kein Signal":Number(i.saeule).toFixed(1)}${i.grund?` <span class="muted">(${esc(i.grund)})</span>`:` <span class="muted">(50 = neutral)</span>`}</p>`;
+      if(i.geschaefte.length)h+=`<table><tr><th>Tag</th><th>Person</th><th>Rolle</th><th>Art</th><th>Einordnung</th><th>Cluster</th><th>Beitrag</th></tr>`+
+        i.geschaefte.map(g=>`<tr><td>${g.handelstag}</td><td>${esc(g.person)}</td><td>${esc(g.rolle)}</td><td>${g.art==="buy"?"Kauf":"Verkauf"}</td><td>${esc(g.klasse)}</td><td>${g.cluster?"ja":""}</td><td>${Number(g.beitrag).toFixed(3)}</td></tr>`).join("")+`</table>`}
     h+=`<p class="muted">${det.konfidenz_gruende.map(esc).join("<br>")}</p>`;
   }else if(n){h+=`<p>${noteHtml("N")} Nicht bewertbar: ${esc(n.grund)}</p>`}
   else{h+=`<p>Noch nicht bewertet.</p>`}

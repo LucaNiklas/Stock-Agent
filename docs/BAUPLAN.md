@@ -93,6 +93,7 @@ Bewusst verschoben (Lucas Entscheidung 13.10.2026): Kennzahlen mit Börsenkurs n
 - **Ziel:** Insider-Signal aus SEC Form 4 und BaFin (SPEC 3.8).
 - **Entsteht:** Erweiterung von `data/sources/sec.py` um Form 4, dazu Agentenvorlage A6.
 - **Abnahme:** Klassifikation routinemäßig oder opportunistisch für Testpersonen nachvollziehbar korrekt.
+- **Gebaut (21.10.2026, ADR 0012):** `data/sources/form4.py`, `insider_update.py` (Befehl `insider update` und `show`), Schema 12 (`insider_tx`, `insider_filings`), `core/insider.py`, `config/insider_thresholds.yaml`, Säule Insider in allen Scorecards, Agent A6 mit Belegen aus den Meldungen, Abschnitt 9 im Bericht, Filter und Zeitachse im Dashboard. Offen: BaFin (Domain gesperrt).
 
 ### Schritt 10: Prüfer vollständig
 

@@ -177,3 +177,43 @@ def xml_name(primary_document: str) -> str:
     """Die SEC nennt als Hauptdokument die HTML-Ansicht ("xslF345X05/form4.xml"). Die rohe
     XML-Datei liegt unter demselben Namen ohne das Verzeichnis der Stilvorlage."""
     return primary_document.rsplit("/", 1)[-1]
+
+
+ARTEN_TEXT = {
+    "buy": "Kauf am offenen Markt",
+    "sell": "Verkauf am offenen Markt",
+    "grant": "Zuteilung",
+    "exercise": "Ausübung",
+    "tax": "Steuereinbehalt",
+    "gift": "Schenkung",
+    "other": "sonstiges Geschäft",
+}
+
+
+def textseite(rows: list[InsiderTx], accession: str, emittent: str) -> str:
+    """Lesbare Seite einer Meldung für Belege der Agenten (Zitat-Gate, J2). Nur Angaben aus der
+    Meldung, keine Einordnung."""
+    kopf = [f"Form 4, Meldung {accession}, Emittent {emittent}"]
+    if not rows:
+        return "\n".join([*kopf, "Keine Geschäfte mit Aktien (nur Derivate)."])
+    x = rows[0]
+    kopf.append(
+        f"Person: {x.person_name}, Rolle {x.rolle}" + (f", Titel {x.titel}" if x.titel else "")
+    )
+    kopf.append(
+        "Handelsplan nach Rule 10b5-1: ja"
+        if x.plan_10b5_1
+        else "Handelsplan nach Rule 10b5-1: nein"
+    )
+    for n, r in enumerate(rows, start=1):
+        besitz = (
+            "direkt" if r.beziehung == "self" else f"indirekt ({r.beziehung_text or 'ohne Angabe'})"
+        )
+        kopf.append(
+            f"Geschäft {n}: {ARTEN_TEXT[r.art]} (Code {r.code}) am {r.handelstag.isoformat()}, "
+            f"{r.stueck} Stück"
+            + (f" zu {r.preis} {r.waehrung}" if r.preis is not None else "")
+            + (f", Bestand danach {r.bestand_danach}" if r.bestand_danach is not None else "")
+            + f", {besitz}"
+        )
+    return "\n".join(kopf)

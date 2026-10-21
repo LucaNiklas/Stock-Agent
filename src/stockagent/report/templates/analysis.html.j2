@@ -47,8 +47,10 @@ blockquote{margin:4px 0 8px 16px;color:var(--muted);font-size:13px}
 {{ claims(bewertung.a5_claims) }}
 {% if bewertung.sensitivitaet %}<h3>Sensitivität Base</h3><table><tr><th>WACC</th><th>Endwachstum</th><th>Wert</th></tr>{% for s in bewertung.sensitivitaet %}<tr><td>{{ s.wacc }}</td><td>{{ s.g }}</td><td>{{ s.wert }}</td></tr>{% endfor %}</table>{% endif %}
 <h2>8. Anpassungen</h2>
-<p class="muted">Normalisierungen und Währungsregeln folgen mit Bauschritt 7.</p><ul>{% for a in anpassungen %}<li>{{ a }}</li>{% else %}<li>keine</li>{% endfor %}</ul>
-<h2>9. Insider</h2><p class="muted">Nicht anwendbar: folgt mit Bauschritt 9.</p>
+<p class="muted">Normalisierungen nach SPEC 4.3 (Status je Regel in config/accounting_adjustments.yaml) und Währungsregeln nach SPEC 5.2.</p><ul>{% for a in anpassungen %}<li>{{ a }}</li>{% else %}<li>keine</li>{% endfor %}</ul>
+<h2>9. Insider</h2>{% if insider.geschaefte %}<p>Säule Insider: {{ insider.saeule if insider.saeule is not none else "kein Signal" }}{% if insider.grund %} <span class="muted">({{ insider.grund }})</span>{% else %} <span class="muted">(50 = neutral)</span>{% endif %}</p>
+<table><tr><th>Tag</th><th>Person</th><th>Rolle</th><th>Art</th><th>Einordnung</th><th>Cluster</th><th>Beitrag</th></tr>{% for g in insider.geschaefte %}<tr><td>{{ g.handelstag }}</td><td>{{ g.person }}</td><td>{{ g.rolle }}</td><td>{{ "Kauf" if g.art == "buy" else "Verkauf" }}</td><td>{{ g.klasse }}</td><td>{{ "ja" if g.cluster else "" }}</td><td>{{ g.beitrag }}</td></tr>{% endfor %}</table>
+{% if insider.einordnung %}<p>Einordnung A6: {{ insider.einordnung }}</p>{% for b in insider.befunde %}<h3>{{ b.muster }}</h3>{{ claims(b.claims) }}{% endfor %}{% endif %}{% else %}<p class="muted">Nicht anwendbar: {{ insider.grund or "keine Insidergeschäfte geladen (nur US-Melder mit Form 4)" }}.</p>{% endif %}
 <h2>10. Qualitative Befunde</h2>
 {% for t in themen %}<h3>{{ t.thema }} ({{ t.einordnung }})</h3>{{ claims(t.claims) }}{% else %}<p class="muted">Nicht anwendbar.</p>{% endfor %}
 <h2>11. Gegenposition</h2>

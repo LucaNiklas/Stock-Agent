@@ -8,6 +8,7 @@ from stockagent.cli import (
     app_cmd,
     esef,
     fx,
+    insider,
     later,
     markt,
     metrics,
@@ -23,5 +24,20 @@ from stockagent.cli.common import app
 __all__ = ["app"]
 
 # Die Module registrieren ihre Befehle beim Import an `app`.
-_ = (agents, analyse, app_cmd, esef, fx, later, markt, metrics, note, prices, sec, tiers, tr)
+_ = (
+    agents,
+    analyse,
+    app_cmd,
+    esef,
+    fx,
+    insider,
+    later,
+    markt,
+    metrics,
+    note,
+    prices,
+    sec,
+    tiers,
+    tr,
+)
 _unten = universe

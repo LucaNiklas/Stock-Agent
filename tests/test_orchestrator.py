@@ -521,3 +521,71 @@ def test_dashboard_starts_claude_in_background_with_queue(tmp_path: Path) -> Non
     a.laufend["US0378331005"].fertig = 0
     a.weiter()
     assert gestartet[1][0][2] == "/analyze-stock US5949181045" and a.warteschlange() == []
+
+
+def test_insider_agent_a6_with_form4_documents(paths: Paths) -> None:
+    """Mit Geschäften am offenen Markt plant der Ablauf A6 neben A3 und A4, A7 wartet auf A6.
+    Beleg aus der gespeicherten Textseite der echten Apple-Meldung vom 15.10.2026 (Verkäufe unter
+    Handelsplan). Abschnitt 9 des Berichts zeigt die Einordnung."""
+    from dataclasses import replace
+    from datetime import date, timedelta
+
+    from stockagent.data.sources import form4
+
+    raw = (ROOT / "tests/fixtures/form4/apple-borders-2026-10-15.xml").read_bytes()
+    acc = "0001140361-26-040127"
+    rows = [
+        replace(x, handelstag=date(2026, 10, 1), veroeffentlicht=NOW - timedelta(days=1))
+        for x in form4.parse_form4(
+            raw,
+            issuer_id=ISSUER,
+            accession=acc,
+            veroeffentlicht=NOW,
+            raw_sha256="f" * 64,
+            quelle="https://www.sec.gov/x",
+        )
+    ]
+    doc = "sha256:" + "f" * 64
+    conn = store.connect(paths.db)
+    try:
+        store.save_insider(conn, acc, ISSUER, rows, NOW)
+        store.save_document(
+            conn,
+            store.DocumentRow(f"form4:{acc}", ISSUER, "FORM4", None, NOW, NOW, "https://x", doc),
+            [form4.textseite(rows, acc, "Apple Inc.")],
+            "de",
+        )
+    finally:
+        conn.close()
+    z = orchestrator.anlegen(paths, APPLE_ISIN, lader=_lader(), now=NOW)
+    run = z.run_id
+    assert _ids(_a1_erledigen(paths, run)) == ["A3", "A4", "A6"]
+    daten = json.loads((paths.runs / run / "eingaben" / "A6.json").read_text())["daten"]
+    assert daten["meldungen"][0]["doc_hash"] == doc
+    a6 = antwort(
+        run,
+        "A6",
+        claims=[
+            _claim(
+                "c-0001",
+                "Die Verkäufe liefen unter einem vorab festgelegten Handelsplan.",
+                [
+                    {
+                        "source_type": "document_text",
+                        "doc_hash": doc,
+                        "page": 1,
+                        "quote": "Handelsplan nach Rule 10b5-1: ja",
+                    }
+                ],
+            )
+        ],
+        einordnung="kein_signal",
+        befunde=[{"muster": "handelsplan", "claim_ids": ["c-0001"]}],
+    )
+    for text in (a3(run), a4(run), a6):
+        assert orchestrator.annehmen(paths, run, text, now=NOW).angenommen
+    assert _ids(orchestrator.naechste(paths, run, now=NOW)) == ["A5"]
+    assert orchestrator.annehmen(paths, run, a5(run), now=NOW).angenommen
+    assert _ids(orchestrator.naechste(paths, run, now=NOW)) == ["A7"]
+    a7_daten = json.loads((paths.runs / run / "eingaben" / "A7.json").read_text())["daten"]
+    assert any(c["schluessel"].startswith("A6:") for c in a7_daten["claims_der_auswertung"])

@@ -231,3 +231,12 @@ def test_insider_pillar_in_rating(tmp_path) -> None:  # type: ignore[no-untyped-
     assert ohne.grade is not None
     d2 = json.loads(ohne.grade.detail_json or "{}")
     assert d2["insider"]["saeule"] is None and Decimal(d2["abdeckung"]) > Decimal("0.8")
+    # Dashboard: Filter Insider und Zeitachse in der Detailansicht
+    from stockagent.dashboard import app as dashboard
+
+    daten = dashboard.Daten(p)
+    kaeufe = dashboard.liste(daten, {"insider": "Käufe"})
+    assert [z["isin"] for z in kaeufe["zeilen"]] == [isin]
+    assert dict(kaeufe["facetten"]["insider"])["kein Signal"] == 1
+    t = dashboard.titel_detail(p, isin)
+    assert len(t["detail"]["insider"]["geschaefte"]) == 2

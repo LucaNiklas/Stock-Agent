@@ -87,6 +87,14 @@ class InsiderSignal:
     rechenweg: dict[str, Any] = field(default_factory=dict)
 
 
+def fenster_beginn(stand: date, jahre: int) -> date:
+    """Gleicher Kalendertag `jahre` Jahre früher (29. Februar -> 28. Februar)."""
+    try:
+        return stand.replace(year=stand.year - jahre)
+    except ValueError:
+        return stand.replace(year=stand.year - jahre, day=28)
+
+
 def _monate(rows: Sequence[Geschaeft]) -> dict[str, set[tuple[int, int]]]:
     out: dict[str, set[tuple[int, int]]] = {}
     for x in rows:
