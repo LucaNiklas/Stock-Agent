@@ -41,7 +41,8 @@ def update(
         zusatz = " (schon aktuell)" if serie in z.uebersprungen else f", {neu} Tageswerte geladen"
         typer.echo(f"{serie}: bis {stand}{zusatz}")
     for name, (n, ds) in d.je_datensatz.items():
-        typer.echo(f"Damodaran {name}: {n} Zeilen, Stand {ds or '-'}")
+        stand = f"Stand {ds}" if ds else "die Datei nennt kein Datum, Abrufdatum gespeichert"
+        typer.echo(f"Damodaran {name}: {n} Zeilen, {stand}")
     for name in d.uebersprungen:
         typer.echo(f"Damodaran {name}: schon aktuell")
 
@@ -68,7 +69,12 @@ def show() -> None:
             m = store.damodaran_meta(conn, name)
             typer.echo(
                 f"Damodaran {name}: "
-                + (f"Stand {m.stand or '-'}, geladen {m.retrieved_at:%d.%m.%Y}" if m else "fehlt")
+                + (
+                    f"Stand {m.stand or 'ohne Datum in der Datei'}, "
+                    f"geladen {m.retrieved_at:%d.%m.%Y}"
+                    if m
+                    else "fehlt"
+                )
             )
     finally:
         conn.close()

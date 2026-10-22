@@ -100,8 +100,8 @@ pre{white-space:pre-wrap;background:var(--card);padding:8px;border-radius:8px;ma
 </header>
 <div class="layout">
 <aside id="filter"></aside>
-<main><div class="muted" id="anzahl"></div><div class="wrap"><table id="tab"><thead><tr>
-<th><input type="checkbox" id="alleauswahl" aria-label="Alle angezeigten auswählen"></th><th></th><th>Name</th><th>Note</th><th>K</th><th>R</th><th>Kategorie</th><th>Tier</th><th>Branche</th><th>Land</th><th>TR</th><th></th>
+<main><div class="muted" id="anzahl"></div><div class="muted" style="font-size:12px;margin:4px 0">Note A bis E (N nicht bewertbar) · K Konfidenz K1 hoch bis K4 · R Risiko R1 gering bis R5 · Tier Indexstufe · TR Trade Republic ✓ geprüft handelbar, ✗ nicht, ? ungeprüft. Spaltenköpfe zeigen Erklärungen beim Darüberfahren.</div><div class="wrap"><table id="tab"><thead><tr>
+<th><input type="checkbox" id="alleauswahl" aria-label="Alle angezeigten auswählen"></th><th title="Beobachtungsliste">★</th><th>Name</th><th title="Note A (beste) bis E im Vergleich mit 15 bis 50 ähnlichen Firmen, N = nicht bewertbar">Note</th><th title="Konfidenz K1 (hoch) bis K4: wie verlässlich die Note ist (Jahre Historie, Datenabdeckung, Größe)">K</th><th title="Risiko R1 (gering) bis R5: Schwankung, Kursverluste, Verschuldung, Handelbarkeit, Größe">R</th><th>Kategorie</th><th title="Indexstufe: 1 Leitindex, 2 zweiter Index, 3 Nebenwerte, 4 ohne Index">Tier</th><th>Branche</th><th>Land</th><th title="Datenquelle der Abschlusszahlen">Datenlage</th><th title="Handelbarkeit bei Trade Republic, von dir geprüft">TR</th><th></th>
 </tr></thead><tbody></tbody></table></div></main>
 </div>
 </section>
@@ -187,7 +187,7 @@ async function laden(){
   const tb=document.querySelector("#tab tbody");
   tb.innerHTML=d.zeilen.map(z=>`<tr class="row" data-isin="${z.isin}"><td><input type="checkbox" data-a="${z.isin}"${AUSWAHL.has(z.isin)?" checked":""} aria-label="auswählen"></td><td>${z.stern?"★":"☆"}</td><td class="name" style="white-space:normal">${esc(z.name)}${z.ereignis?` <span title="${esc(z.ereignis)}" aria-label="Ereignis: ${esc(z.ereignis)}">⚑</span>`:""}<div class="muted">${z.isin}</div></td>
   <td>${noteHtml(z.note)}</td><td>${esc(z.konfidenz)}</td><td>${esc(z.risiko)}</td><td class="mob-aus">${esc(z.kategorie)}</td><td class="mob-aus">${z.tier}</td>
-  <td class="mob-aus">${esc(z.branche)}</td><td>${esc(z.land)}</td><td title="Trade Republic">${z.tr==="bestaetigt"?"✓ handelbar":z.tr==="nicht_handelbar"?"✗ nicht":"? ungeprüft"}</td>
+  <td class="mob-aus">${esc(z.branche)}</td><td>${esc(z.land)}</td><td class="mob-aus muted">${esc(z.datenlage)}</td><td title="Trade Republic">${z.tr==="bestaetigt"?"✓ handelbar":z.tr==="nicht_handelbar"?"✗ nicht":"? ungeprüft"}</td>
   <td>${z.datenlage!=="keine strukturierten Daten"&&!z.note?`<button data-b="${z.isin}">Bewerten</button>`:z.note?"":`<span class="muted" title="${esc(z.datenlage)}">keine Daten</span>`}</td></tr>`).join("");
   tb.querySelectorAll("tr.row").forEach(r=>r.onclick=e=>{if(e.target.dataset.b||e.target.dataset.a)return;zeige(r.dataset.isin)});
   tb.querySelectorAll("button[data-b]").forEach(b=>b.onclick=()=>bewerten(b.dataset.b,b));
