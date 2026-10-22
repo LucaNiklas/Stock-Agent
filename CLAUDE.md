@@ -39,6 +39,7 @@ Die harten Regeln HR-01 bis HR-19 stehen in docs/spec/00-arbeitsanweisung.md Abs
 - uv run stockagent run   Dialog in zwei Runden, Laufplan, Bestätigung (in Claude Code: /stockagent)
 - uv run stockagent run [--text "<Satz>"] [--category sector:<id>|region:<id>|land:<ISO>|stil:<id>|markt] [--branche <ids>] [--region <id>] [--land <ISO>] [--size small,mid] [--tier 1,2] [--note A,B] [--stil <id>] [--depth schnell|standard|tief] [--profile <name>] [--ansicht <name>] [--nur-plan] [--yes] [--tiefenanalyse nacheinander|warteschlange|liste] [--json]
 - uv run stockagent anfrage "<Satz>" [--ohne-modell] [--json]   Satz in Filter (Wortliste config/vokabular.yaml, ADR 0014)
+- uv run stockagent zeitplan an|aus|status|lauf|einrichten [--uhrzeit HH:MM] [--laden]|entfernen   Lauf nach Zeitplan (ADR 0015), startet `run --profile scheduled --yes`
 - uv run stockagent analyze <ISIN>   Tiefenanalyse anlegen (in Claude Code: /analyze-stock <ISIN>)
 - uv run stockagent next <RUN> [--json] | accept <RUN> <AUFTRAG> --datei <F> | runs
 - uv run stockagent tool rechenweg|nachrechnen <ISIN> <ref> ...   Werkzeuge der Agenten

@@ -1,6 +1,6 @@
 # Projektstand (Übergabe)
 
-Stand: 22.10.2026, Bauschritte bis 11 gebaut, dazu der Anlagehorizont. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
+Stand: 22.10.2026, alle Bauschritte 0 bis 12 gebaut, dazu der Anlagehorizont. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
 
 ## Was das System ist
 
@@ -31,7 +31,8 @@ Luca hält Einzelaktien einige Monate bis etwa 5 Jahre (SPEC 2.1a). Die Note gib
 | Horizont | Säule Momentum, Note je Anlagehorizont, Auswahl und Filter im Dashboard (ADR 0011) | Branch `schritt-08-horizont` |
 | 9 | Insider aus SEC Form 4, Säule Insider, Agent A6 (ADR 0012) | LucaNiklas/Stock-Agent#21 |
 | 10 | Jury J3, Endkontrolle J4, Forensik F1, Eskalationen, Goldstandard, Gemini mit Rückfall (ADR 0013) | LucaNiklas/Stock-Agent#22 |
-| 11 | Suche in eigenen Worten, Laufplan, `stockagent run` mit Dialog, Skill `/stockagent`, Dashboard mit Änderungen, Karte, Vergleich, Historie, Methodik, gespeicherte Ansichten (ADR 0014) | Branch `schritt-11-start` |
+| 11 | Suche in eigenen Worten, Laufplan, `stockagent run` mit Dialog, Skill `/stockagent`, Dashboard mit Änderungen, Karte, Vergleich, Historie, Methodik, gespeicherte Ansichten (ADR 0014) | LucaNiklas/Stock-Agent#23 |
+| 12 | Zeitplan ohne API-Schlüssel: Leichtlauf, Ereignisse, Benachrichtigung, Eskalationen als GitHub-Issues, launchd (ADR 0015) | Branch `schritt-12-zeitplan` |
 
 Die Pull Requests für diese Branches werden gestapelt angelegt und von unten nach oben gemergt.
 
@@ -66,6 +67,7 @@ Achtung: Die Schritte 2 bis 10 wurden in Cloud-Sitzungen gebaut. Die Daten unten
 - ADR 0012: Insider-Signal aus Form 4 als fester Säulenwert, A6 nur bei Geschäften in 24 Monaten.
 - ADR 0013: J4 ohne Sprachmodell, Jury aus drei Richtern, F1 nur bei Warnsignal, Goldstandard mit Kandidaten bis zu Lucas Prüfung.
 - ADR 0014: Anfrage als festes Schema, Wortliste vor Modell, unbekannte Werte werden abgelehnt, Laufplan mit Grenze 3 Tiefenanalysen und 250 Bewertungen je Lauf.
+- ADR 0015: Zeitplan lokal über das Abo, kein API-Schlüssel, Schalter `stockagent zeitplan an`, Tiefenanalyse nur bei Tiefe im Profil.
 
 ## Offen und bekannt
 
@@ -97,12 +99,14 @@ uv run pytest && uv run ruff check . && uv run mypy
 
 ## Nächster Schritt
 
-1. PR für Schritt 11 (Branch `schritt-11-start`): CI abwarten, mergen nach Lucas Freigabe.
-2. Auf Lucas Mac Daten laden (Lucas Vorgabe 22.10.2026: nach Schritt 11): `sec update`, `markt update`, `fx update`, dann Abnahmefirmen bewerten, Abnahme Schritt 8 abschließen (Ergebnisse in ADR 0010).
-3. Claude Code für das Terminal installieren, dann auf dem Mac: `stockagent tool gemini-test`, `eval/run_eval.py --live` (Aufzeichnung einchecken), eine Tiefenanalyse mit `/analyze-stock`, `/review-escalations` und `/stockagent` ausprobieren.
-4. Danach Bauschritt 12 (optional): Zeitplan, braucht Lucas Entscheidung zu API-Schlüssel und Kosten.
+1. PR für Schritt 12 (Branch `schritt-12-zeitplan`): CI abwarten, mergen nach Lucas Freigabe.
+2. Auf Lucas Mac Daten laden: `sec update`, `markt update`, `fx update`, dann Abnahmefirmen bewerten, Abnahme Schritt 8 abschließen (Ergebnisse in ADR 0010).
+3. Claude Code für das Terminal installieren, dann auf dem Mac: `stockagent tool gemini-test`, `eval/run_eval.py --live` (Aufzeichnung einchecken), `/analyze-stock`, `/review-escalations`, `/stockagent` ausprobieren.
+4. Zeitplan, wenn gewünscht: `stockagent zeitplan an`, `stockagent zeitplan einrichten --laden`, nach drei Tagen `stockagent zeitplan status` und die Laufübersichten prüfen.
+5. Danach Bausteine F (Teilen) und G (unabhängig von Claude) aus BAUPLAN, nur nach Lucas Freigabe.
 
 Fragen an Luca (gesammelt): BaFin-Domain `portal.mvp.bafin.de` freigeben, Abdeckung DAX,
 CHF/DKK-Kurse, ADR-Verhältnisse (Philips, ASML NY, Ericsson), Zeitlimit 60 statt 20 Minuten,
 Goldkandidaten prüfen, Beneish-Kappung nach Entkräftung durch F1 aufheben oder nicht (ADR 0013),
-Merkmal für den Stil „Turnaround“ und Grenzen je Lauf (ADR 0014).
+Merkmal für den Stil „Turnaround“ und Grenzen je Lauf (ADR 0014), Zeitplan an, Uhrzeit, Kanäle,
+GitHub-Issues (ADR 0015).

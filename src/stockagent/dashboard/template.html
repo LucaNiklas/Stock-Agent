@@ -164,7 +164,7 @@ async function laden(){
     det.querySelectorAll("label").forEach(l=>l.onclick=()=>setF(k,l.dataset.w));a.appendChild(det);
     if(k==="unterbranche")a.appendChild(stil)}
   const tb=document.querySelector("#tab tbody");
-  tb.innerHTML=d.zeilen.map(z=>`<tr class="row" data-isin="${z.isin}"><td><input type="checkbox" data-a="${z.isin}"${AUSWAHL.has(z.isin)?" checked":""} aria-label="auswählen"></td><td>${z.stern?"★":"☆"}</td><td class="name" style="white-space:normal">${esc(z.name)}<div class="muted">${z.isin}</div></td>
+  tb.innerHTML=d.zeilen.map(z=>`<tr class="row" data-isin="${z.isin}"><td><input type="checkbox" data-a="${z.isin}"${AUSWAHL.has(z.isin)?" checked":""} aria-label="auswählen"></td><td>${z.stern?"★":"☆"}</td><td class="name" style="white-space:normal">${esc(z.name)}${z.ereignis?` <span title="${esc(z.ereignis)}" aria-label="Ereignis: ${esc(z.ereignis)}">⚑</span>`:""}<div class="muted">${z.isin}</div></td>
   <td>${noteHtml(z.note)}</td><td>${esc(z.konfidenz)}</td><td>${esc(z.risiko)}</td><td class="mob-aus">${esc(z.kategorie)}</td><td class="mob-aus">${z.tier}</td>
   <td class="mob-aus">${esc(z.branche)}</td><td>${esc(z.land)}</td><td title="Trade Republic">${z.tr==="bestaetigt"?"✓ handelbar":z.tr==="nicht_handelbar"?"✗ nicht":"? ungeprüft"}</td>
   <td>${z.datenlage!=="keine strukturierten Daten"&&!z.note?`<button data-b="${z.isin}">Bewerten</button>`:z.note?"":`<span class="muted" title="${esc(z.datenlage)}">keine Daten</span>`}</td></tr>`).join("");

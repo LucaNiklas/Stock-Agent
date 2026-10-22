@@ -19,6 +19,7 @@ from stockagent.cli import (
     tiers,
     tr,
     universe,
+    zeitplan,
 )
 from stockagent.cli.common import app
 
@@ -41,5 +42,6 @@ _ = (
     tiers,
     start,
     tr,
+    zeitplan,
 )
 _unten = universe

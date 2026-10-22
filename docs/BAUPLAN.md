@@ -116,6 +116,7 @@ Bewusst verschoben (Lucas Entscheidung 13.10.2026): Kennzahlen mit Börsenkurs n
 - **Neue Dateien:** `.github/workflows/scheduled-run.yml` oder ein lokaler Zeitplan in der Claude-Desktop-App, Profil `scheduled` in `config/run_profiles.yaml`, Benachrichtigung.
 - **Braucht von Luca:** Entscheidung, ob ein API-Schlüssel mit Kosten pro Token genutzt werden soll (SPEC 19 Nr. 4).
 - **Abnahme:** Drei Läufe hintereinander ohne manuellen Eingriff.
+- **Gebaut (22.10.2026, ADR 0015):** ohne API-Schlüssel, lokal über das Abo. `zeitplan.py` (Leichtlauf mit Sperre, Universum, Noten der Beobachtungsliste, Ereignisse nach SPEC 9.2, Markierungen, Tiefenanalyse nur bei Tiefe im Profil), `benachrichtigung.py` (Datei, Mitteilung auf dem Mac, Telegram, E-Mail über `.env`), `eskalation_issues.py` (SPEC 16.14), `stockagent zeitplan an|aus|status|lauf|einrichten|entfernen` (launchd), Profil `scheduled` und Abschnitt `zeitplan` in `config/run_profiles.yaml`. Abnahme: drei Läufe hintereinander in `tests/test_zeitplan.py`. Nicht gebaut: `scheduled-run.yml` (nur mit API-Schlüssel), Ad-hoc-Warnsignale ohne Quelle.
 
 ### Nach Schritt 12: Teilen und Unabhängigkeit von Claude (Lucas Ziel, 14.10.2026)
 
