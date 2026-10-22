@@ -1041,6 +1041,21 @@ def listing_lei(conn: duckdb.DuckDBPyConnection, isins: list[str]) -> str | None
     return leis.pop() if len(leis) == 1 else None
 
 
+def anzahl_zugeordnet(conn: duckdb.DuckDBPyConnection) -> int:
+    """Anzahl der US-ISINs mit CIK (Kandidaten für Vergleichsgruppen)."""
+    row = conn.execute("SELECT count(*) FROM isin_cik WHERE status = 'zugeordnet'").fetchone()
+    return int(row[0]) if row else 0
+
+
+def us_zuordnung_stand(conn: duckdb.DuckDBPyConnection) -> tuple[int, int]:
+    """(US-ISINs im Universum, davon nie der SEC zugeordnet oder geprüft)."""
+    row = conn.execute(
+        "SELECT count(*), count(*) FILTER (WHERE m.isin IS NULL) FROM listings l "
+        "LEFT JOIN isin_cik m ON m.isin = l.isin WHERE l.listed AND l.isin_country = 'US'"
+    ).fetchone()
+    return (int(row[0]), int(row[1])) if row else (0, 0)
+
+
 def berichte_seit(
     conn: duckdb.DuckDBPyConnection, seit: date, limit: int = 200
 ) -> list[tuple[str, datetime, str | None]]:

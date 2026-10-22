@@ -13,7 +13,7 @@
 # "Quality Minus Junk"). Nähe zum 52-Wochen-Hoch: George und Hwang (2004, Journal of Finance).
 # Kursdrift nach Berichten: Bernard und Thomas (1989), Chan, Jegadeesh und Lakonishok (1996).
 # Idee aus den Trading-Skills (pead-screener, earnings-trade-analyzer), gebaut aus eigenen Daten.
-version: "1.0"
+version: "1.1"
 
 standard: mittel   # Horizont der Hauptnote (grades.grade, Notenkontrolle)
 
@@ -40,5 +40,5 @@ momentum:
     - {kennzahl: naehe_52w_hoch, statistik: aktuell, richtung: hoch}   # Kurs / Hoch der 52 Wochen
     - {kennzahl: abstand_ma200, statistik: aktuell, richtung: hoch}    # Kurs zur 200-Tage-Linie
     - {kennzahl: reaktion_bericht, statistik: aktuell, richtung: hoch} # Kursreaktion letzter Bericht
-    - {kennzahl: revenue_growth, statistik: wert, richtung: hoch}      # Umsatzwachstum letztes Jahr
-    - {kennzahl: ebit_margin, statistik: veraenderung_vj, richtung: hoch}   # Margenverbesserung
+    # Umsatzwachstum und Margenänderung des letzten Jahres sind seit Version 1.1 nicht mehr hier:
+    # Die Säule Wachstum misst Umsatz und Marge schon (Review 22.10.2026, Befund 9)

@@ -16,6 +16,7 @@ from typing import Any
 
 import yaml
 
+from stockagent.core import accounting
 from stockagent.data import store
 from stockagent.paths import Paths
 
@@ -240,4 +241,5 @@ def methodik(paths: Paths) -> dict[str, Any]:
         "grenzen": lauf["grenzen"],
         "stile": lauf["stile"],
         "changelog": changelog.read_text("utf-8") if changelog.exists() else "",
+        "rechnungslegung": accounting.regeln(yml("accounting_adjustments.yaml")),
     }

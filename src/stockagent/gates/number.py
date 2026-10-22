@@ -22,6 +22,24 @@ PAGE_REF = re.compile(
 )
 YEAR = re.compile(r"(?<![\d.,])(?:19|20)\d{2}(?![\d.,%])")
 DIGIT = re.compile(r"\d")
+# Ausgeschriebene Zahlen vor einer Einheit („drei Prozent“, „zwanzig Milliarden“) und
+# Vervielfachungen („verdoppelt“, „halbiert“) sind Finanzwerte in Worten (HR-01). Zählwörter ohne
+# Einheit („zwei Segmente“) bleiben erlaubt.
+ZAHLWORT = (
+    r"(?:zwei|drei|vier|fünf|fuenf|sechs|sieben|acht|neun|zehn|elf|zwölf|zwoelf|"
+    r"\w*zehn|\w*zig|\w*ßig|\w*hundert\w*|\w*tausend\w*|halbe[nrs]?|eineinhalb|anderthalb|"
+    r"one|two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|forty|fifty|hundred|thousand)"
+)
+EINHEIT = (
+    r"(?:prozent\w*|prozentpunkt\w*|basispunkt\w*|mio\.?|millionen?|mrd\.?|milliarden?|"
+    r"billionen?|euro|dollar|usd|eur|cent|mal|fache?n?|percent|million|billion|times)"
+)
+ZAHL_IN_WORTEN = re.compile(
+    rf"\b{ZAHLWORT}\s*-?\s*{EINHEIT}\b"
+    r"|\b(?:ver(?:doppel|dreifach|vierfach|zehnfach)\w*|halbier\w*|gedrittelt|"
+    r"doubled|tripled|halved)\b",
+    re.IGNORECASE,
+)
 
 
 def offending(text: str) -> list[str]:
@@ -33,6 +51,7 @@ def offending(text: str) -> list[str]:
     for m in DIGIT.finditer(cleaned):
         start = max(0, m.start() - 15)
         hits.append(text[start : m.end() + 15].strip())
+    hits.extend(m.group(0) for m in ZAHL_IN_WORTEN.finditer(cleaned))
     return hits
 
 

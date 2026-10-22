@@ -272,6 +272,23 @@ def titel_detail(paths: Paths, isin: str) -> dict[str, Any]:
         "notiz": merk.notizen().get(isin, ""),
         "tr": pruefung.status.value if pruefung else "ungeprueft",
         "verlauf": historie.notenverlauf(paths, isin),
+        "tiefenanalyse": eskalationen.tiefenanalyse_ergebnisse(paths).get(isin),
+        "quellensteuer": _quellensteuer(paths, info[1] if info else None),
+    }
+
+
+def _quellensteuer(paths: Paths, land: str | None) -> dict[str, Any] | None:
+    """Quellensteuer auf Dividenden im Sitzland, nur Information (SPEC 5.2 Nr. 12)."""
+    import yaml
+
+    cfg = yaml.safe_load((paths.config / "withholding_tax.yaml").read_text("utf-8")) or {}
+    eintrag = (cfg.get("laender") or {}).get(land or "")
+    if not eintrag:
+        return None
+    return {
+        **{k: str(v) for k, v in eintrag.items()},
+        "quelle": str(cfg.get("quelle", "")),
+        "geprueft": bool(cfg.get("geprueft")),
     }
 
 

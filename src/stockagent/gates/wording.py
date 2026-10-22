@@ -21,6 +21,17 @@ FORBIDDEN = [
     r"\bprice\s+target\b",
     r"\b(buy|sell)\s+rating\b",
     r"\bkaufchance\w*\b",
+    r"\b(einstieg|kauf)s?(chance|gelegenheit|signal|zeitpunkt)\w*\b",
+    r"\bverkaufssignal\w*\b",
+    r"\b(zugreifen|zuschlagen)\b",
+    r"\b(über|ueber|unter)gewichten\b",
+    r"\b(akkumulieren|nachkaufen|aufstocken|glattstellen)\b",
+    r"\b(outperform|underperform|overweight|underweight)\w*\b",
+    r"\blohnt\s+sich\s+(ein|der|jetzt)?\s*(kauf|einstieg|verkauf)\b",
+    r"\b(man|anleger|investoren)\s+sollten?\s+(\w+\s+){0,3}(kaufen|verkaufen|einsteigen)\b",
+    r"\b(kurs|aufwärts|aufwaerts)potenzial\w*\b",
+    r"\bupside\b",
+    r"\bkursverdopp\w*\b",
 ]
 _PATTERN = re.compile("|".join(FORBIDDEN), re.IGNORECASE)
 

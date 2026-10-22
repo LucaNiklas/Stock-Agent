@@ -1,5 +1,29 @@
-# Quellensteuer auf Dividenden (SPEC 5.2 Nr. 12).
-# PLATZHALTER: wird in Bauschritt 7 gebaut (docs/BAUPLAN.md).
-#
-# Inhalt: Satz je Land mit Quelle und Datum. Nur Information im Bericht, keine Steuerrechnung
-#   (Steuer ist außerhalb des Umfangs).
+# Quellensteuer auf Dividenden (SPEC 5.2 Nr. 12). Version bei Änderung erhöhen.
+# Nur Information auf der Unternehmensseite und im Bericht, keine Steuerrechnung (Steuer ist
+# außerhalb des Umfangs). Gesetzlicher Satz im Sitzland und der Satz, der für in Deutschland
+# ansässige Anleger nach Doppelbesteuerungsabkommen (DBA) angerechnet werden kann. Erstattung des
+# Unterschieds nur auf Antrag beim Sitzland.
+# geprueft: false heißt, Luca hat die Sätze noch nicht gegen die Quellen geprüft.
+version: "1.0"
+quelle: "Bundeszentralamt für Steuern, Übersicht Quellensteuersätze nach DBA; Steuergesetze der Länder (Stand 2026)"
+geprueft: false
+laender:
+  DE: {satz: "0.26375", anrechenbar: "0.26375", hinweis: Kapitalertragsteuer mit Solidaritätszuschlag}
+  US: {satz: "0.30", anrechenbar: "0.15", hinweis: 15 Prozent mit Formular W-8BEN beim Broker}
+  CH: {satz: "0.35", anrechenbar: "0.15", hinweis: Rückforderung von 20 Prozentpunkten auf Antrag}
+  FR: {satz: "0.25", anrechenbar: "0.128", hinweis: ermäßigter Satz mit Formular 5000}
+  NL: {satz: "0.15", anrechenbar: "0.15"}
+  GB: {satz: "0", anrechenbar: "0", hinweis: keine Quellensteuer auf Dividenden}
+  IE: {satz: "0.25", anrechenbar: "0.15"}
+  IT: {satz: "0.26", anrechenbar: "0.15"}
+  ES: {satz: "0.19", anrechenbar: "0.15"}
+  AT: {satz: "0.275", anrechenbar: "0.15"}
+  BE: {satz: "0.30", anrechenbar: "0.15"}
+  DK: {satz: "0.27", anrechenbar: "0.15"}
+  SE: {satz: "0.30", anrechenbar: "0.15"}
+  "NO": {satz: "0.25", anrechenbar: "0.15"}
+  FI: {satz: "0.35", anrechenbar: "0.15"}
+  PT: {satz: "0.25", anrechenbar: "0.15"}
+  JP: {satz: "0.15315", anrechenbar: "0.15"}
+  CA: {satz: "0.25", anrechenbar: "0.15"}
+  AU: {satz: "0.30", anrechenbar: "0.15", hinweis: voll versteuerte (franked) Dividenden ohne Quellensteuer}
