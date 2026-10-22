@@ -108,6 +108,8 @@ class Zeile:
     dividendenrendite: str = ""
     bewertet_am: str = ""
     lei: bool = False
+    # Bauschritt 12: letztes Ereignis aus Läufen nach Zeitplan (state/markierungen.yaml)
+    ereignis: str = ""
 
 
 def _insider_text(d: dict[str, Any] | None) -> str:
@@ -118,6 +120,13 @@ def _insider_text(d: dict[str, Any] | None) -> str:
         return "kein Signal"
     wert = Decimal(str(d["saeule"]))
     return "Käufe" if wert > 50 else "Verkäufe" if wert < 50 else "kein Signal"
+
+
+def _ereignis(eintraege: list[dict[str, Any]] | None) -> str:
+    if not eintraege:
+        return ""
+    e = eintraege[0]
+    return f"{e.get('tag', '')}: {e.get('art', '')}, {e.get('text', '')}"
 
 
 class Daten:
@@ -151,6 +160,7 @@ class Daten:
         sterne = merk.sterne()
         checks = tr_checks.load(self.paths.tr_checks)
         stufen = tiers.stufen_aller(self.paths)
+        marken = _yaml(self.paths.root / "state" / "markierungen.yaml")
         conn = store.connect(self.paths.db)
         try:
             rows = conn.execute(
@@ -218,6 +228,7 @@ class Daten:
                     dividendenrendite=str(dividenden.get(issuer) or "") if issuer else "",
                     bewertet_am=f"{g.computed_at:%Y-%m-%d}" if g else "",
                     lei=bool(lei),
+                    ereignis=_ereignis(marken.get(isin)),
                 )
             )
         with self.lock:

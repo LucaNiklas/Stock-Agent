@@ -120,6 +120,11 @@ ERLAUBT: dict[tuple[str, str], str] = {
         "lauf.py",
         "now.date() - timedelta(days=int(sc['vergleichsgruppe']['erneuern_tage']))",
     ): "Datum, ab dem eine Note als veraltet gilt",
+    (
+        "eskalation_issues.py",
+        "kopf + yaml.safe_dump({'issues': dict(sorted(issues.items()))}, allow_unicode=True)",
+    ): "Text",
+    ("zeitplan.py", "seit.date() - timedelta(days=cluster_tage)"): "Datum ab Cluster",
 }
 # Listen und Zähler, die mit += wachsen (keine Finanzwerte)
 ERLAUBT_ANHAENGEN = {"sql", "params", "flags", "detail"}

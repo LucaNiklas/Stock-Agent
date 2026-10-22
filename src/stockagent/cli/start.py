@@ -335,6 +335,20 @@ def run(
             raise typer.BadParameter(f"Profil {profile} fehlt in config/run_profiles.yaml")
         if p.get("aktiv") is False:
             raise typer.BadParameter(f"Profil {profile} ist aus ({p.get('beschreibung')})")
+        if p.get("zeitplan"):
+            # Lauf nach Zeitplan: keine Rückfragen, eigener Ablauf (Bauschritt 12, ADR 0015)
+            from stockagent import zeitplan
+
+            try:
+                zerg = zeitplan.ausfuehren(paths, melde=typer.echo)
+            except zeitplan.ZeitplanFehler as exc:
+                typer.echo(str(exc))
+                raise typer.Exit(code=1) from exc
+            typer.echo(
+                f"Fertig: {zerg.bewertet} bewertet, {len(zerg.ereignisse)} Ereignisse. "
+                f"Laufübersicht: runs/_laeufe/{zerg.lauf_id}/report.md"
+            )
+            return
         optionen.update({k: v for k, v in p.items() if k not in ("beschreibung", "aktiv")})
         weg = "profil"
     if ansicht:

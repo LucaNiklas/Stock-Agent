@@ -47,8 +47,25 @@ profile:
     beschreibung: Beobachtungsliste mit Tiefenanalyse der besten
     beobachtungsliste: nur
     tiefe: standard
-  scheduled:   # Bauschritt 12 (optional), bis dahin aus
-    beschreibung: Lauf nach Zeitplan ohne Rückfragen (Bauschritt 12)
-    aktiv: false
+  scheduled:   # Bauschritt 12, ADR 0015. Läuft nur, wenn Luca den Zeitplan einschaltet
+    beschreibung: Täglicher Leichtlauf nach Zeitplan, ohne Rückfragen und ohne Modellkosten
+    zeitplan: true
     beobachtungsliste: nur
-    tiefe: schnell
+    tiefe: schnell   # standard oder tief: Ereignistitel bekommen eine Tiefenanalyse (Abo)
+
+# Lauf nach Zeitplan (SPEC 9.1, 9.2, 13.4, 16.14, ADR 0015). Ein- und ausschalten:
+# `stockagent zeitplan an|aus` (state/zeitplan.yaml), lokal starten über `stockagent zeitplan
+# einrichten` (macOS launchd) oder eine geplante Aufgabe der Claude-Desktop-App.
+zeitplan:
+  uhrzeit: "07:30"
+  universum_aktualisieren: true    # Liste der Deutschen Börse, höchstens wöchentlich (config/sources.yaml)
+  insider_cluster_tage: 30         # Cluster-Käufe im Universum: Handelstag höchstens so alt
+  tiefenanalyse: warteschlange     # bei Tiefe standard/tief: warteschlange (Dashboard) oder nacheinander
+  dashboard_adresse: "http://127.0.0.1:8765/#aenderungen"
+  benachrichtigung:
+    # datei: immer, runs/_laeufe/<lauf>/nachricht.txt
+    # macos: Mitteilung auf diesem Mac (osascript)
+    # telegram: Umgebungsvariablen TELEGRAM_BOT_TOKEN und TELEGRAM_CHAT_ID (.env)
+    # smtp: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORT, SMTP_AN (.env)
+    kanaele: [datei, macos]
+  github_issues: true              # SPEC 19 Nr. 5: eskalierte Fälle als Issue mit Label escalation

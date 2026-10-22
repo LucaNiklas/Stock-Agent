@@ -255,6 +255,7 @@ def ausfuehren(
     bewerten: Bewerten | None = None,
     tief: Tief | None = None,
     melde: Melde = lambda _: None,
+    merken: bool = True,
 ) -> Ergebnis:
     """Lauf nach Lucas Bestätigung. `tief = None`: Tiefenanalysen nur auflisten (etwa für den
     Skill `/stockagent`, der sie selbst über `/analyze-stock` ausführt)."""
@@ -264,7 +265,8 @@ def ausfuehren(
     ziel.mkdir(parents=True, exist_ok=True)
     (ziel / "request.json").write_text(a.model_dump_json(indent=2), "utf-8")
     (ziel / "plan.json").write_text(json.dumps(asdict(plan), ensure_ascii=False, indent=2), "utf-8")
-    letzte_anfrage_speichern(paths, a)
+    if merken:  # Läufe nach Zeitplan überschreiben Lucas letzte Anfrage nicht
+        letzte_anfrage_speichern(paths, a)
 
     fertig, fehler = [], {}
     for nr, isin in enumerate(plan.zu_bewerten, start=1):
