@@ -22,11 +22,6 @@ def test_cli_version() -> None:
     assert res.exit_code == 0 and res.stdout.strip() == "0.1.0"
 
 
-def test_cli_unbuilt_commands_say_so() -> None:
-    res = CliRunner().invoke(app, ["run"])
-    assert res.exit_code == 2 and "Bauschritt 11" in res.stdout
-
-
 def test_registry_matches_metrics_yaml() -> None:
     """HR-06: jede Kennzahl in metrics.yaml hat genau eine registrierte Funktion und umgekehrt."""
     cfg = yaml.safe_load((ROOT / "config" / "metrics.yaml").read_text(encoding="utf-8"))

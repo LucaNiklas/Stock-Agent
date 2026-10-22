@@ -14,6 +14,7 @@ extern:
 
 agenten:
   A0_kategorie: fast
+  U0_uebersetzer: fast   # Satz in Filter (SPEC 9.9), ohne Werkzeuge, Bauschritt 11
   A1_datenbeschaffung: fast
   A2_extraktion_1: standard
   A2_extraktion_2: extern

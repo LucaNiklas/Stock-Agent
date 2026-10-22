@@ -1041,6 +1041,36 @@ def listing_lei(conn: duckdb.DuckDBPyConnection, isins: list[str]) -> str | None
     return leis.pop() if len(leis) == 1 else None
 
 
+def berichte_seit(
+    conn: duckdb.DuckDBPyConnection, seit: date, limit: int = 200
+) -> list[tuple[str, datetime, str | None]]:
+    """Emittenten mit Abschlusswerten, die nach `seit` veröffentlicht wurden: (Emittent, Tag der
+    letzten Veröffentlichung, Formular). Für die Ansicht Änderungen (SPEC 13.3), keine Rechnung."""
+    return [
+        (str(r[0]), r[1], r[2])
+        for r in conn.execute(
+            "SELECT issuer_id, max(published_at), arg_max(form, published_at) FROM facts "
+            "WHERE published_at > ? GROUP BY issuer_id ORDER BY 2 DESC LIMIT ?",
+            [seit, limit],
+        ).fetchall()
+    ]
+
+
+def restatements_seit(
+    conn: duckdb.DuckDBPyConnection, seit: date
+) -> list[tuple[str, int, datetime]]:
+    """Emittenten mit Restatements, deren geänderte Fassung nach `seit` erschien: (Emittent,
+    Anzahl geänderter Werte, letzte Veröffentlichung). Für die Ansicht Änderungen."""
+    return [
+        (str(r[0]), int(r[1]), r[2])
+        for r in conn.execute(
+            "SELECT a.issuer_id, count(*), max(b.published_at) FROM facts a JOIN facts b "
+            "ON a.superseded_by = b.fact_id WHERE b.published_at > ? GROUP BY 1 ORDER BY 3 DESC",
+            [seit],
+        ).fetchall()
+    ]
+
+
 def restatements(
     conn: duckdb.DuckDBPyConnection, *, as_of: datetime, issuer_id: str
 ) -> list[tuple[StoredFact, StoredFact]]:

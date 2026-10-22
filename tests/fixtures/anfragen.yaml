@@ -1,0 +1,34 @@
+# Abnahme Bauschritt 11 (BAUPLAN, SPEC 9.9): Beispielsätze und der Filter, den die Wortliste
+# daraus machen muss. Nur die genannten Felder werden geprüft, alle übrigen müssen leer bzw.
+# Standard sein. `abgelehnt: true`: der Satz muss abgelehnt werden, statt zu raten.
+saetze:
+  - text: "Tier 1 Aktien aus Griechenland, Branche Automobil, bewerte sie"
+    erwartet: {stufen: [1], laender: [GR], unterbranchen: [auto], bewerten: true}
+  - text: "Halbleiter aus den USA mit Note A oder B"
+    erwartet: {laender: [US], unterbranchen: [halbleiter], noten: [A, B]}
+  - text: "Europäische Banken"
+    erwartet: {region: europa, unterbranchen: [banken]}
+  - text: "Deutsche Industriewerte Tier 1 bis 2"
+    erwartet: {stufen: [1, 2], laender: [DE], hauptbranchen: [industrie]}
+  - text: "Pharma aus der Schweiz, nur bei Trade Republic geprüfte"
+    erwartet: {laender: [CH], unterbranchen: [pharma], handelbarkeit: bestaetigt}
+  - text: "Small Caps aus Nordamerika im Bereich Software"
+    erwartet: {region: nordamerika, unterbranchen: [software], groessen: [small]}
+  - text: "Versorger aus DACH mit hoher Dividende"
+    erwartet: {region: dach, hauptbranchen: [versorger], stile: [dividende]}
+  - text: "Qualitätsaktien langfristig, Note A"
+    erwartet: {stile: [qualitaet], horizont: lang, noten: [A]}
+  - text: "Attraktive Aktien aus Japan, Large und Mega Caps"
+    erwartet: {laender: [JP], groessen: [mega, large], kategorien: [Attraktiv]}
+  - text: "Meine Beobachtungsliste tief analysieren"
+    erwartet: {beobachtungsliste: nur, tiefe: tief, bewerten: true}
+  - text: "REITs aus Nordamerika mit Insider-Käufen, kurzfristig"
+    erwartet: {region: nordamerika, unterbranchen: [reits], stile: [insider], horizont: kurz}
+  - text: "Tier 1 und 3 Biotech aus Dänemark und Schweden"
+    erwartet: {stufen: [1, 3], laender: [DK, SE], unterbranchen: [biotech]}
+  - text: "Tier 1 Aktien aus Atlantis"
+    abgelehnt: true
+  - text: "Branche Raumschiffbau aus Deutschland"
+    abgelehnt: true
+  - text: "Turnaround-Kandidaten aus Italien"
+    abgelehnt: true

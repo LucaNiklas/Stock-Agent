@@ -58,7 +58,7 @@ ERLAUBT: dict[tuple[str, str], str] = {
         "bewertung.py",
         "int(cfg.scoring['vergleichsgruppe']['mindest']) - 1",
     ): "Mindestzahl der Vergleichstitel ohne die Firma selbst",
-    ("dashboard/app.py", "s - {isin}"): "Mengendifferenz",
+    ("titelliste.py", "s - {isin}"): "Mengendifferenz",
     ("data/sources/esef.py", "dt.date() - timedelta(days=1)"): "halboffenes Periodenende (Datum)",
     ("metrics_update.py", "config.parent / 'state' / name"): "Pfad",
     (
@@ -107,6 +107,19 @@ ERLAUBT: dict[tuple[str, str], str] = {
     ("kapitalmarkt_update.py", "kopf + 1"): "Zeile nach der Kopfzeile",
     ("kapitalmarkt_update.py", "now.year + 1"): "Jahresdateien bis zum laufenden Jahr",
     ("kapitalmarkt_update.py", "[r[0] for r in rows] + ([bis] if bis else [])"): "Liste",
+    ("anfrage.py", "paths.config / name"): "Pfad",
+    (
+        "anfrage.py",
+        "kopf + yaml.safe_dump({'ansichten': alle}, sort_keys=True, allow_unicode=True)",
+    ): "Text",
+    ("dashboard/app.py", "paths.runs / z.run_id"): "Pfad",
+    ("historie.py", "paths.root / CHANGELOG"): "Pfad",
+    ("historie.py", "paths.config / name"): "Pfad",
+    ("lauf.py", "paths.runs / '_laeufe' / lauf_id"): "Pfad",
+    (
+        "lauf.py",
+        "now.date() - timedelta(days=int(sc['vergleichsgruppe']['erneuern_tage']))",
+    ): "Datum, ab dem eine Note als veraltet gilt",
 }
 # Listen und Zähler, die mit += wachsen (keine Finanzwerte)
 ERLAUBT_ANHAENGEN = {"sql", "params", "flags", "detail"}

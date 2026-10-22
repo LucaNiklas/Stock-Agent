@@ -1,6 +1,6 @@
 # Projektstand (Übergabe)
 
-Stand: 21.10.2026, Bauschritte bis 10 gebaut, dazu der Anlagehorizont. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
+Stand: 22.10.2026, Bauschritte bis 11 gebaut, dazu der Anlagehorizont. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
 
 ## Was das System ist
 
@@ -30,11 +30,14 @@ Luca hält Einzelaktien einige Monate bis etwa 5 Jahre (SPEC 2.1a). Die Note gib
 | 8 | Branchen-Scorecards: Banken, Versicherer, Immobilien, Versorger, Zykliker, Wachstum ohne Gewinn, Holdings als N (ADR 0010) | Branch `schritt-08-scorecards` |
 | Horizont | Säule Momentum, Note je Anlagehorizont, Auswahl und Filter im Dashboard (ADR 0011) | Branch `schritt-08-horizont` |
 | 9 | Insider aus SEC Form 4, Säule Insider, Agent A6 (ADR 0012) | LucaNiklas/Stock-Agent#21 |
-| 10 | Jury J3, Endkontrolle J4, Forensik F1, Eskalationen, Goldstandard, Gemini mit Rückfall (ADR 0013) | Branch `schritt-10-pruefer` |
+| 10 | Jury J3, Endkontrolle J4, Forensik F1, Eskalationen, Goldstandard, Gemini mit Rückfall (ADR 0013) | LucaNiklas/Stock-Agent#22 |
+| 11 | Suche in eigenen Worten, Laufplan, `stockagent run` mit Dialog, Skill `/stockagent`, Dashboard mit Änderungen, Karte, Vergleich, Historie, Methodik, gespeicherte Ansichten (ADR 0014) | Branch `schritt-11-start` |
 
 Die Pull Requests für diese Branches werden gestapelt angelegt und von unten nach oben gemergt.
 
 ## Stand der Daten (lokal, nicht im Repository)
+
+Achtung: Die Schritte 2 bis 10 wurden in Cloud-Sitzungen gebaut. Die Daten unten lagen dort. Auf Lucas Mac enthält `data/stockagent.duckdb` (Stand 22.10.2026) nur das Universum aus Schritt 1, Abschlussdaten, Kurse und Noten müssen dort erst geladen werden.
 
 - `data/stockagent.duckdb` (Schema 12, ältere Versionen ab 3 werden beim Öffnen aufgerüstet): 14.509 Aktien. Von 4.021 US-ISINs sind 3.117 einer CIK zugeordnet.
 - Abschlusswerte und Kennzahlen für die bisher bewerteten Titel und ihre Vergleichsgruppen (je bis zu 50 Firmen), darunter die Abnahmefirmen der Schritte 2 bis 8.
@@ -62,6 +65,7 @@ Die Pull Requests für diese Branches werden gestapelt angelegt und von unten na
 - ADR 0011: Anlagehorizont, Säule Momentum mit 40 / 15 / 0 Prozent je Horizont.
 - ADR 0012: Insider-Signal aus Form 4 als fester Säulenwert, A6 nur bei Geschäften in 24 Monaten.
 - ADR 0013: J4 ohne Sprachmodell, Jury aus drei Richtern, F1 nur bei Warnsignal, Goldstandard mit Kandidaten bis zu Lucas Prüfung.
+- ADR 0014: Anfrage als festes Schema, Wortliste vor Modell, unbekannte Werte werden abgelehnt, Laufplan mit Grenze 3 Tiefenanalysen und 250 Bewertungen je Lauf.
 
 ## Offen und bekannt
 
@@ -76,6 +80,8 @@ Die Pull Requests für diese Branches werden gestapelt angelegt und von unten na
 - **Momentum:** Kursreaktion auf Berichte als Rohrendite ohne Marktindex, Gewinnüberraschungen gegen Analystenschätzungen fehlen (keine Quelle).
 - **PDF-Rückfall mit Docling und A2** (SPEC 7.4) nicht gebaut.
 - **Mehrfachlistings:** Zusammenführung über die LEI für die Emittentensuche gebaut, im Dashboard noch je Listing eine Zeile.
+- **Schritt 11 nicht gebaut:** Chancen-Karte, Themen ohne Branchencode (A0), Abo-Verbrauch aus `log.jsonl`, Neuanalyse statt Wiederholung (SPEC 9.4). Stil „Turnaround“ abgelehnt, bis Luca ein Merkmal festlegt (ADR 0014).
+- **Claude Code auf Lucas Mac:** `claude` ist im Terminal nicht gefunden (nur die Desktop-App). Ohne den Befehl gehen Tiefenanalyse und Übersetzen freier Sätze über das Modell nicht, Wortliste, Filter und Noten schon. Das Dashboard zeigt einen Hinweis.
 
 ## Wichtige Befehle
 
@@ -91,16 +97,12 @@ uv run pytest && uv run ruff check . && uv run mypy
 
 ## Nächster Schritt
 
-1. PR für Schritt 10 (Branch `schritt-10-pruefer`): CI abwarten, mergen nach Lucas Freigabe.
-2. Abnahme Schritt 8 abschließen: Lauf `abnahme8c` (Duke bis MongoDB, danach Intel-Insider) prüfen,
-   Ergebnisse in ADR 0010 und hier eintragen (eigener PR). Bisher: JPM C·K1·R2 (nach Neuladen,
-   vorher K4 wegen veralteter Kennzahlen), BAC D·K1·R2, WFC D·K2·R3, Progressive C·K1·R2,
-   Travelers C·K1·R2, Allstate C·K1·R3, Prologis C·K1·R3, Realty Income D·K3·R2, Simon C·K1·R2.
-3. Auf Lucas Mac: `stockagent tool gemini-test`, `eval/run_eval.py --live` (Aufzeichnung
-   einchecken), eine Tiefenanalyse mit `/analyze-stock` und `/review-escalations` ausprobieren.
-4. Danach Bauschritt 11: Start und Dashboard.
+1. PR für Schritt 11 (Branch `schritt-11-start`): CI abwarten, mergen nach Lucas Freigabe.
+2. Auf Lucas Mac Daten laden (Lucas Vorgabe 22.10.2026: nach Schritt 11): `sec update`, `markt update`, `fx update`, dann Abnahmefirmen bewerten, Abnahme Schritt 8 abschließen (Ergebnisse in ADR 0010).
+3. Claude Code für das Terminal installieren, dann auf dem Mac: `stockagent tool gemini-test`, `eval/run_eval.py --live` (Aufzeichnung einchecken), eine Tiefenanalyse mit `/analyze-stock`, `/review-escalations` und `/stockagent` ausprobieren.
+4. Danach Bauschritt 12 (optional): Zeitplan, braucht Lucas Entscheidung zu API-Schlüssel und Kosten.
 
 Fragen an Luca (gesammelt): BaFin-Domain `portal.mvp.bafin.de` freigeben, Abdeckung DAX,
-CHF/DKK-Kurse, ADR-Verhältnisse (Philips, ASML NY, Ericsson), `claude -p` und Hooks auf dem Mac
-testen, Zeitlimit 60 statt 20 Minuten, Goldkandidaten prüfen, Beneish-Kappung nach Entkräftung
-durch F1 aufheben oder nicht (ADR 0013).
+CHF/DKK-Kurse, ADR-Verhältnisse (Philips, ASML NY, Ericsson), Zeitlimit 60 statt 20 Minuten,
+Goldkandidaten prüfen, Beneish-Kappung nach Entkräftung durch F1 aufheben oder nicht (ADR 0013),
+Merkmal für den Stil „Turnaround“ und Grenzen je Lauf (ADR 0014).

@@ -1,0 +1,195 @@
+# Wortliste für die Suche in eigenen Worten (SPEC 9.9, ADR 0014). Version bei Änderung erhöhen.
+# Ein Wort mit * am Ende passt auf jeden Wortanfang („deutsch*“ auf deutsche, deutschen). Mehrere
+# Wörter stehen für eine feste Wortfolge. Groß- und Kleinschreibung zählt nicht, Bindestriche
+# trennen Wörter („US-Aktien“ = „us aktien“). Was hier fehlt, versteht erst das Modell (claude -p),
+# und auch das nur mit Werten aus diesen Listen.
+version: "1.0"
+
+# Land des Hauptsitzes (ISO 3166). Nur Länder, die im Universum vorkommen können.
+laender:
+  DE: {name: Deutschland, woerter: [deutschland, deutsch*, germany, german*]}
+  AT: {name: Österreich, woerter: [österreich*, oesterreich*, austria*]}
+  CH: {name: Schweiz, woerter: [schweiz*, switzerland, swiss]}
+  FR: {name: Frankreich, woerter: [frankreich, französisch*, franzoesisch*, france, french]}
+  NL: {name: Niederlande, woerter: [niederlande, niederländisch*, holland, holländisch*, netherlands, dutch]}
+  BE: {name: Belgien, woerter: [belgien, belgisch*, belgium]}
+  LU: {name: Luxemburg, woerter: [luxemburg*]}
+  IT: {name: Italien, woerter: [italien*, italy]}
+  ES: {name: Spanien, woerter: [spanien, spanisch*, spain]}
+  PT: {name: Portugal, woerter: [portugal, portugiesisch*]}
+  IE: {name: Irland, woerter: [irland, irisch*, ireland]}
+  GB: {name: Großbritannien, woerter: [großbritannien, grossbritannien, britisch*, england, englisch*, uk, vereinigtes königreich, united kingdom]}
+  DK: {name: Dänemark, woerter: [dänemark, daenemark, dänisch*, daenisch*, denmark]}
+  SE: {name: Schweden, woerter: [schweden, schwedisch*, sweden]}
+  "NO": {name: Norwegen, woerter: [norwegen, norwegisch*, norway]}
+  FI: {name: Finnland, woerter: [finnland, finnisch*, finland]}
+  PL: {name: Polen, woerter: [polen, polnisch*, poland]}
+  CZ: {name: Tschechien, woerter: [tschechien, tschechisch*]}
+  HU: {name: Ungarn, woerter: [ungarn, ungarisch*]}
+  GR: {name: Griechenland, woerter: [griechenland, griechisch*, greece, greek]}
+  US: {name: USA, woerter: [usa, us, vereinigte staaten, amerika, amerikanisch*, united states]}
+  CA: {name: Kanada, woerter: [kanada, kanadisch*, canada]}
+  JP: {name: Japan, woerter: [japan*, japanisch*]}
+  AU: {name: Australien, woerter: [australien, australisch*, australia]}
+  NZ: {name: Neuseeland, woerter: [neuseeland]}
+  HK: {name: Hongkong, woerter: [hongkong, hong kong]}
+  SG: {name: Singapur, woerter: [singapur]}
+  KR: {name: Südkorea, woerter: [südkorea, suedkorea, korea, koreanisch*]}
+  TW: {name: Taiwan, woerter: [taiwan*]}
+  CN: {name: China, woerter: [china, chinesisch*]}
+  IN: {name: Indien, woerter: [indien, indisch*, india]}
+  BR: {name: Brasilien, woerter: [brasilien, brasilianisch*, brazil]}
+  MX: {name: Mexiko, woerter: [mexiko, mexikanisch*]}
+  ZA: {name: Südafrika, woerter: [südafrika, suedafrika]}
+  TR: {name: Türkei, woerter: [türkei, tuerkei, türkisch*]}
+  IL: {name: Israel, woerter: [israel*]}
+  BM: {name: Bermuda, woerter: [bermuda]}
+  JE: {name: Jersey, woerter: [jersey]}
+
+# Regionen. Länder aus config/scoring.yaml (vergleichsgruppe.regionen), außer wo hier `laender`
+# steht (DACH ist keine Region der Vergleichsgruppe).
+regionen:
+  dach: {name: DACH, laender: [DE, AT, CH], woerter: [dach]}
+  europa: {name: Europa, woerter: [europa, europäisch*, europaeisch*, europe, european]}
+  nordamerika: {name: Nordamerika, woerter: [nordamerika, nordamerikanisch*, north america]}
+  asien_pazifik: {name: Asien-Pazifik, woerter: [asien pazifik, asien, asiatisch*, pazifik]}
+  schwellenlaender: {name: Schwellenländer, woerter: [schwellenländer*, schwellenlaender*, schwellenland, emerging markets]}
+
+# Branchen: Wort -> Haupt- oder Unterbranche aus config/sectors.yaml. Die Namen aus
+# config/sectors.yaml selbst gelten zusätzlich.
+branchen:
+  energie*: energie
+  öl: oel_gas
+  oel: oel_gas
+  ölkonzern*: oel_gas
+  erdöl*: oel_gas
+  kohle*: kohle
+  grundstoff*: grundstoffe
+  rohstoff*: grundstoffe
+  chemie*: chemie
+  bergbau*: metalle_bergbau
+  minen*: metalle_bergbau
+  stahl*: metalle_bergbau
+  metall*: metalle_bergbau
+  baustoff*: baustoffe
+  verpackung*: papier_verpackung
+  industrie*: industrie
+  rüstung*: luftfahrt_verteidigung
+  ruestung*: luftfahrt_verteidigung
+  verteidigung*: luftfahrt_verteidigung
+  luftfahrt*: luftfahrt_verteidigung
+  maschinenbau*: maschinenbau
+  maschinenbauer*: maschinenbau
+  elektrotechnik*: elektrotechnik
+  bauwirtschaft: bau
+  baukonzern*: bau
+  logistik*: transport
+  transport*: transport
+  auto: auto
+  autos: auto
+  automobil*: auto
+  autobauer*: auto
+  autohersteller*: auto
+  autozulieferer*: auto
+  luxus*: bekleidung
+  mode*: bekleidung
+  bekleidung*: bekleidung
+  einzelhandel*: einzelhandel
+  händler*: einzelhandel
+  hotel*: freizeit_gastgewerbe
+  restaurant*: freizeit_gastgewerbe
+  freizeit*: freizeit_gastgewerbe
+  zyklisch*: zykl_konsum
+  basiskonsum*: basiskonsum
+  lebensmittel*: lebensmittel_getraenke
+  nahrungsmittel*: lebensmittel_getraenke
+  getränk*: lebensmittel_getraenke
+  getraenk*: lebensmittel_getraenke
+  tabak*: tabak
+  gesundheit*: gesundheit
+  healthcare: gesundheit
+  health care: gesundheit
+  medizin: gesundheit
+  pharma*: pharma
+  biotech*: biotech
+  medizintechnik*: medizintechnik
+  medtech*: medizintechnik
+  finanz*: finanzen
+  bank*: banken
+  versicherer*: versicherungen
+  versicherung*: versicherungen
+  technologie*: it
+  tech: it
+  techwerte: it
+  informationstechnik*: it
+  software*: software
+  halbleiter*: halbleiter
+  chip*: halbleiter
+  hardware*: hardware
+  telekom*: telekom
+  telekommunikation*: telekom
+  medien*: medien
+  internet*: internet
+  kommunikation*: kommunikation
+  versorger*: versorger
+  strom*: strom
+  energieversorger*: versorger
+  wasser: gas_wasser
+  wasserversorger*: gas_wasser
+  immobilie*: immobilien
+  reit*: reits
+
+# Größenklassen nach config/scoring.yaml (groessenklassen)
+groessen:
+  mega: [mega caps, megacaps, mega cap, mega]
+  large: [large caps, largecaps, large cap, large, standardwerte, blue chips, bluechips]
+  mid: [mid caps, midcaps, mid cap, mid, mittelgroß*]
+  small: [small caps, smallcaps, small cap, small, nebenwerte]
+  micro: [micro caps, microcaps, micro cap, micro]
+  nano: [nano caps, nanocaps, nano cap, nano]
+
+# Kategorie (SPEC 6.5)
+kategorien:
+  Attraktiv: [attraktiv*]
+  Beobachten: [zu beobachten, beobachten]
+  Neutral: [neutral*]
+  Unattraktiv: [unattraktiv*]
+  Eskaliert: [eskaliert*]
+
+# Anlagestile aus config/run_profiles.yaml (stile)
+stile:
+  qualitaet: [qualität*, qualitaet*, quality]
+  bewertung: [günstig*, guenstig*, unterbewertet*, value, preiswert*]
+  wachstum: [wachstum*, growth]
+  dividende: [dividende*, dividenden*, dividendenstark*, ausschüttung*]
+  insider: [insiderkäuf*, insiderkaeuf*, insider käuf*, insider kaeuf*, insider]
+  turnaround: [turnaround*]
+
+# Anlagehorizont aus config/horizonte.yaml
+horizonte:
+  kurz: [kurzfristig*, kurze sicht, kurzer sicht, paar monate, monate]
+  mittel: [mittelfristig*, 1 bis 5 jahre, ein paar jahre, wenige jahre]
+  lang: [langfristig*, lange sicht, langer sicht, jahrzehnt*]
+
+# Handelbarkeit bei Trade Republic (SPEC 9.7): nur von Luca bestätigte
+handelbar: [bei trade republic geprüft*, bei trade republic handelbar*, nur handelbar*, nur geprüft*, handelbar*, geprüft*, bestätigt*]
+
+beobachtungsliste: [beobachtungsliste*, merkliste*, watchlist*]
+
+# Tiefe der Analyse aus config/run_profiles.yaml (tiefe)
+tiefe:
+  schnell: [nur noten, schnell*]
+  standard: [tiefenanalyse*, analysier*]
+  tief: [tief analysier*, gründlich*, gruendlich*, tief]
+
+# „bewerte sie“: den Laufplan für „Alle bewerten“ direkt zeigen
+bewerten: [bewerte*, benote*]
+
+# Füllwörter ohne Bedeutung für den Filter
+fuellwoerter: [aktie, aktien, werte, wert, titel, unternehmen, firmen, firma, konzerne, aus, der, die, das, den, dem, des, in, im, mit, und, oder, von, vom, bei, nur, alle, alles, zeige, zeig, mir, suche, such, finde, bitte, sie, ihn, es, branche, branchen, bereich, sektor, land, region, meine, mein, meiner, caps, cap, hohe, hoher, hohen, hoch, gute, guter, guten, starke, starker, starken, eine, ein, einer, einen, für, fuer, halten, halte, jahre, jahr, sind, ist, welche, was, gibt, aktuell, derzeit, jetzt, heute, liste, an, auf, zu, mal, noch, tier, stufe, note, noten, käufen, kaeufen, käufe, kaeufe, trade, republic, sicht, sowie, plus, dazu, lass, lasse, mach, mache, machen, gib, liefere, nach, the, of, and, stocks, from, companies]
+
+# Wörter, nach denen ein Land oder eine Branche folgt. Ist das nächste Wort unbekannt, wird der
+# Satz abgelehnt statt geraten (SPEC 9.9 Nr. 1).
+ausloeser:
+  land: [aus, land, in]
+  branche: [branche, sektor, bereich]

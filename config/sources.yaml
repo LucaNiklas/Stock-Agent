@@ -92,7 +92,7 @@ yahoo:
     SM: ".MC"
     SQ: ".MC"
     SS: ".ST"
-    NO: ".OL"
+    "NO": ".OL"
     DC: ".CO"
     FH: ".HE"
     SW: ".SW"
@@ -137,7 +137,7 @@ yahoo:
     IT: [IM]
     ES: [SM, SQ]
     SE: [SS]
-    NO: [NO]
+    "NO": ["NO"]
     DK: [DC]
     FI: [FH]
     CH: [SW, SE]
