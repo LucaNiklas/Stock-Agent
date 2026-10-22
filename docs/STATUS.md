@@ -1,6 +1,6 @@
 # Projektstand (Übergabe)
 
-Stand: 22.10.2026, alle Bauschritte 0 bis 12 gebaut, dazu der Anlagehorizont. Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
+Stand: 22.10.2026, alle Bauschritte 0 bis 12 gebaut, dazu der Anlagehorizont und die Korrekturen aus dem Review (ADR 0016, Methodik 5.8). Diese Datei zuerst lesen, wenn eine neue Sitzung beginnt. Sie wird am Ende jedes Bauschritts aktualisiert.
 
 ## Was das System ist
 
@@ -68,6 +68,7 @@ Achtung: Die Schritte 2 bis 10 wurden in Cloud-Sitzungen gebaut. Die Daten unten
 - ADR 0013: J4 ohne Sprachmodell, Jury aus drei Richtern, F1 nur bei Warnsignal, Goldstandard mit Kandidaten bis zu Lucas Prüfung.
 - ADR 0014: Anfrage als festes Schema, Wortliste vor Modell, unbekannte Werte werden abgelehnt, Laufplan mit Grenze 3 Tiefenanalysen und 250 Bewertungen je Lauf.
 - ADR 0015: Zeitplan lokal über das Abo, kein API-Schlüssel, Schalter `stockagent zeitplan an`, Tiefenanalyse nur bei Tiefe im Profil.
+- ADR 0016: Korrekturen aus dem Review (Zuordnung vor der Gruppe, Netz, Tiefenanalyse begrenzt die Kategorie, aktuelle Aktienzahl, ESEF-Vergleichsfirmen, Zinsdeckung je Scorecard, Momentum nur aus dem Kurs, Schranken).
 
 ## Offen und bekannt
 

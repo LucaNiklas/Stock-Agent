@@ -1,5 +1,22 @@
-# Hochinflationsländer nach IAS 29 (SPEC 5.2 Nr. 8).
-# PLATZHALTER: wird in Bauschritt 7 gebaut (docs/BAUPLAN.md).
-#
-# Inhalt: Länderliste mit Gültigkeitszeitraum und Quelle. Betroffene Unternehmen erhalten Flag
-#   `hyperinflation` und höchstens K3.
+# Hochinflationsländer nach IAS 29 (SPEC 5.2 Nr. 8). Version bei Änderung erhöhen.
+# Unternehmen mit Hauptsitz in einem dieser Länder erhalten den Vermerk `hyperinflation` und
+# höchstens Konfidenz K3 (core/note.konfidenz_hoechstens). Grundlage ist die Liste der
+# International Practices Task Force (IPTF) des Center for Audit Quality, die Länder mit einer
+# kumulierten Dreijahresinflation über 100 Prozent führt.
+# geprueft: false heißt, Luca hat die Einträge noch nicht gegen die aktuelle IPTF-Liste geprüft.
+version: "1.0"
+quelle: "CAQ IPTF Discussion Document, Monitoring Inflation in Certain Countries (Stand Mai 2024)"
+geprueft: false
+laender:
+  AR: {name: Argentinien, ab: "2018-07-01"}
+  ET: {name: Äthiopien, ab: "2022-07-01"}
+  HT: {name: Haiti, ab: "2024-01-01"}
+  IR: {name: Iran, ab: "2020-01-01"}
+  LB: {name: Libanon, ab: "2020-09-30"}
+  SL: {name: Sierra Leone, ab: "2024-01-01"}
+  SS: {name: Südsudan, ab: "2015-12-31"}
+  SD: {name: Sudan, ab: "2013-12-31"}
+  SY: {name: Syrien, ab: "2020-01-01"}
+  TR: {name: Türkei, ab: "2022-04-01"}
+  VE: {name: Venezuela, ab: "2009-12-31"}
+  ZW: {name: Simbabwe, ab: "2019-07-01"}

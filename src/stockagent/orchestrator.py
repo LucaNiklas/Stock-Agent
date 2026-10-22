@@ -270,7 +270,7 @@ def anlegen(
     isin = isin.upper()
     cfg = modelle(paths)
     aufwand = cfg["aufwand"]
-    aktiv = [z for z in laufende(paths) if z.status == "laeuft"]
+    aktiv = aufraeumen(paths, now)
     if len(aktiv) >= int(aufwand["max_tiefenanalysen_gleichzeitig"]):
         raise LaufFehler(
             f"Schon {len(aktiv)} Tiefenanalysen offen (Grenze HR-18): "
@@ -374,6 +374,22 @@ def _pruefe_grenzen(paths: Paths, z: Zustand, now: datetime) -> None:
     alter = now - datetime.fromisoformat(z.erstellt)
     if alter > timedelta(minutes=minuten):
         _abbrechen(paths, z, f"Zeitlimit von {minuten} Minuten überschritten (SPEC 8.6)")
+
+
+def aufraeumen(paths: Paths, now: datetime | None = None) -> list[Zustand]:
+    """Zeitlimit und Konfiguration aller laufenden Tiefenanalysen prüfen. Ein abgestürzter oder
+    liegen gebliebener Lauf wird abgebrochen, statt die Grenze HR-18 für immer zu belegen
+    (Review 22.10.2026, Befund 4). Zurück die weiter laufenden."""
+    now = now or datetime.now(UTC)
+    aktiv = []
+    for z in laufende(paths):
+        if z.status != "laeuft":
+            continue
+        with _gesperrt(paths, z.run_id) as zz:
+            _pruefe_grenzen(paths, zz, now)
+            if zz.status == "laeuft":
+                aktiv.append(zz)
+    return aktiv
 
 
 def naechste(

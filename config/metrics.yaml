@@ -11,7 +11,7 @@
 # `ttm: true`: zusätzlich mit den Werten der letzten 12 Monate bis zum letzten Quartal (Statistik
 # `ttm`, core/ttm.py). Nicht für Kennzahlen mit Vorjahresvergleich oder Durchschnitten.
 
-methodology_version: "1.7"
+methodology_version: "1.8"
 
 # Kurse für Bewertungskennzahlen (Bauschritt 4, ADR 0005)
 kurse:
@@ -823,10 +823,10 @@ metrics:
   schwellen:
     eskalation_ueber: '-1.78'
 - id: market_cap
-  version: '1.0'
+  version: '1.1'
   name: Börsenwert
-  formel: Kurs mal verwässerte Aktienzahl
-  definition: Schlusskurs zum Stichtag (in Berichtswährung umgerechnet, falls nötig) mal verwässerte durchschnittliche Aktienzahl des Geschäftsjahres, beide um Splits bereinigt.
+  formel: Kurs mal Aktienzahl
+  definition: Schlusskurs zum Stichtag (in Berichtswährung umgerechnet, falls nötig) mal verwässerte durchschnittliche Aktienzahl des Geschäftsjahres, beide um Splits bereinigt. Für den aktuellen Stand (Statistik aktuell) die Aktienzahl vom Deckblatt der letzten Einreichung (dei:EntityCommonStockSharesOutstanding, Summe aller Gattungen), wenn sie zwischen 50 und 150 Prozent des Durchschnitts liegt (CP-05), sonst der Durchschnitt mit Vermerk.
   eingaben:
   - kurs
   - shares_diluted

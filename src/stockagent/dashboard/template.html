@@ -100,8 +100,8 @@ pre{white-space:pre-wrap;background:var(--card);padding:8px;border-radius:8px;ma
 </header>
 <div class="layout">
 <aside id="filter"></aside>
-<main><div class="muted" id="anzahl"></div><div class="wrap"><table id="tab"><thead><tr>
-<th><input type="checkbox" id="alleauswahl" aria-label="Alle angezeigten auswählen"></th><th></th><th>Name</th><th>Note</th><th>K</th><th>R</th><th>Kategorie</th><th>Tier</th><th>Branche</th><th>Land</th><th>TR</th><th></th>
+<main><div class="muted" id="anzahl"></div><div class="muted" style="font-size:12px;margin:4px 0">Note A bis E (N nicht bewertbar) · K Konfidenz K1 hoch bis K4 · R Risiko R1 gering bis R5 · Tier Indexstufe · TR Trade Republic ✓ geprüft handelbar, ✗ nicht, ? ungeprüft. Spaltenköpfe zeigen Erklärungen beim Darüberfahren.</div><div class="wrap"><table id="tab"><thead><tr>
+<th><input type="checkbox" id="alleauswahl" aria-label="Alle angezeigten auswählen"></th><th title="Beobachtungsliste">★</th><th>Name</th><th title="Note A (beste) bis E im Vergleich mit 15 bis 50 ähnlichen Firmen, N = nicht bewertbar">Note</th><th title="Konfidenz K1 (hoch) bis K4: wie verlässlich die Note ist (Jahre Historie, Datenabdeckung, Größe)">K</th><th title="Risiko R1 (gering) bis R5: Schwankung, Kursverluste, Verschuldung, Handelbarkeit, Größe">R</th><th>Kategorie</th><th title="Indexstufe: 1 Leitindex, 2 zweiter Index, 3 Nebenwerte, 4 ohne Index">Tier</th><th>Branche</th><th>Land</th><th title="Datenquelle der Abschlusszahlen">Datenlage</th><th title="Handelbarkeit bei Trade Republic, von dir geprüft">TR</th><th></th>
 </tr></thead><tbody></tbody></table></div></main>
 </div>
 </section>
@@ -125,7 +125,28 @@ let F=Object.fromEntries(new URLSearchParams(location.search));
 let AUSWAHL=new Set(),STILE={},LETZTE=null;
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const noteHtml=n=>n?`<span class="note" style="background:var(--${n})">${n}</span>`:"";
-async function api(p,o){const r=await fetch(p,o);return r.json()}
+// Lesemodus (SPEC 13.3, 13.5): statische Datei mit eingebetteten Daten, ohne Server
+const LESE=window.LESEMODUS||null;
+async function api(p,o){if(LESE)return lokal(p,o);const r=await fetch(p,o);return r.json()}
+function lokal(p,o){
+  if(o&&o.method==="POST")return {fehler:"Lesemodus: Bewerten, Speichern und Entscheiden gehen nur im lokalen Dashboard (stockagent app)."};
+  const u=new URL(p,"http://x/"),f=Object.fromEntries(u.searchParams),pf=u.pathname;
+  if(pf==="/api/liste"){
+    const hz=LESE.horizonte[f.horizont]?f.horizont:LESE.horizont_standard;
+    const sicht=z=>{const h=(z.horizonte||{})[hz];return h&&z.note!=="N"?{...z,note:h.note,kategorie:h.kategorie,score:h.score}:z};
+    const alle=LESE.zeilen.map(sicht);
+    const passt=(z,ohne)=>{for(const k of LESE.filter){if(k===ohne||!f[k])continue;if(!f[k].split(",").includes(String(z[k])))return false}
+      if(f.isin&&!f.isin.split(",").includes(z.isin))return false;if(f.stern==="1"&&!z.stern)return false;if(f.bewertet==="1"&&!z.note)return false;
+      const q=(f.q||"").trim().toLowerCase();return !q||z.name.toLowerCase().includes(q)||q.toUpperCase()===z.isin};
+    let t=alle.filter(z=>passt(z));if(f.sortierung==="wert")t.sort((a,b)=>(Number(b.score)||-1)-(Number(a.score)||-1));
+    const facetten={};for(const k of LESE.filter){const c={};alle.filter(z=>passt(z,k)).forEach(z=>{const w=String(z[k]);c[w]=(c[w]||0)+1});
+      facetten[k]=Object.entries(c).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))}
+    return {anzahl:t.length,gesamt:alle.length,bewertet:alle.filter(z=>z.note&&z.note!=="N").length,stand:LESE.stand,zeilen:t.slice(0,500),facetten,horizont:hz,horizonte:LESE.horizonte,stile:{}}}
+  if(pf.startsWith("/api/titel/")){const i=pf.split("/").pop();return LESE.titel[i]||{isin:i,name:(LESE.zeilen.find(z=>z.isin===i)||{}).name||i,land:"",note:null,detail:null,kennzahlen:[],hinweise:[],verlauf:[],stern:false,notiz:"",tr:"ungeprueft"}}
+  if(pf==="/api/vergleich")return (f.isins||"").split(",").filter(i=>LESE.vergleich[i]).map(i=>LESE.vergleich[i]);
+  if(pf==="/api/status")return {claude:true,lesemodus:true};
+  if(pf==="/api/analyse/"+pf.split("/").pop())return {};
+  return LESE.fest[pf]??(pf==="/api/eskalationen"?[]:{})}
 const post=(p,b)=>api(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b||{})});
 function panel(h){document.getElementById("panel").innerHTML=`<button onclick="schliessen()" style="float:right">Schließen</button>`+h;document.getElementById("detail").style.display="block"}
 function schliessen(){document.getElementById("detail").style.display="none"}
@@ -166,7 +187,7 @@ async function laden(){
   const tb=document.querySelector("#tab tbody");
   tb.innerHTML=d.zeilen.map(z=>`<tr class="row" data-isin="${z.isin}"><td><input type="checkbox" data-a="${z.isin}"${AUSWAHL.has(z.isin)?" checked":""} aria-label="auswählen"></td><td>${z.stern?"★":"☆"}</td><td class="name" style="white-space:normal">${esc(z.name)}${z.ereignis?` <span title="${esc(z.ereignis)}" aria-label="Ereignis: ${esc(z.ereignis)}">⚑</span>`:""}<div class="muted">${z.isin}</div></td>
   <td>${noteHtml(z.note)}</td><td>${esc(z.konfidenz)}</td><td>${esc(z.risiko)}</td><td class="mob-aus">${esc(z.kategorie)}</td><td class="mob-aus">${z.tier}</td>
-  <td class="mob-aus">${esc(z.branche)}</td><td>${esc(z.land)}</td><td title="Trade Republic">${z.tr==="bestaetigt"?"✓ handelbar":z.tr==="nicht_handelbar"?"✗ nicht":"? ungeprüft"}</td>
+  <td class="mob-aus">${esc(z.branche)}</td><td>${esc(z.land)}</td><td class="mob-aus muted">${esc(z.datenlage)}</td><td title="Trade Republic">${z.tr==="bestaetigt"?"✓ handelbar":z.tr==="nicht_handelbar"?"✗ nicht":"? ungeprüft"}</td>
   <td>${z.datenlage!=="keine strukturierten Daten"&&!z.note?`<button data-b="${z.isin}">Bewerten</button>`:z.note?"":`<span class="muted" title="${esc(z.datenlage)}">keine Daten</span>`}</td></tr>`).join("");
   tb.querySelectorAll("tr.row").forEach(r=>r.onclick=e=>{if(e.target.dataset.b||e.target.dataset.a)return;zeige(r.dataset.isin)});
   tb.querySelectorAll("button[data-b]").forEach(b=>b.onclick=()=>bewerten(b.dataset.b,b));
@@ -249,6 +270,9 @@ async function zeige(isin){
     h+=`<p class="muted">${det.konfidenz_gruende.map(esc).join("<br>")}</p>`;
   }else if(n){h+=`<p>${noteHtml("N")} Nicht bewertbar: ${esc(n.grund)}</p>`}
   else{h+=`<p>Noch nicht bewertet.</p>`}
+  if(d.tiefenanalyse&&n){const k=d.tiefenanalyse.kategorie;h+=`<div class="box ${k==="Eskaliert"?"err":"info"}">Letzte Tiefenanalyse: <b>${esc(k)}</b> (${esc(d.tiefenanalyse.run_id)}). Die Kategorie in Liste und Filtern ist höchstens so gut wie dieses Ergebnis (SPEC 6.5).</div>`}
+  if(det&&det.hyperinflation)h+=`<div class="box warn">Hochinflationsland (IAS 29) seit ${esc(det.hyperinflation.ab)}: Konfidenz höchstens K3, Zeitreihen sind nominal und nur eingeschränkt vergleichbar.</div>`;
+  if(d.quellensteuer){const q=d.quellensteuer;h+=`<p class="muted">Quellensteuer auf Dividenden (${esc(d.land)}): ${(Number(q.satz)*100).toLocaleString("de",{maximumFractionDigits:3})} %, anrechenbar ${(Number(q.anrechenbar)*100).toLocaleString("de",{maximumFractionDigits:3})} %${q.hinweis?", "+esc(q.hinweis):""}. Nur Information, keine Steuerberatung${q.geprueft?"":" (Sätze noch nicht von dir geprüft)"}.</p>`}
   if(d.verlauf&&d.verlauf.length>1)h+=`<h3>Notenverlauf</h3><p>`+d.verlauf.map(v=>`${v.tag.slice(5)} ${noteHtml(v.note)}`).join(" → ")+`</p>`;
   h+=`<p><button class="primary" onclick="bewerten('${isin}')">${n?"Neu bewerten":"Bewerten"}</button>
   <button onclick="stern('${isin}',${!d.stern})">${d.stern?"★ Beobachtet":"☆ Beobachten"}</button>
@@ -334,6 +358,7 @@ async function methodik(){const el=document.getElementById("v_methodik");const d
   <h3>Noten (Untergrenze des Gesamtwerts)</h3>${tab(d.noten)}<h3>Kappungen (Höchstwert)</h3>${tab(d.kappung)}</div>
   <div><h3>Anlagehorizonte (Anteil Momentum)</h3>${tab(Object.fromEntries(Object.values(d.horizonte).map(h=>[h.name,Math.round(Number(h.momentum_anteil)*100)+" %"])))}
   <h3>Konfidenz (alle Bedingungen erfüllt)</h3>${tab(d.konfidenz,k=>`mindestens ${k.jahre} Jahre Daten, Abdeckung ${Math.round(Number(k.abdeckung)*100)} %`+(k.groesse_mindestens?`, Größe ab ${esc(k.groesse_mindestens)}`:""))}<h3>Grenzen je Lauf</h3>${tab(d.grenzen)}<h3>Modelle</h3>${tab(d.modelle.klassen)}</div></div>
+  <h3>Normalisierung der Rechnungslegung (SPEC 4.3)</h3><div class="wrap"><table><tr><th>Regel</th><th>Thema</th><th>Status</th><th>Umsetzung oder Grund</th></tr>${d.rechnungslegung.map(r=>`<tr><td>${esc(r.id)}</td><td>${esc(r.thema)}</td><td>${esc(r.status)}</td><td style="white-space:normal">${esc(r.text)}</td></tr>`).join("")}</table></div>
   <h3>Versionen der Konfiguration</h3>${tab(d.versionen)}<h3>Änderungsprotokoll</h3><pre style="max-height:none">${esc(d.changelog)}</pre>`}
 
 // ------------------------------------------------------------ Eskalationen
@@ -358,5 +383,8 @@ try{const h=localStorage.getItem("horizont");if(h&&!F.horizont)F.horizont=h}catc
 document.getElementById("detail").onclick=e=>{if(e.target.id==="detail")schliessen()};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")schliessen()});
 api("/api/status").then(s=>{if(!s.claude)document.getElementById("abdeckung").insertAdjacentHTML("afterend",`<div class="box warn">Claude Code (claude) ist auf diesem Rechner nicht gefunden: Tiefenanalysen und das Übersetzen freier Sätze über das Modell gehen nicht. Suche über die Wortliste, Filter und Noten gehen.</div>`)});
+if(LESE){document.getElementById("abdeckung").insertAdjacentHTML("afterend",`<div class="box info">Lesemodus, Stand ${esc(LESE.erstellt)}: Ansehen, Filtern und Suche nach Namen. Bewerten, Freitext und Speichern gehen nur im lokalen Dashboard.</div>`);
+  ["allebewerten","auswahlbewerten","speichern","ansichten","export"].forEach(i=>{const e=document.getElementById(i);if(e)e.hidden=true});
+  document.getElementById("suche").onsubmit=e=>{e.preventDefault();setF("q",document.getElementById("q").value.trim())}}
 laden();eskZahl();ansichtenLaden();zeigeAnsicht(location.hash.slice(1));
 </script></body></html>

@@ -241,6 +241,14 @@ def konfidenz_abschlag(stufe: str, stufen: int, grund: str) -> tuple[str, str | 
     return neu, f"Abschlag {stufe} -> {neu}: {grund}"
 
 
+def konfidenz_hoechstens(stufe: str, hoechste: str, grund: str) -> tuple[str, str | None]:
+    """Konfidenz auf `hoechste` begrenzen (etwa K3 bei Hochinflation, SPEC 5.2 Nr. 8)."""
+    reihe = ("K1", "K2", "K3", "K4")
+    if reihe.index(stufe) >= reihe.index(hoechste):
+        return stufe, None
+    return hoechste, f"höchstens {hoechste}: {grund}"
+
+
 # ------------------------------------------------------------------ Risiko
 
 

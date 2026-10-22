@@ -54,3 +54,12 @@ def multiples_abschlag(
         return None
     mitte = r.median("kurs_relativ_median", list(verhaeltnisse.values()))
     return r.schritt("multiples_abschlag", "1 - 1 / m", m=mitte)
+
+
+def zuordnung_ausreichend(gesamt: int, offen: int, max_anteil: Decimal) -> bool:
+    """Reicht die Zuordnung der US-Aktien zur SEC für eine Vergleichsgruppe? Nein, wenn mehr als
+    `max_anteil` der US-Aktien des Universums nie abgefragt wurden (frische Installation)."""
+    if gesamt <= 0:
+        return True
+    r = Rechenweg("zuordnung_anteil", "1.0", "", "", pflicht=())
+    return r.schritt("anteil_offen", "offen / gesamt", offen=offen, gesamt=gesamt) <= max_anteil

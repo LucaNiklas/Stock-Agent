@@ -9,7 +9,7 @@ Split-Ereignisse aus den Deckblatt-Meldungen (DQ-08). Reine Auswahl, keine Arith
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from itertools import pairwise
 from typing import Any
@@ -22,6 +22,10 @@ from stockagent.core.reihen import Reihen, Split
 from stockagent.core.ttm import Strom
 from stockagent.data import concepts, quality, store
 from stockagent.data.quality import ANNUAL_FORMS
+
+# Aktienzahl vom Deckblatt (dei), Grundlage des aktuellen Börsenwerts, höchstens so viele Gattungen
+AKTIEN_DECKBLATT = "dei:EntityCommonStockSharesOutstanding"
+MAX_KLASSEN = 5
 
 
 def eingabe(f: store.StoredFact) -> Eingabe:
@@ -568,6 +572,24 @@ def reihen_aktuell(
                     stichtag,
                 )
             }
+    # Aktienzahl vom Deckblatt der letzten Einreichung, je Aktiengattung ein Wert (Review
+    # 22.10.2026, Befund 5). Die Summe rechnet core/marktkennzahlen.py im Rechenweg
+    issuer = store.issuer_for_isin(conn, isin)
+    if issuer is not None:
+        bis = datetime.combine(heute, datetime.max.time(), tzinfo=UTC)
+        deckblatt = [
+            x
+            for x in store.pit_query(conn, as_of=bis, issuer_id=issuer, concepts=[AKTIEN_DECKBLATT])
+            if x.period_start is None and x.unit == "shares" and x.period_end >= stichtag
+        ]
+        if deckblatt:
+            letzter = max(x.period_end for x in deckblatt)
+            am_tag = [x for x in deckblatt if x.period_end == letzter]
+            # Nur die neueste Einreichung, sonst zählt eine Berichtigung doppelt
+            acc = max(am_tag, key=lambda x: x.published_at).accession
+            klassen = sorted((x for x in am_tag if x.accession == acc), key=lambda x: x.fact_id)
+            for nr, gattung in enumerate(klassen[:MAX_KLASSEN], start=1):
+                neu[f"aktien_aktuell_{nr}"] = {stichtag: eingabe(gattung)}
     werte = {name: dict(je) for name, je in basis.werte.items()}
     for name, je in neu.items():
         werte.setdefault(name, {}).update(je)

@@ -19,7 +19,7 @@ from typing import Any
 
 import yaml
 
-from stockagent import tiers, tr_checks
+from stockagent import eskalationen, tiers, tr_checks
 from stockagent.core import sektoren
 from stockagent.data import store
 from stockagent.paths import Paths
@@ -110,6 +110,8 @@ class Zeile:
     lei: bool = False
     # Bauschritt 12: letztes Ereignis aus Läufen nach Zeitplan (state/markierungen.yaml)
     ereignis: str = ""
+    # Ergebnis der letzten Tiefenanalyse, falls es die Kategorie begrenzt (SPEC 6.5)
+    tiefenanalyse: str = ""
 
 
 def _insider_text(d: dict[str, Any] | None) -> str:
@@ -161,6 +163,7 @@ class Daten:
         checks = tr_checks.load(self.paths.tr_checks)
         stufen = tiers.stufen_aller(self.paths)
         marken = _yaml(self.paths.root / "state" / "markierungen.yaml")
+        tief = eskalationen.tiefenanalyse_ergebnisse(self.paths)
         conn = store.connect(self.paths.db)
         try:
             rows = conn.execute(
@@ -190,6 +193,7 @@ class Daten:
             c = checks.get(isin)
             det = json.loads(g.detail_json or "{}") if g else {}
             hz = det.get("horizonte") or {}
+            erg = tief.get(isin)
             issuer = g.issuer_id if g and g.issuer_id else (f"sec:{cik}" if cik else None)
             datenlage = (
                 "SEC" if cik else "ESEF" if issuer and issuer.startswith("lei:") else OHNE_DATEN
@@ -208,7 +212,7 @@ class Daten:
                     note=g.grade if g else "",
                     konfidenz=(g.konfidenz or "") if g else "",
                     risiko=(g.risiko or "") if g else "",
-                    kategorie=(g.kategorie or "") if g else "",
+                    kategorie=eskalationen.begrenzt(g.kategorie or "", erg) if g else "",
                     score=str(g.score) if g and g.score is not None else "",
                     tr=c.status.value if c else "ungeprueft",
                     stern=isin in sterne,
@@ -216,7 +220,7 @@ class Daten:
                     horizonte={
                         h: {
                             "note": str(v.get("note") or ""),
-                            "kategorie": str(v.get("kategorie") or ""),
+                            "kategorie": eskalationen.begrenzt(str(v.get("kategorie") or ""), erg),
                             "score": str(v.get("score") or ""),
                         }
                         for h, v in hz.items()
@@ -229,6 +233,7 @@ class Daten:
                     bewertet_am=f"{g.computed_at:%Y-%m-%d}" if g else "",
                     lei=bool(lei),
                     ereignis=_ereignis(marken.get(isin)),
+                    tiefenanalyse=f"{erg['kategorie']} ({erg['run_id']})" if erg else "",
                 )
             )
         with self.lock:

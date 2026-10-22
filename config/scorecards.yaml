@@ -18,7 +18,7 @@
 # - `risiko_ergebnis_streuung`: Kennzahl, deren Streuung den Risikoeingang Ergebnisvolatilität
 #   bildet (Standard ebit_margin). Banken und Versicherer haben kein sinnvolles EBIT
 # - `konfidenz_abschlag`: Stufen Abschlag auf die Konfidenz (G-Score als Hilfsmaß, SPEC 3.11)
-version: "2.2"
+version: "2.3"
 
 zuordnung:
   - {scorecard: banken, sic: [[6020, 6099]], ab_schritt: 8}
@@ -229,6 +229,7 @@ scorecards:
       insider:
         - {kennzahl: insider_signal, statistik: wert, richtung: absolut}
     kappungen: [stopp_flag, beneish_ueber_schwelle]   # Altman Z passt nicht zu Immobilienbilanzen
+    stopp_zinsdeckung_unter: "1.5"   # Immobilien tragen mehr Fremdkapital, Zinsdeckung 1,5 bis 3 üblich
     multiples:
       - {kennzahl: ffo_yield, richtung: hoch}
       - {kennzahl: ev_ebitda, richtung: niedrig}
@@ -261,6 +262,7 @@ scorecards:
       insider:
         - {kennzahl: insider_signal, statistik: wert, richtung: absolut}
     kappungen: [stopp_flag, beneish_ueber_schwelle]   # Bau der Netze auf Kredit: FCF meist negativ, Verschuldung hoch, Altman Z passt nicht
+    stopp_zinsdeckung_unter: "1.5"   # regulierte Erträge, Zinsdeckung 2 bis 3,5 üblich
     multiples:
       - {kennzahl: ev_ebitda, richtung: niedrig}
       - {kennzahl: pe, richtung: niedrig}

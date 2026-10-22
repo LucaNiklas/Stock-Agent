@@ -78,10 +78,47 @@ def kurs(r: Rechenweg, d: Reihen, t: date) -> Eingabe:
     )
 
 
+# Abweichung der Deckblatt-Aktienzahl vom verwässerten Durchschnitt, die noch als plausibel gilt
+AKTIEN_SPANNE = (Decimal("0.5"), Decimal("1.5"))
+
+
 def _aktien(r: Rechenweg, d: Reihen, t: date) -> Decimal:
-    aktien = split_bereinigt(r, d, "aktien", d.hole("shares_diluted", t), je_aktie=False)
-    r.pruefe("CP-02", "Aktienzahl positiv", aktien > 0)
-    return aktien
+    """Verwässerte durchschnittliche Aktienzahl des Geschäftsjahres. Für den aktuellen Stand
+    (Statistik `aktuell`) die Aktienzahl vom Deckblatt der letzten Einreichung, Summe aller
+    Gattungen, wenn sie plausibel zum Durchschnitt passt (Rückkäufe und Ausgaben nach dem
+    Geschäftsjahr, Review 22.10.2026)."""
+    namen = [n for n in (f"aktien_aktuell_{i}" for i in range(1, 6)) if d.hat(n, t)]
+    durchschnitt = (
+        split_bereinigt(r, d, "aktien", d.hole("shares_diluted", t), je_aktie=False)
+        if d.hat("shares_diluted", t) or not namen
+        else None
+    )
+    if namen:
+        teile = {
+            f"gattung_{i}": split_bereinigt(r, d, f"aktien_gattung_{i}", d.hole(n, t), False)
+            for i, n in enumerate(namen, start=1)
+        }
+        aktuell = r.schritt("aktien_deckblatt", " + ".join(teile), **teile)
+        r.pruefe("CP-02", "Aktienzahl vom Deckblatt positiv", aktuell > 0)
+        if durchschnitt is None:
+            r.vermerk("Aktienzahl vom Deckblatt, kein verwässerter Durchschnitt gemeldet")
+            return aktuell
+        verhaeltnis = r.schritt(
+            "aktien_deckblatt_zu_durchschnitt", "a / d", a=aktuell, d=durchschnitt
+        )
+        plausibel = AKTIEN_SPANNE[0] <= verhaeltnis <= AKTIEN_SPANNE[1]
+        r.pruefe(
+            "CP-05",
+            "Aktienzahl vom Deckblatt zwischen 50 und 150 % des verwässerten Durchschnitts",
+            plausibel,
+        )
+        if plausibel:
+            r.vermerk("Aktienzahl vom Deckblatt der letzten Einreichung (aktueller Stand)")
+            return aktuell
+        r.vermerk("Deckblatt-Aktienzahl unplausibel, verwässerter Durchschnitt verwendet")
+    assert durchschnitt is not None
+    r.pruefe("CP-02", "Aktienzahl positiv", durchschnitt > 0)
+    return durchschnitt
 
 
 def boersenwert(r: Rechenweg, d: Reihen, t: date) -> Decimal:

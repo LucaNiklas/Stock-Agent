@@ -243,3 +243,12 @@ Aus `docs/spec/01-korrekturen-vorgaengerversionen.md` hierher verschoben, damit 
 
 - Korrektur: Norwegen stand in `config/scoring.yaml` (Region Europa), `config/kapitalkosten.yaml` (Steuersatz), `config/sources.yaml` (Kurskürzel `.OL`, ESEF-Börsen) als `NO` ohne Anführungszeichen. YAML liest das als „falsch“, norwegische Titel hatten deshalb keine Region (Vergleichsgruppe ohne Regionsfilter), keinen Steuersatz (WACC unbekannt) und kein Kurskürzel. Jetzt `"NO"`. Wirkung: nur norwegische Titel, ihre Noten können sich beim nächsten Bewerten ändern. Test `test_no_boolean_country_codes_in_config`.
 - Sonst keine Änderung an Noten, Kennzahlen oder Gewichten. Neu sind Auswahl und Ablauf: Anlagestile als Filter auf schon berechnete Säulen und Kennzahlen (`config/run_profiles.yaml`, ohne Einfluss auf die Note), Laufplan mit Grenze von 3 Tiefenanalysen je Lauf (HR-18) und 250 Bewertungen je Lauf.
+
+## 5.8 (22.10.2026, Korrekturen aus dem Review, ADR 0016, Kennzahlen 1.8, `config/scoring.yaml` 1.2, `config/scorecards.yaml` 2.3, `config/horizonte.yaml` 1.1)
+
+- Börsenwert für den aktuellen Stand (Statistik `aktuell`) mit der Aktienzahl vom Deckblatt der letzten Einreichung (`dei:EntityCommonStockSharesOutstanding`, Summe aller Gattungen) statt der verwässerten Durchschnittszahl des letzten Geschäftsjahres. Gilt nur, wenn sie zwischen 50 und 150 Prozent des Durchschnitts liegt (CP-05), sonst bleibt der Durchschnitt mit Vermerk. Wirkung: Börsenwert, Unternehmenswert, FCF-Rendite, Shareholder Yield und Bewertungsbedingung bei Firmen mit Rückkäufen oder Ausgaben nach dem Geschäftsjahr. Jahreswerte unverändert.
+- Stopp-Flag der Zinsdeckung: Schwelle in `config/scoring.yaml` (2, vorher fest im Code), für Versorger und Immobilien 1,5 (`config/scorecards.yaml`). Wirkung: weniger Kappungen bei Versorgern und REITs.
+- Säule Momentum nur noch aus dem Kurs (Momentum 12-1 und 6-1, Nähe zum 52-Wochen-Hoch, Abstand zur 200-Tage-Linie, Kursreaktion auf den Bericht). Umsatzwachstum und Margenänderung des letzten Jahres entfallen dort, weil die Säule Wachstum Umsatz und Marge schon misst.
+- Vergleichsgruppe: ESEF-Melder (Europa) sind Kandidaten ab der Stufe „Scorecard in der Region“. Vorher nur SEC-Melder.
+- Hochinflationsländer nach IAS 29 (`config/hyperinflation.yaml`): höchstens Konfidenz K3 mit Vermerk.
+- Kategorie in Übersicht, Filtern, Läufen und Zeitplan höchstens so gut wie das Ergebnis der letzten Tiefenanalyse (SPEC 6.5). Die gespeicherte Note bleibt deterministisch.

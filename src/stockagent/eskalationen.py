@@ -196,3 +196,36 @@ def entscheiden(
     ent["luca"] = {k: eintrag[k] for k in ("human_decision", "human_note", "datum", "kategorie")}
     pfad.write_text(json.dumps(ent, ensure_ascii=False, indent=2, default=str), "utf-8")
     return eintrag
+
+
+# ------------------------------------------------------------------ Rückwirkung auf die Kategorie
+
+# Reihenfolge der Kategorien von schlecht nach gut (wie agents/eingaben.ORDNUNG)
+ORDNUNG = ("Nicht bewertbar", "Unattraktiv", "Neutral", "Beobachten", "Attraktiv")
+
+
+def tiefenanalyse_ergebnisse(paths: Paths) -> dict[str, dict[str, str]]:
+    """Ergebnis der letzten abgeschlossenen Tiefenanalyse je ISIN: Kategorie aus
+    `decision.json`, nach Lucas Entscheidung die Kategorie aus seiner Entscheidung."""
+    out: dict[str, dict[str, str]] = {}
+    for z in sorted(orchestrator.laufende(paths), key=lambda z: z.erstellt):
+        if z.status not in ("fertig", "eskaliert"):
+            continue
+        ent = _json(paths.runs.joinpath(z.run_id) / "decision.json")
+        kategorie = (ent.get("luca") or {}).get("kategorie") or ent.get("kategorie")
+        if kategorie:
+            out[z.isin] = {"kategorie": str(kategorie), "run_id": z.run_id}
+    return out
+
+
+def begrenzt(kategorie: str, ergebnis: dict[str, str] | None) -> str:
+    """Kategorie nach der Tiefenanalyse (SPEC 6.5, HR-13): nie besser als ihr Ergebnis. Eine
+    eskalierte Analyse macht aus Attraktiv, Beobachten und Neutral „Eskaliert“."""
+    if not ergebnis or not kategorie or kategorie == "Nicht bewertbar":
+        return kategorie
+    tief = ergebnis["kategorie"]
+    if tief == "Eskaliert":
+        return "Eskaliert" if kategorie in ("Attraktiv", "Beobachten", "Neutral") else kategorie
+    if kategorie in ORDNUNG and tief in ORDNUNG and ORDNUNG.index(tief) < ORDNUNG.index(kategorie):
+        return tief
+    return kategorie

@@ -49,10 +49,14 @@ def update(
         f"Zugeordnet {m.status['zugeordnet']}, unsicher {m.status['unsicher']}, "
         f"kein SEC-Melder {m.status['keine']}."
     )
-    typer.echo(
-        f"Stammdaten: {res.master_loaded} geladen, {res.master_skipped} noch aktuell, "
-        f"{len(res.master_errors)} Fehler."
-    )
+    if isin and not (res.master_loaded or res.master_skipped or res.master_errors):
+        # Mit --isin kommen die Stammdaten zusammen mit den Abschlusswerten (Review, Befund 14)
+        typer.echo("Stammdaten: zusammen mit den Abschlusswerten geladen.")
+    else:
+        typer.echo(
+            f"Stammdaten: {res.master_loaded} geladen, {res.master_skipped} noch aktuell, "
+            f"{len(res.master_errors)} Fehler."
+        )
     for err in res.master_errors[:5]:
         typer.echo(f"  {err}")
     for r in res.loaded:

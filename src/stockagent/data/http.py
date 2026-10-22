@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import time
 import urllib.error
 import urllib.request
@@ -24,7 +25,7 @@ def fetch(
     url: str,
     user_agent: str,
     timeout: float = 120.0,
-    attempts: int = 3,
+    attempts: int = 5,
     *,
     data: bytes | None = None,
     headers: dict[str, str] | None = None,
@@ -50,7 +51,14 @@ def fetch(
                     hint = exc.headers.get("Retry-After") or exc.headers.get("ratelimit-reset")
                     wait = min(float(hint), _MAX_RATE_WAIT_S) if hint else _MAX_RATE_WAIT_S
                 sleep(wait)
-        except (urllib.error.URLError, TimeoutError) as exc:
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            http.client.HTTPException,
+            ConnectionError,
+        ) as exc:
+            # Abgebrochene Übertragung (IncompleteRead, RemoteDisconnected) und kurze Netzausfälle
+            # wie DNS-Fehler: mit wachsender Pause neu versuchen (2, 4, 8, 16 Sekunden)
             last = exc
             if attempt < attempts - 1:
                 sleep(2 ** (attempt + 1))

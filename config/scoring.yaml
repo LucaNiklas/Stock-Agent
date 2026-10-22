@@ -1,7 +1,7 @@
 # Gewichte und Schwellen der Bewertungsskala (SPEC 6). Version bei Änderung erhöhen und im
 # METHODOLOGY_CHANGELOG eintragen. Nie an dem Zeitraum anpassen, auf dem sie getestet werden
 # (SPEC 6.5, 14.4).
-version: "1.1"
+version: "1.2"
 
 saeulen_gewichte:
   qualitaet: "0.25"
@@ -26,6 +26,7 @@ kappung:   # Höchstwert bei Bedingung (SPEC 6.2 Nr. 6)
   abdeckung_gering: 64
   beneish_ueber_schwelle: 64
 abdeckung_mindest: "0.70"
+stopp_zinsdeckung_unter: 2   # Stopp-Flag (SPEC 3.9), je Scorecard überschreibbar
 fcf_negativ_jahre: 3
 verschuldung_ebitda_max: 4
 
@@ -33,6 +34,7 @@ vergleichsgruppe:
   mindest: 15
   hoechst: 50
   erneuern_tage: 7     # Kennzahlen und Kurse der Vergleichsgruppe jünger als das: nicht neu laden
+  zuordnung_offen_max_anteil: "0.10"   # mehr US-Aktien nie der SEC zugeordnet: vorher alle zuordnen
   regionen:            # Land des Hauptsitzes (ISO) -> Region (SPEC 6.2 Nr. 1)
     nordamerika: [US, CA]
     europa: [DE, AT, CH, FR, NL, BE, LU, IT, ES, PT, IE, GB, DK, SE, "NO", FI, IS, PL, CZ, HU, GR, SI, SK, EE, LV, LT, RO, BG, HR, MT, CY, LI, MC, JE, GG, IM, BM]

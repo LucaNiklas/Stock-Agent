@@ -466,7 +466,8 @@ def test_dashboard_views_compare_map_changes_history_method(server: Any, paths: 
     _, h = _get(server, "/api/historie")
     assert h["notenkontrolle"]["titel"] == 3
     _, m = _get(server, "/api/methodik")
-    assert m["versionen"]["run_profiles.yaml"] == "1.0" and "5.7" in m["methodik_version"]
+    assert m["versionen"]["run_profiles.yaml"] == "1.0"
+    assert "(Kennzahlen 1.8)" in m["methodik_version"]
     _, t = _get(server, f"/api/titel/{isins[0]}")
     assert t["verlauf"][0]["note"]
     _, s = _get(server, "/api/status")

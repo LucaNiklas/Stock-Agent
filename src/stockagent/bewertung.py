@@ -51,6 +51,7 @@ from stockagent.core import (
 )
 from stockagent.core.calc import Rechenweg
 from stockagent.data import concepts, inputs, quality, store
+from stockagent.data.http import FetchError
 from stockagent.data.sources import sec
 from stockagent.paths import Paths
 
@@ -78,6 +79,9 @@ class Lader:
     umsatz: Callable[[Paths, str, list[str]], None] = field(default=lambda p, z, k: None)
     esef: Callable[[Paths, list[str]], object] = lambda p, i: esef_update.update(p, i)
     insider: Callable[[Paths, list[str]], object] = lambda p, i: insider_update.update(p, i)
+    # Zuordnung aller US-Aktien zur SEC (ISIN -> CIK) mit Stammdaten. Ohne sie gibt es keine
+    # Vergleichsgruppe (Review 22.10.2026, Befund 1)
+    zuordnung: Callable[[Paths], object] = lambda p: sec_update.update(p)
 
 
 def umsatz_laden(paths: Paths, zeitraum: str, konzepte: list[str]) -> None:
@@ -126,6 +130,7 @@ class Konfig:
     cmap: dict[str, Any]
     horizonte: dict[str, Any] = field(default_factory=dict)
     insider: dict[str, Any] = field(default_factory=dict)
+    hyperinflation: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def laden(cls, config: Any) -> Konfig:
@@ -141,6 +146,7 @@ class Konfig:
             yml("concept_map.yaml"),
             yml("horizonte.yaml"),
             yml("insider_thresholds.yaml"),
+            yml("hyperinflation.yaml"),
         )
 
 
@@ -168,6 +174,14 @@ def _titel(conn: duckdb.DuckDBPyConnection) -> list[Titel]:
         iid = sec.issuer_id(cik)
         if iid not in out:
             out[iid] = Titel(isin, iid, int(sic) if sic and str(sic).isdigit() else None, land)
+    # ESEF-Melder mit Kennzahlen (Europa, Bauschritt 7) als Kandidaten, ohne SIC, also erst ab
+    # der Stufe „Scorecard in der Region“ (Review 22.10.2026, Befund 7)
+    for iid, isin, land in conn.execute(
+        "SELECT DISTINCT r.issuer_id, arg_min(l.isin, l.is_receipt), any_value(l.country) "
+        "FROM metric_runs r JOIN listings l ON 'lei:' || l.lei = r.issuer_id "
+        "WHERE r.issuer_id LIKE 'lei:%' AND l.listed GROUP BY r.issuer_id ORDER BY 1"
+    ).fetchall():
+        out.setdefault(str(iid), Titel(str(isin), str(iid), None, land))
     return list(out.values())
 
 
@@ -251,7 +265,8 @@ def _alle_kappungen(
     out: list[str] = []
     stopp = False
     zinsdeckung = werte.get(("interest_coverage", "wert"))
-    if zinsdeckung is not None and zinsdeckung < 2:
+    grenze = Decimal(str(scoring["stopp_zinsdeckung_unter"]))
+    if zinsdeckung is not None and zinsdeckung < grenze:
         out.append("stopp_flag")
         stopp = True
     z = werte.get(("altman_z_double_prime", "wert"))
@@ -488,7 +503,20 @@ def bewerten(
     finally:
         conn.close()
 
-    # 2. Vergleichsgruppe
+    # 2. Vergleichsgruppe. Ohne Zuordnung der US-Aktien gibt es keine Kandidaten: einmalig laden
+    conn = store.connect(paths.db)
+    try:
+        us_gesamt, us_offen = store.us_zuordnung_stand(conn)
+    finally:
+        conn.close()
+    if us_offen and not vergleichsgruppe.zuordnung_ausreichend(
+        us_gesamt, us_offen, Decimal(str(vg["zuordnung_offen_max_anteil"]))
+    ):
+        progress(
+            f"Einmalig: alle US-Aktien der SEC zuordnen ({us_offen} von {us_gesamt} noch nicht "
+            "zugeordnet, dauert etwa 30 bis 60 Minuten)"
+        )
+        lader.zuordnung(paths)
     zeitraum = f"CY{now.year - 1}"
     konzepte = list(cfg.cmap["us-gaap"]["revenue"])
     conn = store.connect(paths.db)
@@ -502,6 +530,12 @@ def bewerten(
     conn = store.connect(paths.db)
     try:
         umsatz = store.revenues(conn, zeitraum, konzepte)
+        # Umsatz der ESEF-Melder (nicht in den Frames der SEC) in USD für die Größenauswahl
+        for t in alle:
+            if t.issuer_id.startswith("lei:") and t.issuer_id != issuer:
+                u = _eigener_umsatz_usd(conn, t.issuer_id, cfg.cmap)
+                if u > 0:
+                    umsatz[t.issuer_id] = u
         gruppe, stufe = _gruppe_waehlen(conn, eigen, alle, cfg, umsatz, None)
         alt = [t for t in gruppe if _veraltet(conn, t.issuer_id, now, tage, version)]
     finally:
@@ -511,9 +545,17 @@ def bewerten(
         # behält und der Fortschritt sichtbar ist
         for nr, titel in enumerate(alt, start=1):
             progress(f"Vergleichsgruppe: Titel {nr} von {len(alt)} laden ({titel.isin})")
-            lader.sec(paths, [titel.isin])
-            lader.kurse(paths, [titel.isin])
-            lader.kennzahlen(paths, [titel.isin])
+            try:
+                if titel.issuer_id.startswith("lei:"):
+                    lader.esef(paths, [titel.isin])
+                else:
+                    lader.sec(paths, [titel.isin])
+                lader.kurse(paths, [titel.isin])
+                lader.kennzahlen(paths, [titel.isin])
+            except FetchError as exc:
+                # Eine fehlende Vergleichsfirma bricht die Bewertung nicht ab (ältere Daten oder
+                # Firma fehlt in der Gruppe, die Mindestgröße prüft _note)
+                progress(f"Vergleichsgruppe: {titel.isin} übersprungen ({str(exc)[:120]})")
 
     # 3. Note
     conn = store.connect(paths.db)
@@ -583,12 +625,21 @@ def _note(
             isin,
             issuer,
             now,
-            f"Vergleichsgruppe zu klein ({len(gruppe_werte)} Titel mit Kennzahlen)",
+            f"Vergleichsgruppe zu klein ({len(gruppe_werte)} Titel mit Kennzahlen, "
+            f"{store.anzahl_zugeordnet(conn)} US-Aktien der SEC zugeordnet). Fehlt die "
+            "Zuordnung: stockagent sec update",
             conn,
         )
     sc_cfg = cfg.scorecards["scorecards"][scorecard_id]
+    # Stopp-Schwelle der Zinsdeckung je Scorecard (Versorger, Immobilien niedriger)
+    scoring_kappung = {
+        **cfg.scoring,
+        "stopp_zinsdeckung_unter": sc_cfg.get(
+            "stopp_zinsdeckung_unter", cfg.scoring["stopp_zinsdeckung_unter"]
+        ),
+    }
     kappungen, stopp = _kappungen(
-        conn, issuer, werte, cfg.metrics, cfg.scoring, sc_cfg.get("kappungen")
+        conn, issuer, werte, cfg.metrics, scoring_kappung, sc_cfg.get("kappungen")
     )
     # Eigene Säulengewichte der Scorecard (SPEC 3.11), sonst die aus config/scoring.yaml
     scoring = {
@@ -684,6 +735,20 @@ def _note(
     )
     if konf_abschlag:
         konf_gruende.append(konf_abschlag)
+    # Hochinflation nach IAS 29 (SPEC 5.2 Nr. 8): höchstens K3, Vermerk im Detail
+    hyper = cfg.hyperinflation.get("laender", {}).get(eigen.land or "")
+    hyperinflation = None
+    if hyper and date.fromisoformat(str(hyper["ab"])) <= now.date():
+        hyperinflation = {
+            "land": eigen.land,
+            "ab": str(hyper["ab"]),
+            "quelle": str(cfg.hyperinflation.get("quelle", "")),
+        }
+        konf, kappe = note.konfidenz_hoechstens(
+            konf, "K3", f"Hochinflationsland {hyper['name']} seit {hyper['ab']} (IAS 29)"
+        )
+        if kappe:
+            konf_gruende.append(kappe)
 
     # Risiko
     risiko_eingaben: dict[str, Decimal | str | None] = {
@@ -795,6 +860,7 @@ def _note(
         "gruppe": [t.isin for t in gruppe],
         "gruppe_stufe": stufe,
         "konfidenz_gruende": konf_gruende,
+        "hyperinflation": hyperinflation,
         "risiko_stufen": risiko_stufen,
         "risiko_eingaben": {
             k: (str(v) if v is not None else None) for k, v in risiko_eingaben.items()
